@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Number 10 — UK Election &amp; Government Simulator</title>
+  <meta name="description" content="A comprehensive UK political simulator: govern the country, fight general elections, by-elections and local elections, all based on the real 2024 General Election result." />
+  <link rel="stylesheet" href="../assets/election-game/styles.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="door">10</div>
+      <div>
+        <div class="ttl">Number 10</div>
+        <div class="sub">UK Election Simulator</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <button class="nav-btn" data-nav="home">Home</button>
+    <button class="nav-btn" data-nav="govern">Govern</button>
+    <button class="nav-btn" data-nav="simulator">Election</button>
+    <button class="nav-btn" data-nav="byelection">By-Election</button>
+    <button class="nav-btn" data-nav="local">Local</button>
+  </header>
+
+  <main class="wrap">
+    <div id="app"></div>
+  </main>
+
+  <div class="foot">
+    Number 10 · a political simulation. Seat projections use a regional swing model calibrated to the
+    4 July 2024 General Election and are illustrative estimates, not forecasts.
+    &nbsp;·&nbsp; <a href="../index.html">← Back to portfolio</a>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="../assets/election-game/data.js"></script>
+  <script src="../assets/election-game/engine.js"></script>
+  <script src="../assets/election-game/ui.js"></script>
+  <script src="../assets/election-game/main.js"></script>
+</body>
+
+</html>
