@@ -17,6 +17,7 @@
     govern: null,
     governTab: "policies",
     byseat: null,
+    mapType: "hex",
     onShareChange: null
   };
 
@@ -35,6 +36,15 @@
   function fmtMoney(bn) {
     var sign = bn < 0 ? "−" : "";
     return sign + "£" + Math.abs(bn).toLocaleString() + "bn";
+  }
+
+  // map view = a hex/geographic toggle plus the chosen map (used in every mode)
+  function mapView(seatWinners, opts) {
+    var toggle = '<div class="maptoggle">' +
+      '<button class="tab' + (S.mapType === "hex" ? " active" : "") + '" data-map="hex">⬡ Hex</button>' +
+      '<button class="tab' + (S.mapType === "geo" ? " active" : "") + '" data-map="geo">🗺 Geographic</button></div>';
+    var svg = S.mapType === "geo" ? U.geomap(seatWinners, opts) : U.hexmap(seatWinners, opts);
+    return toggle + '<div class="map-wrap">' + svg + '</div>';
   }
 
   // ------------------------------------------------------------------- routing
@@ -117,8 +127,7 @@
         '<div class="panel"><h3>House of Commons — 650 seats</h3>' + U.hemicycle(r.totals) + U.seatBar(r.totals) + '</div>' +
       '</div>' +
       '<div class="panel" style="margin-top:16px"><h3>Constituency Map — projected winners</h3>' +
-        U.legend(r.totals, { shares: shares }) +
-        '<div class="map-wrap" style="margin-top:10px">' + U.hexmap(r.seatWinners) + '</div></div>' +
+        U.legend(r.totals, { shares: shares }) + mapView(r.seatWinners) + '</div>' +
       regionTable(r);
   }
   function regionTable(r) {
@@ -174,7 +183,7 @@
       '<div class="row" style="margin-bottom:12px;align-items:center"><div class="big" style="font-size:24px;font-weight:900;color:' + U.pcolor(r.winner) + '">' +
       U.pname(r.winner) + '</div>' + verdict + '<span class="spacer"></span><span class="muted">' +
       '2024: ' + U.pshort(seat.w) + ' · maj ' + r.margin.toFixed(1) + ' pts</span></div>' + bars + '</div>' +
-      '<div class="panel"><h3>Where it sits</h3><div class="map-wrap">' + U.hexmap(null, { highlight: seat.c }) + '</div></div>';
+      '<div class="panel"><h3>Where it sits</h3>' + mapView(null, { highlight: seat.c }) + '</div>';
   }
 
   // ------------------------------------------------------------- local view
@@ -202,7 +211,7 @@
       '<table class="tbl"><thead><tr><th>Party</th><th class="num">Councils</th></tr></thead><tbody>' + councilRows +
       '<tr><td class="muted">No Overall Control</td><td class="num muted">' + r.councils.noOverallControl + '</td></tr></tbody></table></div>' +
       '<div class="panel" style="margin-top:16px"><h3>Leading Party by Area (national mood)</h3>' +
-      '<div class="map-wrap">' + U.hexmap(ge.seatWinners) + '</div>' +
+      mapView(ge.seatWinners) +
       '<p class="notice">Illustrative: the constituency map shaded by which party leads under the same national vote. Local results vary with turnout, candidates and local factors.</p></div>';
   }
 
@@ -348,7 +357,7 @@
       (live.won ? "be returned as the largest party with " + live.playerSeats + " seats" : "lose office, falling to " + live.playerSeats + " seats") + '.</p></div>' +
       '<div class="panel" style="margin-bottom:16px"><h3>In the In-Tray</h3>' + events + '</div>' +
       '<div class="panel"><h3>Electoral Map — if an election were held today</h3>' +
-      '<div class="map-wrap">' + U.hexmap(live.seatWinners) + '</div></div>';
+      mapView(live.seatWinners) + '</div>';
   }
 
   function viewGameOver() {
@@ -368,7 +377,7 @@
       '<p class="subtitle">' + D.PARTIES[r.playerParty].name + ' won ' + r.shares[r.playerParty].toFixed(1) + '% of the national vote.</p>' +
       U.headline(r) +
       '<div class="panel"><h3>The New House of Commons</h3>' + U.hemicycle(r.totals) + U.seatBar(r.totals) + U.legend(r.totals, { shares: r.shares }) + '</div>' +
-      '<div class="panel" style="margin-top:16px"><h3>Constituency Map</h3><div class="map-wrap">' + U.hexmap(r.seatWinners) + '</div></div>' +
+      '<div class="panel" style="margin-top:16px"><h3>Constituency Map</h3>' + mapView(r.seatWinners) + '</div>' +
       '<div class="row" style="margin-top:16px;justify-content:center">' +
       (won ? '<button class="btn primary" data-act="continueterm">Continue Governing — ' + (r.playerMajority > 0 ? "Majority of " + r.playerMajority : "lead a minority government") + ' ▶</button>'
            : '<button class="btn danger" data-act="seegameover">See the damage</button>') +
@@ -499,6 +508,11 @@
   // ----------------------------------------------------------------- bootstrap
   function init() {
     app = $("#app");
+    // delegated handler: map-type toggle works even inside injected result panels
+    app.addEventListener("click", function (e) {
+      var m = e.target.closest && e.target.closest("[data-map]");
+      if (m) { S.mapType = m.getAttribute("data-map"); render(); }
+    });
     document.querySelectorAll(".nav-btn").forEach(function (b) {
       b.addEventListener("click", function () {
         var nav = b.getAttribute("data-nav");

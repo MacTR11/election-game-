@@ -111,6 +111,32 @@
       parts.join("") + '</svg>';
   }
 
+  // --- geographic constituency map (real boundaries) ------------------------
+  var _codeInfo = null;
+  function codeInfo() {
+    if (_codeInfo) return _codeInfo;
+    _codeInfo = {}; var C = window.UKGAME.CONSTITUENCIES || [];
+    for (var i = 0; i < C.length; i++) _codeInfo[C[i].c] = C[i];
+    return _codeInfo;
+  }
+  function geomap(seatWinners, opts) {
+    opts = opts || {};
+    var B = window.UKGAME.BOUNDARIES;
+    if (!B) return '<p class="muted">Geographic boundaries unavailable.</p>';
+    var info = codeInfo(), parts = [], i;
+    for (i = 0; i < B.seats.length; i++) {
+      var s = B.seats[i], ci = info[s.c] || {}, base = ci.w || "oth";
+      var party = seatWinners ? (seatWinners[s.c] || base) : base;
+      var hl = opts.highlight === s.c;
+      parts.push('<path d="' + s.d + '" fill="' + pcolor(party) + '" fill-rule="evenodd" ' +
+        (hl ? 'stroke="#fff" stroke-width="3"' : 'stroke="#0d1117" stroke-width="0.4"') +
+        '><title>' + esc(ci.n || s.c) + " — " + esc(pname(party)) + '</title></path>');
+    }
+    return '<svg class="geomap" viewBox="0 0 ' + B.w + " " + B.h +
+      '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="UK constituency map">' +
+      parts.join("") + '</svg>';
+  }
+
   // --- horizontal stacked seat bar with 326 line ----------------------------
   function seatBar(totals) {
     var order = orderedParties(totals), total = 0, p;
@@ -178,7 +204,7 @@
 
   window.UKGAME.UI = {
     esc: esc, pname: pname, pcolor: pcolor, pshort: pshort,
-    hemicycle: hemicycle, hexmap: hexmap, seatBar: seatBar, legend: legend, headline: headline,
+    hemicycle: hemicycle, hexmap: hexmap, geomap: geomap, seatBar: seatBar, legend: legend, headline: headline,
     voteSwing: voteSwing,
     statColor: statColor, orderedParties: orderedParties, num: num,
     SEAT_ORDER: SEAT_ORDER

@@ -201,6 +201,9 @@ select.sel { background: var(--bg-2); color: var(--ink); border: 1px solid var(-
 .foot { text-align: center; color: var(--ink-faint); font-size: 12px; margin-top: 30px; }
 svg.hemicycle { width: 100%; height: auto; display: block; max-height: 300px; }
 svg.hexmap { width: 100%; height: auto; display: block; max-height: 640px; }
+svg.geomap { width: 100%; height: auto; display: block; max-height: 680px; }
+.maptoggle { display: flex; gap: 6px; margin: 6px 0 8px; }
+.maptoggle .tab { font-size: 12px; padding: 6px 12px; }
 
 /* map + chart two-column on wide screens */
 .viz2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
