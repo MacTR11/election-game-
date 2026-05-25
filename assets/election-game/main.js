@@ -18,8 +18,19 @@
     governTab: "policies",
     byseat: null,
     mapType: "geo",
+    livePolls: [],      // polls pulled from the live refresh this session
     onShareChange: null
   };
+
+  // All loadable polls = bundled (real) + any fetched live this session.
+  function allPolls() {
+    return (window.UKGAME.POLLS ? window.UKGAME.POLLS.entries : []).concat(S.livePolls);
+  }
+  function pollById(id) {
+    var all = allPolls();
+    for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
+    return null;
+  }
 
   // --------------------------------------------------------------------- utils
   function toast(msg) {
@@ -99,15 +110,24 @@
         '</div><input type="range" min="0" max="55" step="0.1" value="' + v + '" data-share="' + p + '">' +
         '<input class="share-input" data-shareinput="' + p + '" value="' + v.toFixed(1) + '"></div>';
     }).join("");
+    var pollOpts = allPolls().map(function (e) {
+      return '<option value="poll:' + e.id + '">' + U.esc(e.label + (e.date ? " (" + e.date + ")" : "")) + '</option>';
+    }).join("");
     var presetOpts = Object.keys(D.PRESETS).map(function (k) {
-      return '<option value="' + k + '">' + U.esc(D.PRESETS[k].name) + '</option>';
+      return '<option value="preset:' + k + '">' + U.esc(D.PRESETS[k].name) + '</option>';
     }).join("");
     var sum = SHARE_PARTIES.reduce(function (a, p) { return a + (S.shares[p] || 0); }, 0);
     return '<div class="panel"><h3>National Vote Share (GB %)</h3>' +
-      '<div class="row" style="margin-bottom:10px"><select class="sel" id="preset"><option value="">Load a scenario…</option>' + presetOpts + '</select>' +
-      '<button class="btn sm" data-act="normalise">Normalise to 100%</button>' +
-      '<span class="spacer"></span><span class="muted" id="sharesum">Total: ' + sum.toFixed(1) + '%</span></div>' +
-      rows + '<p class="notice">Shares are normalised before projection. Swing is measured against the 2024 result.</p></div>';
+      '<div class="row" style="margin-bottom:8px"><select class="sel" id="preset" style="flex:1">' +
+        '<option value="">Load polls or a scenario…</option>' +
+        '<optgroup label="Polls (real)">' + pollOpts + '</optgroup>' +
+        '<optgroup label="Scenarios (illustrative)">' + presetOpts + '</optgroup></select></div>' +
+      '<div class="row" style="margin-bottom:10px">' +
+        '<button class="btn sm" data-act="fetchpolls" id="fetchbtn">↻ Latest polls</button>' +
+        '<button class="btn sm" data-act="normalise">Normalise 100%</button>' +
+        '<span class="spacer"></span><span class="muted" id="sharesum">Total: ' + sum.toFixed(1) + '%</span></div>' +
+      rows +
+      '<p class="notice">Loads the real 2024 result by default. <b>↻ Latest polls</b> pulls the current polling average live from Wikipedia’s aggregation of BPC pollsters (YouGov, Opinium, More in Common, Survation…); if that can’t be reached it keeps the saved data. Shares are normalised before projection; swing is measured vs 2024.</p></div>';
   }
 
   // --------------------------------------------------------- simulator view
@@ -474,8 +494,11 @@
     });
     var preset = $("#preset");
     if (preset) preset.addEventListener("change", function () {
-      if (!preset.value) return;
-      var src = E.sharesFromPreset(preset.value);
+      var v = preset.value; if (!v) return;
+      var src = null;
+      if (v.indexOf("poll:") === 0) { var e = pollById(v.slice(5)); src = e && e.shares; }
+      else if (v.indexOf("preset:") === 0) src = E.sharesFromPreset(v.slice(7));
+      if (!src) return;
       SHARE_PARTIES.forEach(function (p) { S.shares[p] = src[p] || 0; });
       render(); // redraw sliders to new values
     });
@@ -524,11 +547,84 @@
         break;
       }
       case "dilemma": break;
+      case "fetchpolls": fetchLatestPolls(); break;
       case "callelection": runElection(); break;
       case "continueterm": go("govern"); break;
       case "seegameover": render(); break;
       case "quitgovern": if (confirm("Resign and leave Number 10?")) { S.govern = null; go("home"); } break;
     }
+  }
+
+  // ----------------------------------------------------- live polling fetch
+  // Best-effort: read Wikipedia's polling article (its tables aggregate the BPC
+  // pollsters), parse the most recent poll row, and load it. Fully wrapped so
+  // any failure (offline, CORS, format change) just keeps the saved data.
+  function fetchLatestPolls() {
+    var btn = $("#fetchbtn");
+    if (typeof fetch !== "function") { toast("Live fetch not supported here."); return; }
+    if (btn) { btn.textContent = "↻ Fetching…"; btn.disabled = true; }
+    var page = (window.UKGAME.POLLS && window.UKGAME.POLLS.wikiPage) || "Opinion_polling_for_the_next_United_Kingdom_general_election";
+    var api = "https://en.wikipedia.org/w/api.php?action=parse&page=" + page +
+              "&prop=text&format=json&origin=*";
+    fetch(api).then(function (r) { return r.json(); }).then(function (j) {
+      var html = j && j.parse && j.parse.text && j.parse.text["*"];
+      if (!html) throw new Error("no content");
+      var poll = parseWikiPoll(html);
+      if (!poll) throw new Error("no poll parsed");
+      // de-dupe and add to the session list, then load it
+      S.livePolls = S.livePolls.filter(function (e) { return e.id !== poll.id; });
+      S.livePolls.unshift(poll);
+      SHARE_PARTIES.forEach(function (p) { S.shares[p] = poll.shares[p] || 0; });
+      render();
+      toast("Loaded: " + poll.label);
+    }).catch(function () {
+      if (btn) { btn.textContent = "↻ Latest polls"; btn.disabled = false; }
+      toast("Couldn’t reach live polls — using saved data.");
+    });
+  }
+
+  // Parse the first poll row out of Wikipedia's rendered polling tables.
+  function parseWikiPoll(html) {
+    var doc = new DOMParser().parseFromString(html, "text/html");
+    var tables = doc.querySelectorAll("table.wikitable"), t, i;
+    var want = { con: ["con"], lab: ["lab"], reform: ["reform", "ref", "ruk"],
+                 ld: ["lib dem", "ld", "libdem"], green: ["green", "grn"], snp: ["snp"] };
+    for (t = 0; t < tables.length; t++) {
+      var rows = tables[t].querySelectorAll("tr");
+      if (rows.length < 2) continue;
+      // map columns from the header row(s)
+      var headerCells = rows[0].querySelectorAll("th,td");
+      var colOf = {}, c;
+      for (c = 0; c < headerCells.length; c++) {
+        var txt = (headerCells[c].textContent || "").trim().toLowerCase();
+        for (var party in want) {
+          if (colOf[party] != null) continue;
+          for (var w = 0; w < want[party].length; w++) {
+            if (txt === want[party][w] || txt.indexOf(want[party][w]) === 0) { colOf[party] = c; break; }
+          }
+        }
+      }
+      if (colOf.con == null || colOf.lab == null || colOf.reform == null) continue;
+      // find the first data row that yields real percentages
+      for (i = 1; i < rows.length; i++) {
+        var cells = rows[i].querySelectorAll("td,th");
+        if (cells.length <= colOf.lab) continue;
+        var shares = {}, ok = true, total = 0;
+        for (var pty in colOf) {
+          var raw = (cells[colOf[pty]] ? cells[colOf[pty]].textContent : "").replace(/[^0-9.]/g, "");
+          var num = parseFloat(raw);
+          if (isNaN(num) || num < 0 || num > 80) { ok = false; break; }
+          shares[pty] = num; total += num;
+        }
+        if (!ok || total < 60 || total > 130) continue;
+        shares.pc = 0.7; shares.oth = Math.max(0, 100 - total - 0.7);
+        var pollster = (cells[0] ? cells[0].textContent : "Poll").trim().replace(/\[.*?\]/g, "").slice(0, 28);
+        var date = cells.length > 1 ? (cells[1].textContent || "").trim().replace(/\[.*?\]/g, "").slice(0, 18) : "";
+        return { id: "live-" + Date.now(), label: "LIVE · " + (pollster || "Latest"),
+                 date: date || "latest", pollster: pollster, shares: shares };
+      }
+    }
+    return null;
   }
 
   function runElection() {
