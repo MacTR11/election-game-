@@ -16,7 +16,7 @@
     shares: E.sharesFromPreset("ge2024"),
     govern: null,
     governTab: "policies",
-    byseat: D.BYELECTION_SEATS[0].id,
+    byseat: null,
     onShareChange: null
   };
 
@@ -64,10 +64,10 @@
     var modes = [
       { s: "govern-setup", ico: "🏛", h: "Govern the Country", tag: "Flagship mode",
         p: "Take charge as PM. Set 20+ real UK policies — tax, the NHS, the triple lock, immigration, Net Zero — balance the books, keep 22 voter groups onside and win re-election." },
-      { s: "simulator", ico: "🗳", h: "General Election Simulator", tag: "Swingometer",
-        p: "Dial in national vote shares and project all 650 seats with a regional first-past-the-post model calibrated to the July 2024 result." },
-      { s: "byelection", ico: "📍", h: "By-Elections", tag: "Single seat",
-        p: "Pick a real constituency and see how it falls under your national swing — holds, gains and majorities." },
+      { s: "simulator", ico: "🗳", h: "General Election Simulator", tag: "Swingometer + map",
+        p: "Dial in national vote shares and project all 650 real constituencies seat-by-seat, with a full UK hex map, swing chart and Commons hemicycle. Baseline reproduces the actual July 2024 result." },
+      { s: "byelection", ico: "📍", h: "By-Elections", tag: "Any of 650 seats",
+        p: "Pick any real constituency and see how it falls under your national swing — holds, gains and majorities, mapped." },
       { s: "local", ico: "🏘", h: "Local Elections", tag: "Council night",
         p: "Translate the national mood into thousands of council seats and the number of authorities each party controls." }
     ];
@@ -112,9 +112,14 @@
     var shares = normShares(pickShares());
     var r = E.projectSeats(shares);
     return U.headline(r) +
-      '<div class="panel"><h3>Projected House of Commons — 650 seats</h3>' +
-      U.hemicycle(r.totals) + U.seatBar(r.totals) + U.legend(r.totals, { shares: shares }) +
-      '</div>' + regionTable(r);
+      '<div class="viz2">' +
+        '<div class="panel"><h3>National Vote &amp; Swing vs 2024</h3>' + U.voteSwing(shares) + '</div>' +
+        '<div class="panel"><h3>House of Commons — 650 seats</h3>' + U.hemicycle(r.totals) + U.seatBar(r.totals) + '</div>' +
+      '</div>' +
+      '<div class="panel" style="margin-top:16px"><h3>Constituency Map — projected winners</h3>' +
+        U.legend(r.totals, { shares: shares }) +
+        '<div class="map-wrap" style="margin-top:10px">' + U.hexmap(r.seatWinners) + '</div></div>' +
+      regionTable(r);
   }
   function regionTable(r) {
     var rows = r.byRegion.map(function (br) {
@@ -136,19 +141,26 @@
   }
 
   // -------------------------------------------------------- by-election view
+  function seatByCode(code) {
+    var C = window.UKGAME.CONSTITUENCIES;
+    for (var i = 0; i < C.length; i++) if (C[i].c === code) return C[i];
+    return C[0];
+  }
   function viewByElection() {
-    var opts = D.BYELECTION_SEATS.map(function (s) {
-      return '<option value="' + s.id + '"' + (s.id === S.byseat ? " selected" : "") + '>' + U.esc(s.name) + '</option>';
-    }).join("");
+    var C = window.UKGAME.CONSTITUENCIES;
+    var cur = seatByCode(S.byseat);
+    var opts = C.slice().sort(function (a, b) { return a.n < b.n ? -1 : 1; })
+      .map(function (s) { return '<option value="' + U.esc(s.n) + '" data-code="' + s.c + '">'; }).join("");
     return '<h2 class="section-title">By-Election</h2>' +
-      '<p class="subtitle">A single seat, fought under your national swing versus 2024.</p>' +
+      '<p class="subtitle">Any of the 650 seats, fought under your national swing versus the real 2024 result.</p>' +
       '<div class="grid" style="grid-template-columns:380px 1fr">' + shareControls() +
       '<div><div class="panel" style="margin-bottom:16px"><h3>Constituency</h3>' +
-      '<select class="sel" id="byseat" style="width:100%">' + opts + '</select></div>' +
+      '<input class="seat-search" id="byseat-input" list="seatlist" placeholder="Type a constituency…" value="' + U.esc(cur.n) + '">' +
+      '<datalist id="seatlist">' + opts + '</datalist></div>' +
       '<div id="bye-results"></div></div></div>';
   }
   function byeResults() {
-    var seat = D.BYELECTION_SEATS.filter(function (s) { return s.id === S.byseat; })[0];
+    var seat = seatByCode(S.byseat);
     var r = E.byElection(seat, normShares(pickShares()));
     var bars = r.ranked.map(function (row) {
       return '<div class="stat-row"><div class="name" style="color:' + U.pcolor(row.party) + '">' + U.pname(row.party) +
@@ -158,10 +170,11 @@
     var verdict = r.gain
       ? '<span class="pill" style="background:var(--good);color:#06210f">' + U.pshort(r.winner) + ' GAIN from ' + U.pshort(r.previousWinner) + '</span>'
       : '<span class="pill" style="background:var(--panel-2);color:var(--ink)">' + U.pshort(r.winner) + ' HOLD</span>';
-    return '<div class="panel"><h3>Result — ' + U.esc(seat.name) + '</h3>' +
+    return '<div class="panel" style="margin-bottom:16px"><h3>Result — ' + U.esc(seat.n) + '</h3>' +
       '<div class="row" style="margin-bottom:12px;align-items:center"><div class="big" style="font-size:24px;font-weight:900;color:' + U.pcolor(r.winner) + '">' +
-      U.pname(r.winner) + '</div>' + verdict + '<span class="spacer"></span><span class="muted">Majority ' + r.margin.toFixed(1) + ' pts</span></div>' +
-      bars + '</div>';
+      U.pname(r.winner) + '</div>' + verdict + '<span class="spacer"></span><span class="muted">' +
+      '2024: ' + U.pshort(seat.w) + ' · maj ' + r.margin.toFixed(1) + ' pts</span></div>' + bars + '</div>' +
+      '<div class="panel"><h3>Where it sits</h3><div class="map-wrap">' + U.hexmap(null, { highlight: seat.c }) + '</div></div>';
   }
 
   // ------------------------------------------------------------- local view
@@ -172,7 +185,9 @@
       '<div id="local-results"></div></div>';
   }
   function localResults() {
-    var r = E.localElection(normShares(pickShares()));
+    var shares = normShares(pickShares());
+    var r = E.localElection(shares);
+    var ge = E.projectSeats(shares);
     var seatRows = U.orderedParties(r.seats).slice().sort(function (a, b) { return r.seats[b] - r.seats[a]; })
       .map(function (p) {
         return '<div class="stat-row"><div class="name" style="color:' + U.pcolor(p) + '">' + U.pname(p) +
@@ -185,7 +200,10 @@
     return '<div class="panel" style="margin-bottom:16px"><h3>Council Seats (≈' + D.LOCAL.totalSeats.toLocaleString() + ' up)</h3>' + seatRows + '</div>' +
       '<div class="panel"><h3>Councils Controlled (of ' + D.LOCAL.councils + ')</h3>' +
       '<table class="tbl"><thead><tr><th>Party</th><th class="num">Councils</th></tr></thead><tbody>' + councilRows +
-      '<tr><td class="muted">No Overall Control</td><td class="num muted">' + r.councils.noOverallControl + '</td></tr></tbody></table></div>';
+      '<tr><td class="muted">No Overall Control</td><td class="num muted">' + r.councils.noOverallControl + '</td></tr></tbody></table></div>' +
+      '<div class="panel" style="margin-top:16px"><h3>Leading Party by Area (national mood)</h3>' +
+      '<div class="map-wrap">' + U.hexmap(ge.seatWinners) + '</div>' +
+      '<p class="notice">Illustrative: the constituency map shaded by which party leads under the same national vote. Local results vary with turnout, candidates and local factors.</p></div>';
   }
 
   // --------------------------------------------------------- govern: setup
@@ -328,7 +346,9 @@
     return '<div class="panel" style="margin-bottom:16px"><h3>Cabinet Briefing</h3>' +
       '<p>' + mood + ' ' + fin + ' On today\'s numbers you would ' +
       (live.won ? "be returned as the largest party with " + live.playerSeats + " seats" : "lose office, falling to " + live.playerSeats + " seats") + '.</p></div>' +
-      '<div class="panel"><h3>In the In-Tray</h3>' + events + '</div>';
+      '<div class="panel" style="margin-bottom:16px"><h3>In the In-Tray</h3>' + events + '</div>' +
+      '<div class="panel"><h3>Electoral Map — if an election were held today</h3>' +
+      '<div class="map-wrap">' + U.hexmap(live.seatWinners) + '</div></div>';
   }
 
   function viewGameOver() {
@@ -348,6 +368,7 @@
       '<p class="subtitle">' + D.PARTIES[r.playerParty].name + ' won ' + r.shares[r.playerParty].toFixed(1) + '% of the national vote.</p>' +
       U.headline(r) +
       '<div class="panel"><h3>The New House of Commons</h3>' + U.hemicycle(r.totals) + U.seatBar(r.totals) + U.legend(r.totals, { shares: r.shares }) + '</div>' +
+      '<div class="panel" style="margin-top:16px"><h3>Constituency Map</h3><div class="map-wrap">' + U.hexmap(r.seatWinners) + '</div></div>' +
       '<div class="row" style="margin-top:16px;justify-content:center">' +
       (won ? '<button class="btn primary" data-act="continueterm">Continue Governing — ' + (r.playerMajority > 0 ? "Majority of " + r.playerMajority : "lead a minority government") + ' ▶</button>'
            : '<button class="btn danger" data-act="seegameover">See the damage</button>') +
@@ -422,8 +443,13 @@
   }
 
   function bindByElection() {
-    var sel = $("#byseat");
-    if (sel) sel.addEventListener("change", function () { S.byseat = sel.value; $("#bye-results").innerHTML = byeResults(); });
+    var inp = $("#byseat-input");
+    if (!inp) return;
+    inp.addEventListener("change", function () {
+      var name = inp.value.trim().toLowerCase(), C = window.UKGAME.CONSTITUENCIES;
+      for (var i = 0; i < C.length; i++) if (C[i].n.toLowerCase() === name) { S.byseat = C[i].c; break; }
+      $("#bye-results").innerHTML = byeResults();
+    });
   }
 
   function bindPolicySliders() {

@@ -54,8 +54,61 @@
     return sw;
   }
 
-  // Project a full Commons given national GB vote shares (object of pct).
+  function normShares(shares) {
+    var sum = 0, p, o = {};
+    for (p in shares) sum += shares[p];
+    for (p in shares) o[p] = sum > 0 ? shares[p] / sum * 100 : 0;
+    return o;
+  }
+
+  function regionById(id) {
+    for (var i = 0; i < D.REGIONS.length; i++) if (D.REGIONS[i].id === id) return D.REGIONS[i];
+    return { id: id, name: id, seats: 0 };
+  }
+
+  // Constituency-level projection across all 650 real seats. Applies uniform
+  // national swing (vs 2024) to each seat's real baseline shares and takes the
+  // winner seat by seat — the classic swingometer, at full granularity.
+  function projectSeatsConstituency(shares) {
+    var C = window.UKGAME.CONSTITUENCIES;
+    var ns = normShares(shares), sw = swingFrom(ns);
+    var totals = {}, seatWinners = {}, regionTally = {}, i, p;
+    for (i = 0; i < C.length; i++) {
+      var seat = C[i], s = seat.s, best = null, bestv = -Infinity;
+      for (p in s) {
+        var v = s[p] + (sw[p] || 0); if (v < 0) v = 0;
+        if (v > bestv) { bestv = v; best = p; }
+      }
+      totals[best] = (totals[best] || 0) + 1;
+      seatWinners[seat.c] = best;
+      (regionTally[seat.reg] || (regionTally[seat.reg] = {}));
+      regionTally[seat.reg][best] = (regionTally[seat.reg][best] || 0) + 1;
+    }
+    var winner = null, winnerSeats = -1;
+    for (p in totals) if (totals[p] > winnerSeats) { winnerSeats = totals[p]; winner = p; }
+    var majority = 2 * winnerSeats - 650;
+    var byRegion = D.REGIONS.map(function (r) {
+      return { region: r, seats: regionTally[r.id] || {} };
+    });
+    return {
+      totals: totals, byRegion: byRegion, seatWinners: seatWinners,
+      winner: winner, winnerSeats: winnerSeats, majority: majority,
+      majorityNeeded: 326, outcome: majority > 0 ? "majority" : "hung"
+    };
+  }
+
+  // Public entry point: use the full 650-seat model when the data is loaded,
+  // otherwise fall back to the lighter regional model.
   function projectSeats(shares) {
+    if (window.UKGAME.CONSTITUENCIES && window.UKGAME.CONSTITUENCIES.length) {
+      return projectSeatsConstituency(shares);
+    }
+    return projectSeatsRegional(shares);
+  }
+
+  // Regional fallback model: allocate each region's seats from its 2024 vote
+  // shares with per-party FPTP efficiencies and a distortion exponent.
+  function projectSeatsRegional(shares) {
     var sw = swingFrom(shares);
     var totals = {}, byRegion = [], r, p;
     for (r = 0; r < D.REGIONS.length; r++) {
@@ -96,16 +149,17 @@
   // BY-ELECTION — single seat under national swing vs 2024.
   // ---------------------------------------------------------------------------
   function byElection(seat, shares) {
-    var sw = swingFrom(shares), out = {}, total = 0, p;
-    for (p in seat.shares) {
-      var v = Math.max(0, seat.shares[p] + (sw[p] || 0));
+    var base = seat.s || seat.shares;
+    var sw = swingFrom(normShares(shares)), out = {}, total = 0, p;
+    for (p in base) {
+      var v = Math.max(0, base[p] + (sw[p] || 0));
       out[p] = v; total += v;
     }
     var ranked = [];
     for (p in out) { out[p] = total > 0 ? out[p] / total * 100 : 0; ranked.push({ party: p, share: out[p] }); }
     ranked.sort(function (a, b) { return b.share - a.share; });
-    var heldBy = null, hi = -1;
-    for (p in seat.shares) if (seat.shares[p] > hi) { hi = seat.shares[p]; heldBy = p; }
+    var heldBy = seat.w, hi = -1;
+    if (!heldBy) for (p in base) if (base[p] > hi) { hi = base[p]; heldBy = p; }
     return { ranked: ranked, winner: ranked[0].party, previousWinner: heldBy,
              gain: ranked[0].party !== heldBy,
              margin: ranked.length > 1 ? ranked[0].share - ranked[1].share : ranked[0].share };

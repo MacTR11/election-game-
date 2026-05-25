@@ -390,27 +390,6 @@
   var BASELINE = PRESETS.ge2024.shares;
 
   // ---------------------------------------------------------------------------
-  // BY-ELECTION seats — a small selection of real constituencies with notional
-  // 2024 result shares, used by by-election mode.
-  // ---------------------------------------------------------------------------
-  var BYELECTION_SEATS = [
-    { id: "clacton", name: "Clacton", region: "ee",
-      shares: { reform: 46, con: 24, lab: 19, ld: 4, green: 3, oth: 4 } },
-    { id: "islington", name: "Islington North", region: "lon",
-      shares: { oth: 49, lab: 34, green: 7, ld: 5, con: 4, reform: 1 } },
-    { id: "richmond", name: "Richmond Park", region: "lon",
-      shares: { ld: 49, con: 32, lab: 10, green: 6, reform: 3 } },
-    { id: "boston", name: "Boston & Skegness", region: "em",
-      shares: { reform: 41, con: 30, lab: 20, ld: 4, green: 3, oth: 2 } },
-    { id: "hartlepool", name: "Hartlepool", region: "ne",
-      shares: { lab: 41, reform: 25, con: 18, ld: 6, green: 6, oth: 4 } },
-    { id: "perth", name: "Perth & Kinross-shire", region: "sct",
-      shares: { snp: 38, con: 30, lab: 20, ld: 7, reform: 4, oth: 1 } },
-    { id: "uxbridge", name: "Uxbridge & South Ruislip", region: "lon",
-      shares: { con: 38, lab: 37, reform: 9, ld: 7, green: 6, oth: 3 } }
-  ];
-
-  // ---------------------------------------------------------------------------
   // LOCAL ELECTIONS — a national-equivalent-vote model. Approx total principal
   // council seats up for the cycle, allocated proportionally with a small
   // incumbency/FPTP distortion handled in the engine.
@@ -432,7 +411,6 @@
     EVENTS: EVENTS,
     PRESETS: PRESETS,
     BASELINE: BASELINE,
-    BYELECTION_SEATS: BYELECTION_SEATS,
     LOCAL: LOCAL,
     // ordered list of the main GB parties for charts/legends
     MAIN_PARTIES: ["lab", "con", "reform", "ld", "green", "snp", "pc", "oth"]

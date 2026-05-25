@@ -2,23 +2,47 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
-  <title>Mac's Portfolio</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Number 10 — UK Election &amp; Government Simulator</title>
+  <meta name="description" content="A comprehensive UK political simulator: govern the country, fight general elections, by-elections and local elections across all 650 constituencies, based on the real 2024 General Election result." />
+  <link rel="stylesheet" href="./assets/election-game/styles.css" />
 </head>
 
 <body>
-  <h1>Mac Treleaven's Portfolio</h1>
-  <h2>I'm a Web Developer</h2>
-  <hr />
-  <h3><a href="./public/election-game.html">Number 10 — UK Election &amp; Government Simulator</a></h3>
-  <p>A comprehensive UK political simulator: govern the country, fight general elections, by-elections and local elections, all based on the real 2024 General Election result.</p>
-  <h3><a href="./public/movie-ranking.html">Movie Ranking Project</a></h3>
-  <img src="./assets/images/movie-ranking.png" height="200" alt="movie ranking project preview"/>
-  <h3><a href="./public/birthday-invite.html">Birthday Invite Project</a></h3>
-  <img src="./assets/images/birthday-invite.png" height="200" alt="birthday invite project preview"/>
-  <hr />
-  <a href="./public/about.html">About Me</a>
-  <a href="./public/contact.html">Contact Me</a>
+  <header class="topbar">
+    <div class="brand">
+      <div class="door">10</div>
+      <div>
+        <div class="ttl">Number 10</div>
+        <div class="sub">UK Election Simulator</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <button class="nav-btn" data-nav="home">Home</button>
+    <button class="nav-btn" data-nav="govern">Govern</button>
+    <button class="nav-btn" data-nav="simulator">Election</button>
+    <button class="nav-btn" data-nav="byelection">By-Election</button>
+    <button class="nav-btn" data-nav="local">Local</button>
+  </header>
+
+  <main class="wrap">
+    <div id="app"></div>
+  </main>
+
+  <div class="foot">
+    Number 10 · a political simulation. All 650 constituencies modelled with a uniform-swing seat
+    projection; the baseline reproduces the 4 July 2024 General Election. Figures are illustrative
+    estimates, not forecasts.
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="./assets/election-game/data.js"></script>
+  <script src="./assets/election-game/constituencies.js"></script>
+  <script src="./assets/election-game/engine.js"></script>
+  <script src="./assets/election-game/ui.js"></script>
+  <script src="./assets/election-game/main.js"></script>
 </body>
 
 </html>

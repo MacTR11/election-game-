@@ -74,6 +74,43 @@
     return svg.join("");
   }
 
+  // --- UK constituency hex cartogram (650 seats) ----------------------------
+  // Layout is odd-r offset, pointy-topped. seatWinners maps ONS code -> party.
+  function hexmap(seatWinners, opts) {
+    opts = opts || {};
+    var C = window.UKGAME.CONSTITUENCIES;
+    if (!C) return "";
+    var size = 10, w = Math.sqrt(3) * size, vy = 1.5 * size;
+    var rMax = -Infinity, i;
+    for (i = 0; i < C.length; i++) if (C[i].r > rMax) rMax = C[i].r;
+    var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, pos = [];
+    for (i = 0; i < C.length; i++) {
+      var s = C[i], par = ((s.r % 2) + 2) % 2;
+      var cx = w * (s.q + 0.5 * par), cy = vy * (rMax - s.r);
+      pos.push({ s: s, cx: cx, cy: cy });
+      if (cx < minX) minX = cx; if (cx > maxX) maxX = cx;
+      if (cy < minY) minY = cy; if (cy > maxY) maxY = cy;
+    }
+    // pointy-top vertex offsets (precompute)
+    var vx = [], vyy = [];
+    for (i = 0; i < 6; i++) { var a = Math.PI / 180 * (30 + 60 * i); vx.push(size * Math.cos(a)); vyy.push(size * Math.sin(a)); }
+    var parts = [];
+    for (i = 0; i < pos.length; i++) {
+      var p = pos[i], party = seatWinners ? (seatWinners[p.s.c] || p.s.w) : p.s.w;
+      var pts = [];
+      for (var j = 0; j < 6; j++) pts.push((p.cx + vx[j]).toFixed(1) + "," + (p.cy + vyy[j]).toFixed(1));
+      var hl = opts.highlight === p.s.c;
+      parts.push('<polygon points="' + pts.join(" ") + '" fill="' + pcolor(party) +
+        '"' + (hl ? ' stroke="#fff" stroke-width="2.4"' : ' stroke="#0d1117" stroke-width="0.5"') +
+        '><title>' + esc(p.s.n) + " — " + esc(pname(party)) + '</title></polygon>');
+    }
+    var pad = size + 2;
+    var W = (maxX - minX) + pad * 2, H = (maxY - minY) + pad * 2;
+    return '<svg class="hexmap" viewBox="' + (minX - pad) + " " + (minY - pad) + " " + W + " " + H +
+      '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="UK constituency hex map">' +
+      parts.join("") + '</svg>';
+  }
+
   // --- horizontal stacked seat bar with 326 line ----------------------------
   function seatBar(totals) {
     var order = orderedParties(totals), total = 0, p;
@@ -97,6 +134,23 @@
       return '<span class="item"><span class="sw" style="background:' + pcolor(p) + '"></span>' +
         esc(pshort(p)) + ' <b>' + (totals[p] || 0) + '</b>' + extra + '</span>';
     }).join("") + '</div>';
+  }
+
+  // --- national vote-share bars with swing vs 2024 (polling viz) ------------
+  function voteSwing(shares) {
+    var D = window.UKGAME.DATA, base = D.BASELINE;
+    var ids = D.MAIN_PARTIES.slice().sort(function (a, b) { return (shares[b] || 0) - (shares[a] || 0); });
+    var max = 0; ids.forEach(function (p) { if ((shares[p] || 0) > max) max = shares[p] || 0; });
+    max = Math.max(max, 1);
+    var rows = ids.map(function (p) {
+      var v = shares[p] || 0, sw = v - (base[p] || 0);
+      var swTxt = (Math.abs(sw) < 0.05) ? '<span class="faint">±0.0</span>'
+        : '<span class="' + (sw > 0 ? "delta-up" : "delta-down") + '">' + (sw > 0 ? "▲" : "▼") + " " + Math.abs(sw).toFixed(1) + '</span>';
+      return '<div class="vote-row"><div class="vn" style="color:' + pcolor(p) + '">' + pshort(p) + '</div>' +
+        '<div class="vbar"><i style="width:' + (v / max * 100) + '%;background:' + pcolor(p) + '"></i></div>' +
+        '<div class="vv">' + v.toFixed(1) + '%</div><div class="vsw">' + swTxt + '</div></div>';
+    }).join("");
+    return '<div class="vote-chart">' + rows + '</div>';
   }
 
   // --- result headline -------------------------------------------------------
@@ -124,7 +178,8 @@
 
   window.UKGAME.UI = {
     esc: esc, pname: pname, pcolor: pcolor, pshort: pshort,
-    hemicycle: hemicycle, seatBar: seatBar, legend: legend, headline: headline,
+    hemicycle: hemicycle, hexmap: hexmap, seatBar: seatBar, legend: legend, headline: headline,
+    voteSwing: voteSwing,
     statColor: statColor, orderedParties: orderedParties, num: num,
     SEAT_ORDER: SEAT_ORDER
   };
