@@ -17,7 +17,7 @@
     govern: null,
     governTab: "policies",
     byseat: null,
-    mapType: "hex",
+    mapType: "geo",
     onShareChange: null
   };
 
@@ -114,7 +114,7 @@
   function viewSimulator() {
     return '<h2 class="section-title">General Election Simulator</h2>' +
       '<p class="subtitle">Adjust the national vote and watch the Commons recompose, seat by seat.</p>' +
-      '<div class="grid" style="grid-template-columns:380px 1fr" id="simgrid">' +
+      '<div class="split" id="simgrid">' +
       shareControls() +
       '<div id="sim-results"></div></div>';
   }
@@ -162,7 +162,7 @@
       .map(function (s) { return '<option value="' + U.esc(s.n) + '" data-code="' + s.c + '">'; }).join("");
     return '<h2 class="section-title">By-Election</h2>' +
       '<p class="subtitle">Any of the 650 seats, fought under your national swing versus the real 2024 result.</p>' +
-      '<div class="grid" style="grid-template-columns:380px 1fr">' + shareControls() +
+      '<div class="split">' + shareControls() +
       '<div><div class="panel" style="margin-bottom:16px"><h3>Constituency</h3>' +
       '<input class="seat-search" id="byseat-input" list="seatlist" placeholder="Type a constituency…" value="' + U.esc(cur.n) + '">' +
       '<datalist id="seatlist">' + opts + '</datalist></div>' +
@@ -190,7 +190,7 @@
   function viewLocal() {
     return '<h2 class="section-title">Local Elections</h2>' +
       '<p class="subtitle">The national mood, projected onto council chambers across the country.</p>' +
-      '<div class="grid" style="grid-template-columns:380px 1fr">' + shareControls() +
+      '<div class="split">' + shareControls() +
       '<div id="local-results"></div></div>';
   }
   function localResults() {
@@ -248,11 +248,14 @@
       '<div style="text-align:right"><div class="lab2">Approval</div><div class="big ' +
       (g.approval > 0.5 ? "outcome-maj" : g.approval < 0.4 ? "outcome-hung" : "") + '">' + approvalPct + '%</div></div></div>';
 
+    var m = g.macro;
     var kpis = '<div class="kpis">' +
-      kpi("Deficit / yr", fmtMoney(g.deficit), g.deficit > 180 ? "var(--bad)" : g.deficit > 120 ? "var(--warn)" : "var(--good)") +
-      kpi("National Debt", g.debt.toFixed(0) + "<small>% GDP</small>", g.debt > 130 ? "var(--bad)" : g.debt > 100 ? "var(--warn)" : "var(--good)") +
-      kpi("Seats if voted today", live.playerSeats + "<small>/650</small>", live.won ? "var(--good)" : "var(--bad)") +
-      kpi("Projected majority", (live.playerMajority > 0 ? "+" : "") + live.playerMajority, live.playerMajority > 0 ? "var(--good)" : "var(--warn)") +
+      kpi("GDP growth", m.realGrowth.toFixed(1) + "<small>%/yr</small>", m.realGrowth > 1.5 ? "var(--good)" : m.realGrowth > 0 ? "var(--warn)" : "var(--bad)") +
+      kpi("Inflation", m.inflation.toFixed(1) + "<small>% CPI</small>", m.inflation < 3 ? "var(--good)" : m.inflation < 5 ? "var(--warn)" : "var(--bad)") +
+      kpi("Unemployment", m.unemployment.toFixed(1) + "<small>%</small>", m.unemployment < 4.5 ? "var(--good)" : m.unemployment < 6 ? "var(--warn)" : "var(--bad)") +
+      kpi("Deficit / yr", fmtMoney(m.deficit), m.deficit > 180 ? "var(--bad)" : m.deficit > 120 ? "var(--warn)" : "var(--good)") +
+      kpi("National debt", m.debtPct + "<small>% GDP</small>", m.debtPct > 105 ? "var(--bad)" : m.debtPct > 97 ? "var(--warn)" : "var(--good)") +
+      kpi("Seats today", live.playerSeats + "<small>/650</small>", live.won ? "var(--good)" : "var(--bad)") +
       '</div>';
 
     var tabs = '<div class="tabs">' + [["policies", "Policies"], ["country", "The Country"], ["voters", "Voters"], ["briefing", "Briefing"]]
@@ -277,7 +280,19 @@
       '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
       U.seatBar(live.totals) + U.legend(live.totals) + '</div></div>';
 
-    return head + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>';
+    return head + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal();
+  }
+  function dilemmaModal() {
+    var g = S.govern, d = g.pendingDilemma;
+    if (!d) return "";
+    var opts = d.options.map(function (o, i) {
+      return '<button class="dilemma-opt" data-dilemma="' + i + '"><b>' + U.esc(o.label) + '</b>' +
+        '<span>' + U.esc(o.result) + '</span></button>';
+    }).join("");
+    return '<div class="modal-overlay"><div class="modal">' +
+      '<div class="modal-tag">Decision on your desk · ' + g.year + ' Q' + g.quarter + '</div>' +
+      '<h2>' + U.esc(d.title) + '</h2><p class="muted">' + U.esc(d.desc) + '</p>' +
+      '<div class="dilemma-opts">' + opts + '</div></div></div>';
   }
   function kpi(k, v, color) {
     return '<div class="kpi"><div class="k">' + k + '</div><div class="v" style="color:' + (color || "var(--ink)") + '">' + v + '</div></div>';
@@ -286,7 +301,7 @@
   function tabPolicies() {
     var g = S.govern, cats = {}, order = [];
     D.POLICIES.forEach(function (p) { if (!cats[p.cat]) { cats[p.cat] = []; order.push(p.cat); } cats[p.cat].push(p); });
-    var html = '<div class="grid" style="grid-template-columns:1fr 1fr">';
+    var html = '<div class="two">';
     order.forEach(function (cat) {
       html += '<div class="panel"><div class="policy-cat">' + cat + '</div>';
       cats[cat].forEach(function (pol) {
@@ -305,23 +320,38 @@
   }
 
   function tabCountry() {
-    var g = S.govern;
+    var g = S.govern, m = g.macro;
     var rows = D.STATS.map(function (st) {
       var v = g.stats[st.id];
-      var disp = displayStat(st, v);
       return '<div class="stat-row"><div class="name">' + st.name + '</div>' +
         '<div class="statbar"><i style="width:' + (v * 100) + '%;background:' + U.statColor(st, v) + '"></i></div>' +
-        '<div class="v">' + disp + '</div></div>';
+        '<div class="v">' + Math.round(v * 100) + '</div></div>';
     }).join("");
-    return '<div class="panel"><h3>State of the Nation</h3>' + rows +
-      '<p class="notice">Bars show relative performance. Policies feed these figures with a lag, and they feed back into each other — a weak economy widens the deficit, poor education drives crime, and so on.</p></div>';
-  }
-  function displayStat(st, v) {
-    // light translation to human-readable scales
-    if (st.id === "gdp") return ((v - 0.5) * 8).toFixed(1) + "%";
-    if (st.id === "unemployment") return (3 + v * 9).toFixed(1) + "%";
-    if (st.id === "inflation") return (v * 9).toFixed(1) + "%";
-    return Math.round(v * 100);
+    // real budget breakdown
+    function fLines(obj) {
+      var keys = Object.keys(obj).sort(function (a, b) { return obj[b] - obj[a]; });
+      return keys.map(function (k) {
+        return '<tr><td>' + U.esc(k) + '</td><td class="num">£' + Math.round(obj[k]) + 'bn</td></tr>';
+      }).join("");
+    }
+    var budget = '<div class="panel" style="margin-bottom:16px"><h3>The Economy — real figures</h3>' +
+      '<div class="kpis" style="margin-bottom:8px">' +
+        kpi("GDP", "£" + (m.gdp / 1000).toFixed(2) + "<small>tn</small>") +
+        kpi("Real growth", m.realGrowth.toFixed(1) + "<small>%</small>") +
+        kpi("Inflation (CPI)", m.inflation.toFixed(1) + "<small>%</small>") +
+        kpi("Unemployment", m.unemployment.toFixed(1) + "<small>%</small>") +
+      '</div>' +
+      '<div class="viz2"><div><table class="tbl"><thead><tr><th>Receipts</th><th class="num">£bn</th></tr></thead><tbody>' +
+        fLines(g.fiscalLines.r) + '<tr style="font-weight:800"><td>Total receipts</td><td class="num">£' + m.receipts + 'bn</td></tr></tbody></table></div>' +
+      '<div><table class="tbl"><thead><tr><th>Spending</th><th class="num">£bn</th></tr></thead><tbody>' +
+        fLines(g.fiscalLines.s) + '<tr style="font-weight:800"><td>Total spending</td><td class="num">£' + m.spending + 'bn</td></tr></tbody></table></div></div>' +
+      '<div class="kpis" style="margin-top:10px">' +
+        kpi("Deficit / yr", fmtMoney(m.deficit), m.deficit > 150 ? "var(--bad)" : "var(--warn)") +
+        kpi("Net debt", "£" + (m.debt / 1000).toFixed(2) + "tn <small>" + m.debtPct + "% GDP</small>") +
+        kpi("Debt interest", fmtMoney(m.debtInterest)) +
+      '</div><p class="notice">Starting figures are the real UK 2024–25 position (OBR / ONS). Each policy slider moves its own budget line; receipts grow with the economy and debt interest with the debt stock.</p></div>';
+    return budget + '<div class="panel"><h3>State of the Nation (quality of services)</h3>' + rows +
+      '<p class="notice">These qualitative indicators move with a lag and feed into each other — poor education drives crime, a strained NHS hits pensioners, and so on.</p></div>';
   }
 
   function tabVoters() {
@@ -348,9 +378,9 @@
     var mood = g.approval > 0.55 ? "The country is broadly behind you." :
                g.approval > 0.45 ? "The public mood is finely balanced." :
                "Discontent is spreading — you are in trouble.";
-    var fin = g.debt > 130 ? "The markets are alarmed by the debt pile." :
-              g.deficit > 180 ? "The deficit is uncomfortably wide." :
-              g.deficit < 60 ? "The public finances are in good order." :
+    var fin = g.macro.debtPct > 108 ? "The markets are alarmed by the debt pile." :
+              g.macro.deficit > 180 ? "The deficit is uncomfortably wide." :
+              g.macro.deficit < 60 ? "The public finances are in good order." :
               "The books are roughly where the markets expect.";
     return '<div class="panel" style="margin-bottom:16px"><h3>Cabinet Briefing</h3>' +
       '<p>' + mood + ' ' + fin + ' On today\'s numbers you would ' +
@@ -486,12 +516,14 @@
       case "normalise":
         S.shares = normShares(pickShares()); render(); break;
       case "endturn": {
+        if (g.pendingDilemma) { toast("Settle the decision on your desk first."); return; }
         var res = E.simulateTurn(g);
         if (res.electionDue) { runElection(); return; }
         render();
-        toast("Quarter ended — " + g.year + " Q" + g.quarter);
+        if (!g.pendingDilemma) toast("Quarter ended — " + g.year + " Q" + g.quarter);
         break;
       }
+      case "dilemma": break;
       case "callelection": runElection(); break;
       case "continueterm": go("govern"); break;
       case "seegameover": render(); break;
@@ -508,10 +540,16 @@
   // ----------------------------------------------------------------- bootstrap
   function init() {
     app = $("#app");
-    // delegated handler: map-type toggle works even inside injected result panels
+    // delegated handlers (work even inside injected panels / the dilemma modal)
     app.addEventListener("click", function (e) {
-      var m = e.target.closest && e.target.closest("[data-map]");
-      if (m) { S.mapType = m.getAttribute("data-map"); render(); }
+      if (!e.target.closest) return;
+      var m = e.target.closest("[data-map]");
+      if (m) { S.mapType = m.getAttribute("data-map"); render(); return; }
+      var d = e.target.closest("[data-dilemma]");
+      if (d && S.govern && S.govern.pendingDilemma) {
+        E.resolveDilemma(S.govern, parseInt(d.getAttribute("data-dilemma"), 10));
+        render();
+      }
     });
     document.querySelectorAll(".nav-btn").forEach(function (b) {
       b.addEventListener("click", function () {
