@@ -90,9 +90,11 @@
     var byRegion = D.REGIONS.map(function (r) {
       return { region: r, seats: regionTally[r.id] || {} };
     });
+    var government = formGovernment(totals);
     return {
       totals: totals, byRegion: byRegion, seatWinners: seatWinners,
       winner: winner, winnerSeats: winnerSeats, majority: majority,
+      government: government,
       majorityNeeded: 326, outcome: majority > 0 ? "majority" : "hung"
     };
   }
@@ -143,6 +145,63 @@
       outcome: majority > 0 ? "majority"
              : winnerSeats >= 326 ? "majority" : "hung"
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // GOVERNMENT FORMATION — who can actually command the Commons. Sinn Féin
+  // abstain, so the working-majority threshold is over the sitting MPs. The
+  // largest party that can assemble a bloc of plausible UK partners forms the
+  // government; otherwise the largest party leads a minority.
+  // ---------------------------------------------------------------------------
+  var ALLIES = {
+    lab:    ["ld", "green", "snp", "pc", "sdlp", "alliance"],
+    con:    ["reform", "dup", "uup"],
+    ld:     ["lab", "con", "green", "pc"],
+    reform: ["con", "dup", "uup"],
+    snp:    ["lab", "ld", "green", "pc"]
+  };
+  function formGovernment(totals) {
+    var sf = totals.sf || 0, sitting = 650 - sf, needed = Math.floor(sitting / 2) + 1;
+    var ranked = Object.keys(totals).filter(function (p) { return totals[p] > 0 && p !== "sf"; })
+      .sort(function (a, b) { return totals[b] - totals[a]; });
+    if (!ranked.length) return { type: "minority", formateur: "oth", members: ["oth"], seats: 0, needed: needed, sitting: sitting };
+    var largest = ranked[0];
+    if (totals[largest] >= needed)
+      return { type: "majority", formateur: largest, members: [largest], seats: totals[largest], needed: needed, sitting: sitting };
+    var leaders = ["lab", "con", "ld", "reform", "snp"].filter(function (p) { return totals[p] > 0; })
+      .sort(function (a, b) { return totals[b] - totals[a]; });
+    for (var i = 0; i < leaders.length; i++) {
+      var f = leaders[i], members = [f], seats = totals[f], allies = ALLIES[f] || [];
+      for (var j = 0; j < allies.length && seats < needed; j++)
+        if (totals[allies[j]] > 0) { members.push(allies[j]); seats += totals[allies[j]]; }
+      if (seats >= needed)
+        return { type: "coalition", formateur: f, members: members, seats: seats, needed: needed, sitting: sitting };
+    }
+    return { type: "minority", formateur: largest, members: [largest], seats: totals[largest], needed: needed, sitting: sitting };
+  }
+
+  // ---------------------------------------------------------------------------
+  // BATTLEGROUNDS — every seat's projected result; the tightest marginals and
+  // the seats that change hands vs 2024.
+  // ---------------------------------------------------------------------------
+  function seatResult(seat, shares) {
+    var r = byElection(seat, shares);
+    return { code: seat.c, name: seat.n, region: seat.reg, winner: r.winner,
+             previousWinner: seat.w, flip: r.gain, margin: r.margin, ranked: r.ranked };
+  }
+  function battlegrounds(shares, n) {
+    var C = window.UKGAME.CONSTITUENCIES, out = [], flips = 0, i;
+    var ns = normShares(shares);
+    for (i = 0; i < C.length; i++) {
+      var r = byElection(C[i], ns);
+      if (r.gain) flips++;
+      out.push({ code: C[i].c, name: C[i].n, reg: C[i].reg, winner: r.winner,
+                 prev: C[i].w, margin: r.margin, flip: r.gain,
+                 runner: r.ranked[1] ? r.ranked[1].party : null });
+    }
+    out.sort(function (a, b) { return a.margin - b.margin; });
+    return { marginal: out.slice(0, n || 12), flips: flips, total: C.length,
+             gains: out.filter(function (s) { return s.flip; }).sort(function (a, b) { return b.margin - a.margin; }) };
   }
 
   // ---------------------------------------------------------------------------
@@ -476,7 +535,9 @@
     result.shares = shares;
     result.playerParty = state.party;
     result.playerSeats = result.totals[state.party] || 0;
-    result.won = result.winner === state.party;
+    // you remain PM if your party leads the government it forms (majority,
+    // coalition or minority) — not only on an outright win.
+    result.won = result.government.formateur === state.party;
     result.playerMajority = 2 * result.playerSeats - 650;
     return result;
   }
@@ -510,6 +571,9 @@
   window.UKGAME.ENGINE = {
     projectSeats: projectSeats,
     byElection: byElection,
+    seatResult: seatResult,
+    battlegrounds: battlegrounds,
+    formGovernment: formGovernment,
     localElection: localElection,
     newGovernState: newGovernState,
     simulateTurn: simulateTurn,

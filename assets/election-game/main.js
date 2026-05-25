@@ -17,6 +17,7 @@
     govern: null,
     governTab: "policies",
     byseat: null,
+    selectedSeat: null,
     mapType: "geo",
     livePolls: [],      // polls pulled from the live refresh this session
     onShareChange: null
@@ -141,14 +142,51 @@
   function simResults() {
     var shares = normShares(pickShares());
     var r = E.projectSeats(shares);
-    return U.headline(r) +
+    var bg = E.battlegrounds(shares, 12);
+    return U.headline(r) + governmentPanel(r.government) +
       '<div class="viz2">' +
         '<div class="panel"><h3>National Vote &amp; Swing vs 2024</h3>' + U.voteSwing(shares) + '</div>' +
         '<div class="panel"><h3>House of Commons — 650 seats</h3>' + U.hemicycle(r.totals) + U.seatBar(r.totals) + '</div>' +
       '</div>' +
-      '<div class="panel" style="margin-top:16px"><h3>Constituency Map — projected winners</h3>' +
+      '<div class="panel" style="margin-top:16px"><h3>Constituency Map — projected winners <span class="faint" style="font-weight:400;text-transform:none;letter-spacing:0">· click a seat for detail</span></h3>' +
         U.legend(r.totals, { shares: shares }) + mapView(r.seatWinners) + '</div>' +
+      seatDetailPanel(shares) +
+      battlegroundPanel(bg) +
       regionTable(r);
+  }
+  function governmentPanel(g) {
+    if (!g) return "";
+    var members = g.members.map(function (p) {
+      return '<span class="item"><span class="sw" style="background:' + U.pcolor(p) + '"></span>' + U.pshort(p) + ' ' + (g.type === "majority" ? "" : "") + '</span>';
+    }).join('<span class="plus">+</span>');
+    var typeTxt = g.type === "majority" ? "Single-party majority" : g.type === "coalition" ? "Coalition government" : "Minority government";
+    var ok = g.seats >= g.needed;
+    return '<div class="panel gov-panel"><div class="gov-head"><div><div class="lab2">Most likely government</div>' +
+      '<div class="gov-name" style="color:' + U.pcolor(g.formateur) + '">' + U.pname(g.formateur) +
+      (g.type === "coalition" ? "-led coalition" : g.type === "minority" ? " minority" : "") + '</div></div>' +
+      '<div style="text-align:right"><div class="lab2">' + typeTxt + '</div>' +
+      '<div class="big ' + (ok ? "outcome-maj" : "outcome-hung") + '" style="font-size:20px">' + g.seats + ' / ' + g.needed + '</div>' +
+      '<div class="faint" style="font-size:11px">working majority needs ' + g.needed + ' (SF abstain)</div></div></div>' +
+      '<div class="legend" style="margin-top:8px">' + members + '</div></div>';
+  }
+  function seatDetailPanel(shares) {
+    if (!S.selectedSeat) return '<div class="panel" style="margin-top:16px"><h3>Seat Detail</h3>' +
+      '<p class="muted">Click any constituency on the map (or a battleground below) to see its projected result, the 2024 baseline and the majority.</p></div>';
+    var seat = seatByCode(S.selectedSeat);
+    var d = E.seatResult(seat, shares);
+    return '<div class="panel" style="margin-top:16px"><h3>Seat Detail</h3>' + U.seatCard(d) + '</div>';
+  }
+  function battlegroundPanel(bg) {
+    var rows = bg.marginal.map(function (s) {
+      var flip = s.flip ? '<span class="pill" style="background:' + U.pcolor(s.winner) + '22;color:' + U.pcolor(s.winner) + '">' + U.pshort(s.winner) + ' gain</span>' : '<span class="faint">hold</span>';
+      return '<tr data-seat="' + s.code + '" class="clickrow"><td>' + U.esc(s.name) + '</td>' +
+        '<td style="color:' + U.pcolor(s.winner) + '">' + U.pshort(s.winner) + '</td>' +
+        '<td class="muted">' + U.pshort(s.runner || s.prev) + '</td>' +
+        '<td class="num">' + s.margin.toFixed(1) + '</td><td>' + flip + '</td></tr>';
+    }).join("");
+    return '<div class="panel" style="margin-top:16px"><h3>Key Battlegrounds — ' + bg.flips + ' of ' + bg.total + ' seats change hands</h3>' +
+      '<table class="tbl"><thead><tr><th>Constituency</th><th>Winner</th><th>2nd</th><th class="num">Maj (pts)</th><th>vs 2024</th></tr></thead><tbody>' +
+      rows + '</tbody></table><p class="notice">The tightest seats on this projection — click a row to inspect it.</p></div>';
   }
   function regionTable(r) {
     var rows = r.byRegion.map(function (br) {
@@ -645,6 +683,13 @@
       if (d && S.govern && S.govern.pendingDilemma) {
         E.resolveDilemma(S.govern, parseInt(d.getAttribute("data-dilemma"), 10));
         render();
+        return;
+      }
+      var seat = e.target.closest("[data-seat]");
+      if (seat) {
+        var code = seat.getAttribute("data-seat");
+        if (S.screen === "byelection") { S.byseat = code; $("#bye-results").innerHTML = byeResults(); }
+        else { S.selectedSeat = code; if (S.screen === "simulator") $("#sim-results").innerHTML = simResults(); }
       }
     });
     document.querySelectorAll(".nav-btn").forEach(function (b) {

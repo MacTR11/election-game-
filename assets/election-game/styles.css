@@ -230,6 +230,16 @@ svg.hexmap { width: 100%; height: auto; display: block; max-height: 640px; }
 svg.geomap { width: 100%; height: auto; display: block; max-height: 680px; }
 .maptoggle { display: flex; gap: 6px; margin: 6px 0 8px; }
 .maptoggle .tab { font-size: 12px; padding: 6px 12px; }
+svg.hexmap polygon[data-seat], svg.geomap path[data-seat] { cursor: pointer; }
+svg.hexmap polygon[data-seat]:hover, svg.geomap path[data-seat]:hover { stroke: #fff; stroke-width: 1.6; }
+
+/* government / coalition panel */
+.gov-panel .gov-head { display: flex; align-items: center; gap: 12px; }
+.gov-panel .gov-name { font-size: 22px; font-weight: 900; }
+.gov-panel .plus { color: var(--ink-faint); margin: 0 2px; }
+
+tr.clickrow { cursor: pointer; }
+tr.clickrow:hover td { background: var(--panel-2); }
 
 /* =========================== mobile / small screens ====================== */
 @media (max-width: 820px) {
