@@ -17,6 +17,7 @@
     govern: null,
     governTab: "policies",
     byseat: null,
+    selectedSeat: null,
     mapType: "geo",
     livePolls: [],      // polls pulled from the live refresh this session
     onShareChange: null
@@ -49,6 +50,48 @@
     return sign + "£" + Math.abs(bn).toLocaleString() + "bn";
   }
 
+  // -------------------------------------------------------- save / load
+  var SAVE_KEY = "uknumber10_save_v1";
+  function saveGame() {
+    var g = S.govern; if (!g) return;
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        party: g.party, turn: g.turn, year: g.year, quarter: g.quarter,
+        capital: g.capital, maxCapital: g.maxCapital, policies: g.policies,
+        stats: g.stats, groups: g.groups, macro: g.macro, pressure: g.pressure,
+        unity: g.unity, discontent: g.discontent, pledges: g.pledges,
+        dilemmaHistory: g.dilemmaHistory, termsWon: g.termsWon, approval: g.approval,
+        pendingDilemma: g.pendingDilemma ? g.pendingDilemma.id : null,
+        activeEvents: g.activeEvents.map(function (e) { return e.id; })
+      }));
+    } catch (e) { /* storage unavailable */ }
+  }
+  function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+  function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } }
+  function loadGame() {
+    try {
+      var s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (!s) return false;
+      var g = E.newGovernState(s.party);
+      ["turn", "year", "quarter", "capital", "maxCapital", "pressure", "unity", "discontent", "termsWon", "approval"]
+        .forEach(function (k) { if (s[k] != null) g[k] = s[k]; });
+      if (s.policies) g.policies = s.policies;
+      if (s.stats) g.stats = s.stats;
+      if (s.groups) g.groups = s.groups;
+      if (s.macro) g.macro = s.macro;
+      if (s.pledges) g.pledges = s.pledges;
+      g.dilemmaHistory = s.dilemmaHistory || [];
+      g.activeEvents = (s.activeEvents || []).map(function (id) {
+        return D.EVENTS.filter(function (e) { return e.id === id; })[0];
+      }).filter(Boolean);
+      g.pendingDilemma = s.pendingDilemma ? (D.DILEMMAS.filter(function (d) { return d.id === s.pendingDilemma; })[0] || null) : null;
+      g.gameOver = false; g.lastElection = null;
+      S.govern = g; return true;
+    } catch (e) { return false; }
+  }
+  function autosave() {
+    if (S.govern && !S.govern.gameOver) saveGame(); else clearSave();
+  }
+
   // map view = a hex/geographic toggle plus the chosen map (used in every mode)
   function mapView(seatWinners, opts) {
     var toggle = '<div class="maptoggle">' +
@@ -77,6 +120,7 @@
       default:            html = viewHome();
     }
     app.innerHTML = html;
+    if (S.screen === "govern" && S.govern) autosave();
     afterRender();
   }
 
@@ -125,6 +169,7 @@
       '<div class="row" style="margin-bottom:10px">' +
         '<button class="btn sm" data-act="fetchpolls" id="fetchbtn">↻ Latest polls</button>' +
         '<button class="btn sm" data-act="normalise">Normalise 100%</button>' +
+        '<button class="btn sm" data-act="share">🔗 Share</button>' +
         '<span class="spacer"></span><span class="muted" id="sharesum">Total: ' + sum.toFixed(1) + '%</span></div>' +
       rows +
       '<p class="notice">Loads the real 2024 result by default. <b>↻ Latest polls</b> pulls the current polling average live from Wikipedia’s aggregation of BPC pollsters (YouGov, Opinium, More in Common, Survation…); if that can’t be reached it keeps the saved data. Shares are normalised before projection; swing is measured vs 2024.</p></div>';
@@ -141,14 +186,51 @@
   function simResults() {
     var shares = normShares(pickShares());
     var r = E.projectSeats(shares);
-    return U.headline(r) +
+    var bg = E.battlegrounds(shares, 12);
+    return U.headline(r) + governmentPanel(r.government) +
       '<div class="viz2">' +
         '<div class="panel"><h3>National Vote &amp; Swing vs 2024</h3>' + U.voteSwing(shares) + '</div>' +
         '<div class="panel"><h3>House of Commons — 650 seats</h3>' + U.hemicycle(r.totals) + U.seatBar(r.totals) + '</div>' +
       '</div>' +
-      '<div class="panel" style="margin-top:16px"><h3>Constituency Map — projected winners</h3>' +
+      '<div class="panel" style="margin-top:16px"><h3>Constituency Map — projected winners <span class="faint" style="font-weight:400;text-transform:none;letter-spacing:0">· click a seat for detail</span></h3>' +
         U.legend(r.totals, { shares: shares }) + mapView(r.seatWinners) + '</div>' +
+      seatDetailPanel(shares) +
+      battlegroundPanel(bg) +
       regionTable(r);
+  }
+  function governmentPanel(g) {
+    if (!g) return "";
+    var members = g.members.map(function (p) {
+      return '<span class="item"><span class="sw" style="background:' + U.pcolor(p) + '"></span>' + U.pshort(p) + ' ' + (g.type === "majority" ? "" : "") + '</span>';
+    }).join('<span class="plus">+</span>');
+    var typeTxt = g.type === "majority" ? "Single-party majority" : g.type === "coalition" ? "Coalition government" : "Minority government";
+    var ok = g.seats >= g.needed;
+    return '<div class="panel gov-panel"><div class="gov-head"><div><div class="lab2">Most likely government</div>' +
+      '<div class="gov-name" style="color:' + U.pcolor(g.formateur) + '">' + U.pname(g.formateur) +
+      (g.type === "coalition" ? "-led coalition" : g.type === "minority" ? " minority" : "") + '</div></div>' +
+      '<div style="text-align:right"><div class="lab2">' + typeTxt + '</div>' +
+      '<div class="big ' + (ok ? "outcome-maj" : "outcome-hung") + '" style="font-size:20px">' + g.seats + ' / ' + g.needed + '</div>' +
+      '<div class="faint" style="font-size:11px">working majority needs ' + g.needed + ' (SF abstain)</div></div></div>' +
+      '<div class="legend" style="margin-top:8px">' + members + '</div></div>';
+  }
+  function seatDetailPanel(shares) {
+    if (!S.selectedSeat) return '<div class="panel" style="margin-top:16px"><h3>Seat Detail</h3>' +
+      '<p class="muted">Click any constituency on the map (or a battleground below) to see its projected result, the 2024 baseline and the majority.</p></div>';
+    var seat = seatByCode(S.selectedSeat);
+    var d = E.seatResult(seat, shares);
+    return '<div class="panel" style="margin-top:16px"><h3>Seat Detail</h3>' + U.seatCard(d) + '</div>';
+  }
+  function battlegroundPanel(bg) {
+    var rows = bg.marginal.map(function (s) {
+      var flip = s.flip ? '<span class="pill" style="background:' + U.pcolor(s.winner) + '22;color:' + U.pcolor(s.winner) + '">' + U.pshort(s.winner) + ' gain</span>' : '<span class="faint">hold</span>';
+      return '<tr data-seat="' + s.code + '" class="clickrow"><td>' + U.esc(s.name) + '</td>' +
+        '<td style="color:' + U.pcolor(s.winner) + '">' + U.pshort(s.winner) + '</td>' +
+        '<td class="muted">' + U.pshort(s.runner || s.prev) + '</td>' +
+        '<td class="num">' + s.margin.toFixed(1) + '</td><td>' + flip + '</td></tr>';
+    }).join("");
+    return '<div class="panel" style="margin-top:16px"><h3>Key Battlegrounds — ' + bg.flips + ' of ' + bg.total + ' seats change hands</h3>' +
+      '<table class="tbl"><thead><tr><th>Constituency</th><th>Winner</th><th>2nd</th><th class="num">Maj (pts)</th><th>vs 2024</th></tr></thead><tbody>' +
+      rows + '</tbody></table><p class="notice">The tightest seats on this projection — click a row to inspect it.</p></div>';
   }
   function regionTable(r) {
     var rows = r.byRegion.map(function (br) {
@@ -246,9 +328,15 @@
         '<p>' + econ + ' on economics · ' + soc + ' on social issues.<br>2024 vote: ' + (D.BASELINE[p] || "<1") + '%</p>' +
         '<div class="tag">Govern as ' + party.short + ' →</div></div>';
     }).join("");
+    var resume = hasSave()
+      ? '<div class="panel" style="margin-bottom:18px;display:flex;align-items:center;gap:14px">' +
+        '<div><div class="lab2">Saved government</div><div style="font-weight:800">You have a government in progress.</div></div>' +
+        '<span class="spacer"></span><button class="btn primary" data-act="continuesave">Continue ▶</button>' +
+        '<button class="btn sm" data-act="discardsave">Discard</button></div>'
+      : "";
     return '<h2 class="section-title">Form a Government</h2>' +
       '<p class="subtitle">Choose the party you will lead into Number 10. Your starting coalition of voters depends on who you are.</p>' +
-      '<div class="modes">' + cards + '</div>';
+      resume + '<div class="modes">' + cards + '</div>';
   }
 
   // --------------------------------------------------------- govern: main
@@ -289,10 +377,14 @@
 
     var dots = "";
     for (var i = 0; i < g.maxCapital; i++) dots += '<i class="' + (i < g.capital ? "on" : "") + '"></i>';
+    var unityCol = g.unity > 0.55 ? "var(--good)" : g.unity > 0.38 ? "var(--warn)" : "var(--bad)";
+    var unityWarn = g.unity < 0.4 ? '<div class="muted" style="font-size:11px;color:var(--bad);margin-top:4px">Your backbenchers are restless — a leadership challenge looms.</div>' : "";
     var sidebar = '<div class="panel"><h3>The Term</h3>' +
       '<div class="statbar" style="margin-bottom:6px"><i style="width:' + termPct + '%;background:var(--commons-l)"></i></div>' +
       '<div class="muted" style="font-size:12px">Quarter ' + g.turn + ' of ' + E.TERM_QUARTERS + ' before the next scheduled election.</div>' +
-      '<div style="margin:16px 0 6px"><div class="lab2">Political capital</div><div class="capital-dots">' + dots + '</div></div>' +
+      '<div style="margin:14px 0 4px"><div class="lab2">Party unity</div>' +
+      '<div class="statbar"><i style="width:' + (g.unity * 100) + '%;background:' + unityCol + '"></i></div>' + unityWarn + '</div>' +
+      '<div style="margin:14px 0 6px"><div class="lab2">Political capital</div><div class="capital-dots">' + dots + '</div></div>' +
       '<div class="muted" style="font-size:12px;margin-bottom:14px">Spent when you change policy. Regenerates each quarter.</div>' +
       '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center;margin-bottom:8px">End Quarter ▶</button>' +
       '<button class="btn" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Call General Election</button>' +
@@ -402,34 +494,59 @@
               g.macro.deficit > 180 ? "The deficit is uncomfortably wide." :
               g.macro.deficit < 60 ? "The public finances are in good order." :
               "The books are roughly where the markets expect.";
+    var govType = live.government.type === "majority" ? "govern with a majority"
+      : live.government.formateur === g.party ? "lead a " + (live.government.type === "coalition" ? "coalition" : "minority") + " government"
+      : "be out of office";
+    var pledges = g.pledges.map(function (id) {
+      var pl = D.PLEDGES.filter(function (x) { return x.id === id; })[0]; if (!pl) return "";
+      var done = pl.ok(g);
+      return '<div class="stat-row" style="grid-template-columns:24px 1fr"><div style="font-size:15px">' + (done ? "✅" : "⬜") + '</div>' +
+        '<div class="name" style="color:' + (done ? "var(--good)" : "var(--ink-dim)") + '">' + U.esc(pl.text) + '</div></div>';
+    }).join("");
     return '<div class="panel" style="margin-bottom:16px"><h3>Cabinet Briefing</h3>' +
       '<p>' + mood + ' ' + fin + ' On today\'s numbers you would ' +
-      (live.won ? "be returned as the largest party with " + live.playerSeats + " seats" : "lose office, falling to " + live.playerSeats + " seats") + '.</p></div>' +
+      (live.won ? govType + " (" + live.playerSeats + " seats)" : "lose office, falling to " + live.playerSeats + " seats") + '.</p></div>' +
+      '<div class="panel" style="margin-bottom:16px"><h3>Manifesto Pledges</h3>' + pledges +
+      '<p class="notice">Keeping your pledges by the next election earns a trust dividend at the ballot box; breaking them costs you.</p></div>' +
       '<div class="panel" style="margin-bottom:16px"><h3>In the In-Tray</h3>' + events + '</div>' +
       '<div class="panel"><h3>Electoral Map — if an election were held today</h3>' +
       mapView(live.seatWinners) + '</div>';
   }
 
   function viewGameOver() {
-    var g = S.govern, el = g.lastElection;
-    return '<div class="hero"><h1>Out of Office</h1>' +
-      '<p>After ' + g.termsWon + ' term' + (g.termsWon === 1 ? "" : "s") + ' in power, ' + D.PARTIES[g.party].name +
-      ' has lost the general election. ' + U.pname(el.winner) + ' won with ' + el.winnerSeats + ' seats; you were left with ' + el.playerSeats + '.</p>' +
-      '<div class="row" style="justify-content:center;margin-top:18px"><button class="btn primary" data-go="govern-setup">Try Again</button>' +
+    var g = S.govern, el = g.lastElection, body;
+    if (g.oustedBy === "party") {
+      body = '<h1>Removed by Your Own Party</h1>' +
+        '<p>After ' + g.termsWon + ' term' + (g.termsWon === 1 ? "" : "s") + ' and a collapse in the polls, ' +
+        D.PARTIES[g.party].name + ' MPs lost confidence and triggered a leadership challenge. You have been ousted from Number 10. ' +
+        'Final approval: ' + (g.approval * 100).toFixed(1) + '%.</p>';
+    } else if (el) {
+      body = '<h1>Out of Office</h1>' +
+        '<p>After ' + g.termsWon + ' term' + (g.termsWon === 1 ? "" : "s") + ' in power, ' + D.PARTIES[g.party].name +
+        ' has lost power. ' + U.pname(el.government.formateur) + ' formed a ' + el.government.type + ' government; you were left with ' + el.playerSeats + ' seats.</p>';
+    } else {
+      body = '<h1>Out of Office</h1><p>Your government has fallen.</p>';
+    }
+    return '<div class="hero">' + body +
+      '<div class="row" style="justify-content:center;margin-top:18px"><button class="btn primary" data-act="restart">Try Again</button>' +
       '<button class="btn" data-go="home">Main Menu</button></div></div>';
   }
 
   // --------------------------------------------------------- election night
   function viewElectionNight() {
-    var r = S.govern.lastElection;
-    var won = r.won;
+    var r = S.govern.lastElection, won = r.won, gv = r.government;
+    var govDesc = gv.type === "majority" ? U.pname(gv.formateur) + " majority government"
+      : gv.type === "coalition" ? U.pname(gv.formateur) + "-led coalition (" + gv.members.map(U.pshort).join(" + ") + ")"
+      : U.pname(gv.formateur) + " minority government";
+    var contLabel = gv.type === "majority" ? "Continue — majority of " + r.playerMajority
+      : gv.type === "coalition" ? "Continue — form your coalition ▶" : "Continue — lead a minority ▶";
     return '<h2 class="section-title">Election Night</h2>' +
-      '<p class="subtitle">' + D.PARTIES[r.playerParty].name + ' won ' + r.shares[r.playerParty].toFixed(1) + '% of the national vote.</p>' +
-      U.headline(r) +
-      '<div class="panel"><h3>The New House of Commons</h3>' + U.hemicycle(r.totals) + U.seatBar(r.totals) + U.legend(r.totals, { shares: r.shares }) + '</div>' +
+      '<p class="subtitle">' + D.PARTIES[r.playerParty].name + ' won ' + r.shares[r.playerParty].toFixed(1) + '% of the national vote and ' + r.playerSeats + ' seats.</p>' +
+      U.headline(r) + governmentPanel(gv) +
+      '<div class="panel" style="margin-top:16px"><h3>The New House of Commons</h3>' + U.hemicycle(r.totals) + U.seatBar(r.totals) + U.legend(r.totals, { shares: r.shares }) + '</div>' +
       '<div class="panel" style="margin-top:16px"><h3>Constituency Map</h3>' + mapView(r.seatWinners) + '</div>' +
       '<div class="row" style="margin-top:16px;justify-content:center">' +
-      (won ? '<button class="btn primary" data-act="continueterm">Continue Governing — ' + (r.playerMajority > 0 ? "Majority of " + r.playerMajority : "lead a minority government") + ' ▶</button>'
+      (won ? '<button class="btn primary" data-act="continueterm">' + contLabel + '</button>'
            : '<button class="btn danger" data-act="seegameover">See the damage</button>') +
       '</div>';
   }
@@ -541,17 +658,29 @@
       case "endturn": {
         if (g.pendingDilemma) { toast("Settle the decision on your desk first."); return; }
         var res = E.simulateTurn(g);
+        if (g.gameOver) { render(); return; }
         if (res.electionDue) { runElection(); return; }
         render();
-        if (!g.pendingDilemma) toast("Quarter ended — " + g.year + " Q" + g.quarter);
+        if (g.leadershipChallenge === "survived") toast("You survived a leadership challenge — for now.");
+        else if (!g.pendingDilemma) toast("Quarter ended — " + g.year + " Q" + g.quarter);
         break;
       }
-      case "dilemma": break;
+      case "continuesave": if (loadGame()) go("govern"); break;
+      case "discardsave": clearSave(); render(); break;
+      case "restart": clearSave(); S.govern = null; go("govern-setup"); break;
       case "fetchpolls": fetchLatestPolls(); break;
+      case "share": {
+        var enc = SHARE_PARTIES.map(function (p) { return (S.shares[p] || 0).toFixed(1); }).join("-");
+        try { history.replaceState(null, "", "#g=" + enc); } catch (e) { location.hash = "g=" + enc; }
+        var link = location.href;
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(function () { toast("Shareable link copied to clipboard"); }, function () { toast("Scenario saved to the URL — copy from the address bar"); });
+        else toast("Scenario saved to the URL — copy from the address bar");
+        break;
+      }
       case "callelection": runElection(); break;
       case "continueterm": go("govern"); break;
-      case "seegameover": render(); break;
-      case "quitgovern": if (confirm("Resign and leave Number 10?")) { S.govern = null; go("home"); } break;
+      case "seegameover": go("govern"); break;
+      case "quitgovern": if (confirm("Resign and leave Number 10? Your saved game will be deleted.")) { clearSave(); S.govern = null; go("home"); } break;
     }
   }
 
@@ -634,8 +763,20 @@
   }
 
   // ----------------------------------------------------------------- bootstrap
+  // load a shared scenario from the URL hash (#g=lab-con-reform-ld-green-snp-pc-oth)
+  function parseHash() {
+    var m = (location.hash || "").match(/g=([-0-9.]+)/);
+    if (!m) return false;
+    var vals = m[1].split("-").map(parseFloat);
+    if (vals.length !== SHARE_PARTIES.length || vals.some(isNaN)) return false;
+    SHARE_PARTIES.forEach(function (p, i) { S.shares[p] = vals[i]; });
+    S.screen = "simulator";
+    return true;
+  }
+
   function init() {
     app = $("#app");
+    parseHash();
     // delegated handlers (work even inside injected panels / the dilemma modal)
     app.addEventListener("click", function (e) {
       if (!e.target.closest) return;
@@ -645,6 +786,13 @@
       if (d && S.govern && S.govern.pendingDilemma) {
         E.resolveDilemma(S.govern, parseInt(d.getAttribute("data-dilemma"), 10));
         render();
+        return;
+      }
+      var seat = e.target.closest("[data-seat]");
+      if (seat) {
+        var code = seat.getAttribute("data-seat");
+        if (S.screen === "byelection") { S.byseat = code; $("#bye-results").innerHTML = byeResults(); }
+        else { S.selectedSeat = code; if (S.screen === "simulator") $("#sim-results").innerHTML = simResults(); }
       }
     });
     document.querySelectorAll(".nav-btn").forEach(function (b) {

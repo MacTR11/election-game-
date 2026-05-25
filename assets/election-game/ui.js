@@ -100,7 +100,7 @@
       var pts = [];
       for (var j = 0; j < 6; j++) pts.push((p.cx + vx[j]).toFixed(1) + "," + (p.cy + vyy[j]).toFixed(1));
       var hl = opts.highlight === p.s.c;
-      parts.push('<polygon points="' + pts.join(" ") + '" fill="' + pcolor(party) +
+      parts.push('<polygon data-seat="' + p.s.c + '" points="' + pts.join(" ") + '" fill="' + pcolor(party) +
         '"' + (hl ? ' stroke="#fff" stroke-width="2.4"' : ' stroke="#0d1117" stroke-width="0.5"') +
         '><title>' + esc(p.s.n) + " — " + esc(pname(party)) + '</title></polygon>');
     }
@@ -128,7 +128,7 @@
       var s = B.seats[i], ci = info[s.c] || {}, base = ci.w || "oth";
       var party = seatWinners ? (seatWinners[s.c] || base) : base;
       var hl = opts.highlight === s.c;
-      parts.push('<path d="' + s.d + '" fill="' + pcolor(party) + '" fill-rule="evenodd" ' +
+      parts.push('<path data-seat="' + s.c + '" d="' + s.d + '" fill="' + pcolor(party) + '" fill-rule="evenodd" ' +
         (hl ? 'stroke="#fff" stroke-width="3"' : 'stroke="#0d1117" stroke-width="0.4"') +
         '><title>' + esc(ci.n || s.c) + " — " + esc(pname(party)) + '</title></path>');
     }
@@ -179,6 +179,22 @@
     return '<div class="vote-chart">' + rows + '</div>';
   }
 
+  // --- single-seat detail card (for a clicked constituency) -----------------
+  function seatCard(d) {
+    var bars = d.ranked.slice(0, 4).map(function (row) {
+      return '<div class="stat-row"><div class="name" style="color:' + pcolor(row.party) + '">' + pname(row.party) +
+        '</div><div class="statbar"><i style="width:' + Math.min(100, row.share) + '%;background:' + pcolor(row.party) + '"></i></div>' +
+        '<div class="v">' + row.share.toFixed(1) + '%</div></div>';
+    }).join("");
+    var badge = d.flip
+      ? '<span class="pill" style="background:var(--good);color:#06210f">' + pshort(d.winner) + ' GAIN from ' + pshort(d.previousWinner) + '</span>'
+      : '<span class="pill" style="background:var(--panel-2);color:var(--ink)">' + pshort(d.winner) + ' HOLD</span>';
+    return '<div class="row" style="align-items:center;margin-bottom:6px"><div style="font-size:19px;font-weight:900;color:' +
+      pcolor(d.winner) + '">' + esc(d.name) + '</div><span class="spacer"></span>' + badge + '</div>' +
+      '<div class="muted" style="font-size:12px;margin-bottom:8px">2024 winner: ' + pname(d.previousWinner) +
+      ' · projected majority ' + d.margin.toFixed(1) + ' pts</div>' + bars;
+  }
+
   // --- result headline -------------------------------------------------------
   function headline(result) {
     var w = result.winner;
@@ -205,7 +221,7 @@
   window.UKGAME.UI = {
     esc: esc, pname: pname, pcolor: pcolor, pshort: pshort,
     hemicycle: hemicycle, hexmap: hexmap, geomap: geomap, seatBar: seatBar, legend: legend, headline: headline,
-    voteSwing: voteSwing,
+    voteSwing: voteSwing, seatCard: seatCard,
     statColor: statColor, orderedParties: orderedParties, num: num,
     SEAT_ORDER: SEAT_ORDER
   };

@@ -90,9 +90,11 @@
     var byRegion = D.REGIONS.map(function (r) {
       return { region: r, seats: regionTally[r.id] || {} };
     });
+    var government = formGovernment(totals);
     return {
       totals: totals, byRegion: byRegion, seatWinners: seatWinners,
       winner: winner, winnerSeats: winnerSeats, majority: majority,
+      government: government,
       majorityNeeded: 326, outcome: majority > 0 ? "majority" : "hung"
     };
   }
@@ -146,6 +148,63 @@
   }
 
   // ---------------------------------------------------------------------------
+  // GOVERNMENT FORMATION — who can actually command the Commons. Sinn Féin
+  // abstain, so the working-majority threshold is over the sitting MPs. The
+  // largest party that can assemble a bloc of plausible UK partners forms the
+  // government; otherwise the largest party leads a minority.
+  // ---------------------------------------------------------------------------
+  var ALLIES = {
+    lab:    ["ld", "green", "snp", "pc", "sdlp", "alliance"],
+    con:    ["reform", "dup", "uup"],
+    ld:     ["lab", "con", "green", "pc"],
+    reform: ["con", "dup", "uup"],
+    snp:    ["lab", "ld", "green", "pc"]
+  };
+  function formGovernment(totals) {
+    var sf = totals.sf || 0, sitting = 650 - sf, needed = Math.floor(sitting / 2) + 1;
+    var ranked = Object.keys(totals).filter(function (p) { return totals[p] > 0 && p !== "sf"; })
+      .sort(function (a, b) { return totals[b] - totals[a]; });
+    if (!ranked.length) return { type: "minority", formateur: "oth", members: ["oth"], seats: 0, needed: needed, sitting: sitting };
+    var largest = ranked[0];
+    if (totals[largest] >= needed)
+      return { type: "majority", formateur: largest, members: [largest], seats: totals[largest], needed: needed, sitting: sitting };
+    var leaders = ["lab", "con", "ld", "reform", "snp"].filter(function (p) { return totals[p] > 0; })
+      .sort(function (a, b) { return totals[b] - totals[a]; });
+    for (var i = 0; i < leaders.length; i++) {
+      var f = leaders[i], members = [f], seats = totals[f], allies = ALLIES[f] || [];
+      for (var j = 0; j < allies.length && seats < needed; j++)
+        if (totals[allies[j]] > 0) { members.push(allies[j]); seats += totals[allies[j]]; }
+      if (seats >= needed)
+        return { type: "coalition", formateur: f, members: members, seats: seats, needed: needed, sitting: sitting };
+    }
+    return { type: "minority", formateur: largest, members: [largest], seats: totals[largest], needed: needed, sitting: sitting };
+  }
+
+  // ---------------------------------------------------------------------------
+  // BATTLEGROUNDS — every seat's projected result; the tightest marginals and
+  // the seats that change hands vs 2024.
+  // ---------------------------------------------------------------------------
+  function seatResult(seat, shares) {
+    var r = byElection(seat, shares);
+    return { code: seat.c, name: seat.n, region: seat.reg, winner: r.winner,
+             previousWinner: seat.w, flip: r.gain, margin: r.margin, ranked: r.ranked };
+  }
+  function battlegrounds(shares, n) {
+    var C = window.UKGAME.CONSTITUENCIES, out = [], flips = 0, i;
+    var ns = normShares(shares);
+    for (i = 0; i < C.length; i++) {
+      var r = byElection(C[i], ns);
+      if (r.gain) flips++;
+      out.push({ code: C[i].c, name: C[i].n, reg: C[i].reg, winner: r.winner,
+                 prev: C[i].w, margin: r.margin, flip: r.gain,
+                 runner: r.ranked[1] ? r.ranked[1].party : null });
+    }
+    out.sort(function (a, b) { return a.margin - b.margin; });
+    return { marginal: out.slice(0, n || 12), flips: flips, total: C.length,
+             gains: out.filter(function (s) { return s.flip; }).sort(function (a, b) { return b.margin - a.margin; }) };
+  }
+
+  // ---------------------------------------------------------------------------
   // BY-ELECTION — single seat under national swing vs 2024.
   // ---------------------------------------------------------------------------
   function byElection(seat, shares) {
@@ -195,6 +254,18 @@
   // ---------------------------------------------------------------------------
   var TERM_QUARTERS = 20; // 5-year fixed term
 
+  function pickPledges() {
+    var pool = D.PLEDGES.slice(), out = [];
+    for (var k = 0; k < 3 && pool.length; k++) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0].id);
+    return out;
+  }
+  function pledgeById(id) { for (var i = 0; i < D.PLEDGES.length; i++) if (D.PLEDGES[i].id === id) return D.PLEDGES[i]; return null; }
+  function pledgesKept(state) {
+    var kept = 0;
+    state.pledges.forEach(function (id) { var pl = pledgeById(id); if (pl && pl.ok(state)) kept++; });
+    return kept;
+  }
+
   var _polById = null;
   function polById(id) {
     if (!_polById) { _polById = {}; for (var i = 0; i < D.POLICIES.length; i++) _polById[D.POLICIES[i].id] = D.POLICIES[i]; }
@@ -213,7 +284,8 @@
                        deficit: F.spendingTotal - F.receiptsTotal,
                        debtPct: Math.round(F.debt / F.gdp * 100) },
               pressure: 0, pendingDilemma: null, dilemmaHistory: [],
-              approval: 0.5, lastElection: null, termsWon: 0, gameOver: false, log: [] };
+              unity: 0.7, discontent: 0, pledges: pickPledges(),
+              approval: 0.5, lastElection: null, termsWon: 0, gameOver: false, oustedBy: null, log: [] };
     var i;
     for (i = 0; i < D.POLICIES.length; i++) s.policies[D.POLICIES[i].id] = D.POLICIES[i].def;
     for (i = 0; i < D.STATS.length; i++) s.stats[D.STATS[i].id] = D.STATS[i].base;
@@ -404,13 +476,26 @@
     state.approval = computeApproval(state);
     state.capital = Math.min(state.maxCapital, state.capital + 3);
     state.pressure += 1; // demographic & cost pressure keeps building
+
+    // party morale: discontent builds while approval is poor and decays when it
+    // recovers. A sustained slump triggers a leadership challenge — survive it
+    // if you're not heading for certain defeat, otherwise your own MPs oust you.
+    if (state.approval < 0.42) state.discontent += (0.42 - state.approval) * 1.7;
+    else state.discontent = Math.max(0, state.discontent * 0.5);
+    state.unity = clamp01(0.62 + (state.approval - 0.45) * 1.4 - 0.5 * state.discontent);
+    state.leadershipChallenge = null;
+    if (state.turn > 3 && state.discontent > 0.45) {
+      if (state.approval < 0.40) { state.gameOver = true; state.oustedBy = "party"; }
+      else { state.leadershipChallenge = "survived"; state.discontent = 0; state.unity = clamp01(state.unity + 0.15); }
+    }
+
     state.turn += 1;
     state.quarter += 1;
     if (state.quarter > 4) { state.quarter = 1; state.year += 1; }
 
     var electionDue = state.turn >= TERM_QUARTERS;
     // a decision lands on the desk most quarters (never on an election quarter)
-    if (!electionDue && Math.random() < 0.7) state.pendingDilemma = pickDilemma(state);
+    if (!electionDue && !state.gameOver && Math.random() < 0.7) state.pendingDilemma = pickDilemma(state);
     return { electionDue: electionDue };
   }
 
@@ -451,7 +536,8 @@
   // soaks up most of the change), and project the Commons.
   function runGeneralElection(state) {
     var base = D.BASELINE[state.party] || 10;
-    var playerShare = clamp(base + (state.approval - 0.46) * 70, 4, 58);
+    var pledgeBonus = (pledgesKept(state) - 1.5) * 1.6; // trust dividend / penalty
+    var playerShare = clamp(base + (state.approval - 0.46) * 70 + pledgeBonus, 4, 58);
     var delta = playerShare - base;
 
     // distribute -delta across the others in proportion to their baseline,
@@ -476,7 +562,9 @@
     result.shares = shares;
     result.playerParty = state.party;
     result.playerSeats = result.totals[state.party] || 0;
-    result.won = result.winner === state.party;
+    // you remain PM if your party leads the government it forms (majority,
+    // coalition or minority) — not only on an outright win.
+    result.won = result.government.formateur === state.party;
     result.playerMajority = 2 * result.playerSeats - 650;
     return result;
   }
@@ -493,10 +581,14 @@
       state.termsWon += 1;
       state.turn = 0;
       state.capital = state.maxCapital;
+      state.unity = clamp01(state.unity + 0.15);
+      state.discontent = 0;
+      state.pledges = pickPledges();   // a fresh manifesto for the new term
       // a fresh mandate buoys the groups a little
       for (var id in state.groups) state.groups[id] = clamp01(state.groups[id] + 0.04);
     } else {
       state.gameOver = true;
+      state.oustedBy = "voters";
     }
     return state;
   }
@@ -510,6 +602,9 @@
   window.UKGAME.ENGINE = {
     projectSeats: projectSeats,
     byElection: byElection,
+    seatResult: seatResult,
+    battlegrounds: battlegrounds,
+    formGovernment: formGovernment,
     localElection: localElection,
     newGovernState: newGovernState,
     simulateTurn: simulateTurn,

@@ -529,7 +529,97 @@
           effects: { capital: -1, all: 0.01 } },
         { label: "Stand by them", result: "Loyal, but the story runs for weeks and tars the government.",
           effects: { all: -0.03, groups: { liberals: -0.03 } } }
+      ] },
+    { id: "rail", title: "National Rail Strike",
+      desc: "The RMT calls an all-out strike that will paralyse the network for a fortnight.",
+      options: [
+        { label: "Meet their pay demand", result: "Trains run; the bill and the precedent worry the Treasury.",
+          effects: { policy: { rail: 0.12 }, groups: { unions: 0.10, commuters: 0.04, capitalists: -0.05 }, capital: -1 } },
+        { label: "Face down the unions", result: "Commuters suffer for weeks; your base on the right approves.",
+          effects: { macro: { realGrowth: -0.2 }, groups: { unions: -0.12, commuters: -0.06, patriots: 0.04 } } }
+      ] },
+    { id: "prisons", title: "Prisons Are Full",
+      desc: "The justice system warns there are no cells left. Judges are being told to delay sentencing.",
+      options: [
+        { label: "Early-release scheme", result: "Space is freed up — but a soft-on-crime backlash is inevitable.",
+          effects: { stats: { crime: 0.05 }, groups: { patriots: -0.08, pensioners: -0.05, liberals: 0.03 } } },
+        { label: "Emergency prison-building", result: "The right approves; it's a multi-billion-pound commitment.",
+          effects: { policy: { police: 0.10 }, macro: { deficit: 4 }, groups: { patriots: 0.06 } } }
+      ] },
+    { id: "farmers", title: "Farmers Revolt",
+      desc: "Changes to agricultural inheritance tax bring tractors to Whitehall and the rural vote is seething.",
+      options: [
+        { label: "Back down on the tax", result: "Rural anger cools; urban progressives call it a capitulation.",
+          effects: { macro: { deficit: 2 }, groups: { selfemployed: 0.06, patriots: 0.04, socialists: -0.04 } } },
+        { label: "Hold firm", result: "You bank the revenue and own the countryside's fury.",
+          effects: { macro: { deficit: -2 }, groups: { selfemployed: -0.10, patriots: -0.06 } } }
+      ] },
+    { id: "pensionage", title: "Raise the Pension Age?",
+      desc: "Rising longevity and the cost of the triple lock force the question of a higher state pension age.",
+      options: [
+        { label: "Raise it to 68 sooner", result: "The OBR is delighted; older workers are not.",
+          effects: { macro: { deficit: -6 }, groups: { pensioners: -0.10, workingclass: -0.05, capitalists: 0.05 } } },
+        { label: "Leave it well alone", result: "Politically safe, fiscally costly.",
+          effects: { macro: { deficit: 3 }, groups: { pensioners: 0.06 } } }
+      ] },
+    { id: "ai", title: "AI Disrupts the Workforce",
+      desc: "A wave of automation threatens white-collar jobs. Unions want protections; tech wants a free hand.",
+      options: [
+        { label: "Invest & retrain", result: "A future-facing bet that costs money up front.",
+          effects: { policy: { education: 0.08 }, macro: { realGrowth: 0.2 }, groups: { young: 0.05, unions: 0.04 } } },
+        { label: "Let innovation rip", result: "Growth and investment surge; displaced workers feel abandoned.",
+          effects: { macro: { realGrowth: 0.3, unemployment: 0.3 }, groups: { capitalists: 0.08, workingclass: -0.06 } } }
+      ] },
+    { id: "water", title: "Drought & Hosepipe Bans",
+      desc: "A long dry summer leaves reservoirs low and questions about decades of under-investment.",
+      options: [
+        { label: "Fund new reservoirs & pipes", result: "Sensible long-term investment; another call on the budget.",
+          effects: { policy: { netzero: 0.06 }, macro: { deficit: 3 }, groups: { environment: 0.06 } } },
+        { label: "Leave it to the water firms", result: "Bills rise and nothing much changes.",
+          effects: { groups: { environment: -0.06, capitalists: 0.03 } } }
+      ] },
+    { id: "tax", title: "An Autumn Budget Black Hole",
+      desc: "The OBR finds a multi-billion-pound shortfall. The Chancellor needs a decision before the statement.",
+      options: [
+        { label: "Raise taxes to fill it", result: "Credibility with the markets, pain for households.",
+          effects: { policy: { incometax: 0.06 }, macro: { deficit: -8 }, all: -0.02 } },
+        { label: "Cut public spending", result: "The right cheers; services and their workforce take the hit.",
+          effects: { policy: { welfare: -0.05 }, macro: { deficit: -7 }, groups: { poor: -0.06, publicsector: -0.06 } } },
+        { label: "Borrow through it", result: "Households spared for now; the debt and the gilt market groan.",
+          effects: { macro: { deficit: 10 }, groups: { capitalists: -0.05 } } }
+      ] },
+    { id: "gambling", title: "Online Safety & Gambling",
+      desc: "Campaigners demand a crackdown on gambling firms and harmful online content.",
+      options: [
+        { label: "Tough new regulation", result: "Popular with families; the industry lobbies hard against you.",
+          effects: { policy: { businessreg: 0.08 }, groups: { parents: 0.06, religious: 0.05, capitalists: -0.05 } } },
+        { label: "A lighter, voluntary code", result: "Industry-friendly; campaigners are unimpressed.",
+          effects: { groups: { capitalists: 0.03, parents: -0.03 } } }
+      ] },
+    { id: "devolution", title: "Demands for More Devolution",
+      desc: "Metro mayors and the devolved nations want more powers and money over their own affairs.",
+      options: [
+        { label: "Devolve power & funding", result: "Regions cheer; Whitehall loses some grip and some cash.",
+          effects: { macro: { deficit: 3 }, groups: { workingclass: 0.05, liberals: 0.04 } } },
+        { label: "Keep control in Westminster", result: "Tidy for the Treasury; resentment builds in the regions.",
+          effects: { groups: { workingclass: -0.04 } } }
       ] }
+  ];
+
+  // ---------------------------------------------------------------------------
+  // MANIFESTO PLEDGES — three are drawn at the start of a term; whether they are
+  // met at the next election nudges the player's vote (a trust dividend/penalty).
+  // ---------------------------------------------------------------------------
+  var PLEDGES = [
+    { id: "nhs",        text: "Cut NHS waiting lists",        ok: function (s) { return s.stats.nhs > 0.55; } },
+    { id: "deficit",    text: "Get the deficit below £80bn",  ok: function (s) { return s.macro.deficit < 80; } },
+    { id: "housing",    text: "Build the homes Britain needs", ok: function (s) { return s.stats.housing > 0.50; } },
+    { id: "growth",     text: "Grow the economy above 2%",     ok: function (s) { return s.macro.realGrowth > 2; } },
+    { id: "crime",      text: "Cut crime",                     ok: function (s) { return s.stats.crime < 0.35; } },
+    { id: "migration",  text: "Bring down net migration",      ok: function (s) { return s.stats.immigration < 0.50; } },
+    { id: "debt",       text: "Get debt falling as a share of GDP", ok: function (s) { return s.macro.debtPct < 96; } },
+    { id: "equality",   text: "Reduce inequality",             ok: function (s) { return s.stats.equality > 0.58; } },
+    { id: "education",  text: "Raise school standards",         ok: function (s) { return s.stats.education > 0.60; } }
   ];
 
   // ---------------------------------------------------------------------------
@@ -571,6 +661,7 @@
     FISCAL: FISCAL,
     FISCAL_MAP: FISCAL_MAP,
     DILEMMAS: DILEMMAS,
+    PLEDGES: PLEDGES,
     POLICIES: POLICIES,
     EVENTS: EVENTS,
     PRESETS: PRESETS,
