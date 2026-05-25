@@ -104,13 +104,12 @@
   ];
 
   // ---------------------------------------------------------------------------
-  // STATS — the simulated state of the country. value in [0,1].
+  // STATS — qualitative state of the country, value in [0,1]. The hard economic
+  // numbers (GDP, growth, inflation, unemployment, the public finances) are held
+  // as real figures in FISCAL / the macro model below, not here.
   // higherIsBetter flags whether a high value is good (for colour coding).
   // ---------------------------------------------------------------------------
   var STATS = [
-    { id: "gdp",          name: "Economic Growth",   base: 0.52, higherIsBetter: true },
-    { id: "unemployment", name: "Unemployment",      base: 0.30, higherIsBetter: false },
-    { id: "inflation",    name: "Inflation",         base: 0.40, higherIsBetter: false },
     { id: "nhs",          name: "NHS / Health",      base: 0.42, higherIsBetter: true },
     { id: "education",    name: "Education",         base: 0.50, higherIsBetter: true },
     { id: "crime",        name: "Crime",             base: 0.40, higherIsBetter: false },
@@ -119,6 +118,54 @@
     { id: "environment",  name: "Environment",       base: 0.45, higherIsBetter: true },
     { id: "equality",     name: "Equality",          base: 0.48, higherIsBetter: true }
   ];
+
+  // ---------------------------------------------------------------------------
+  // FISCAL — real UK public finances used as the starting point (£ billion).
+  // Figures are the 2024–25 position from OBR (Budget Oct 2024 / public finances
+  // databank) and ONS public-sector-finances & national-accounts releases:
+  //   GDP ≈ £2.79tn; receipts ≈ £1,141bn; spending ≈ £1,270bn; borrowing ≈
+  //   £128bn (~4.6% of GDP); net debt ≈ £2.7tn (~97% of GDP); debt interest
+  //   ≈ £110bn. Income tax + NICs + VAT ≈ £648bn of receipts. Welfare + state
+  //   pension ≈ £333bn of spending. These are the well-published headline
+  //   aggregates; the game evolves them from here as you govern.
+  // ---------------------------------------------------------------------------
+  var FISCAL = {
+    asOf: "2024–25 (OBR / ONS)",
+    gdp: 2790,            // nominal GDP, £bn
+    realGrowth: 1.1,      // real GDP growth, % per year (latest)
+    inflation: 2.6,       // CPI inflation, %
+    unemployment: 4.3,    // ILO unemployment rate, %
+    bankRate: 4.75,       // Bank of England base rate, %
+    debt: 2700,           // public sector net debt, £bn
+    effectiveDebtRate: 0.0407, // average interest on the debt stock (→ ~£110bn)
+    receiptsTotal: 1141,  // total public sector receipts, £bn
+    spendingTotal: 1270   // total managed expenditure, £bn
+  };
+
+  // Map each policy slider to a real budget line (£bn). At the slider's default
+  // position the line equals `base` (the real 2024–25 figure); moving the slider
+  // changes it by up to ±`swing`·(v−def). type "r" = receipt, "s" = spending.
+  var FISCAL_MAP = {
+    // receipts
+    incometax:  { type: "r", line: "Income tax",        base: 303, swing: 260 },
+    vat:        { type: "r", line: "VAT",               base: 175, swing: 150 },
+    corptax:    { type: "r", line: "Corporation tax",   base: 105, swing: 110 },
+    wealthtax:  { type: "r", line: "Capital & wealth taxes", base: 40, swing: 95 },
+    fuelduty:   { type: "r", line: "Fuel duty",         base: 25,  swing: 30 },
+    counciltax: { type: "r", line: "Council tax",       base: 45,  swing: 40 },
+    // spending
+    nhs:        { type: "s", line: "Health (NHS)",      base: 212, swing: 170 },
+    education:  { type: "s", line: "Education",         base: 116, swing: 95 },
+    police:     { type: "s", line: "Police & justice",  base: 47,  swing: 45 },
+    defence:    { type: "s", line: "Defence",           base: 57,  swing: 60 },
+    pension:    { type: "s", line: "State pension",     base: 138, swing: 95 },
+    welfare:    { type: "s", line: "Welfare & UC",      base: 195, swing: 150 },
+    childcare:  { type: "s", line: "Family & childcare", base: 10, swing: 35 },
+    housing:    { type: "s", line: "Housing",           base: 12,  swing: 45 },
+    rail:       { type: "s", line: "Transport",         base: 44,  swing: 40 },
+    netzero:    { type: "s", line: "Net zero & energy", base: 15,  swing: 45 },
+    foreignaid: { type: "s", line: "Foreign aid",       base: 15,  swing: 18 }
+  };
 
   // ---------------------------------------------------------------------------
   // POLICIES — each slider value v in [0,1].
@@ -335,12 +382,12 @@
       effect: { stats: { nhs: -0.03 }, groups: { pensioners: -0.06, publicsector: -0.05, parents: -0.04 } } },
     { id: "costofliving", name: "Cost of Living Crisis", type: "bad",
       desc: "Soaring prices are squeezing household budgets across the country.",
-      cond: function (s) { return s.stats.inflation > 0.62; },
-      effect: { stats: { gdp: -0.02 }, groups: { poor: -0.07, workingclass: -0.06, renters: -0.05, pensioners: -0.04 } } },
+      cond: function (s) { return s.macro.inflation > 5.5; },
+      effect: { macro: { realGrowth: -0.2 }, groups: { poor: -0.07, workingclass: -0.06, renters: -0.05, pensioners: -0.04 } } },
     { id: "recession", name: "Recession", type: "bad",
       desc: "The economy has contracted for two consecutive quarters.",
-      cond: function (s) { return s.stats.gdp < 0.28; },
-      effect: { stats: { unemployment: 0.03 }, groups: { workingclass: -0.05, privatesector: -0.05, capitalists: -0.05 } } },
+      cond: function (s) { return s.macro.realGrowth < 0; },
+      effect: { macro: { unemployment: 0.35 }, groups: { workingclass: -0.05, privatesector: -0.05, capitalists: -0.05 } } },
     { id: "channelcrossings", name: "Small Boats Surge", type: "bad",
       desc: "Channel crossings dominate the front pages and talk radio.",
       cond: function (s) { return s.stats.immigration > 0.70; },
@@ -348,7 +395,7 @@
     { id: "strikes", name: "Public Sector Strikes", type: "bad",
       desc: "Nurses, teachers and rail workers are walking out over pay.",
       cond: function (s) { return s.groups.publicsector < 0.34 || s.groups.unions < 0.32; },
-      effect: { stats: { gdp: -0.02, nhs: -0.02 }, groups: { commuters: -0.04, parents: -0.03 } } },
+      effect: { stats: { nhs: -0.02 }, macro: { realGrowth: -0.15 }, groups: { commuters: -0.04, parents: -0.03 } } },
     { id: "housingcrisis", name: "Housing Crisis", type: "bad",
       desc: "Rents and house prices are out of reach for a generation.",
       cond: function (s) { return s.stats.housing < 0.28; },
@@ -358,17 +405,131 @@
       cond: function (s) { return s.stats.crime > 0.66; },
       effect: { groups: { pensioners: -0.05, homeowners: -0.04, patriots: -0.05 } } },
     { id: "debtcrisis", name: "Markets Spooked by Debt", type: "bad",
-      desc: "The gilt markets are jittery about an unsustainable deficit.",
-      cond: function (s) { return s.debt > 130; },
-      effect: { stats: { gdp: -0.03, inflation: 0.02 }, groups: { capitalists: -0.06, wealthy: -0.05 } } },
+      desc: "The gilt markets are jittery about an unsustainable debt burden.",
+      cond: function (s) { return s.macro.debtPct > 110; },
+      effect: { macro: { realGrowth: -0.25, inflation: 0.15 }, groups: { capitalists: -0.06, wealthy: -0.05 } } },
     { id: "boom", name: "Economic Boom", type: "good",
       desc: "Strong growth is lifting confidence and the public finances.",
-      cond: function (s) { return s.stats.gdp > 0.72 && s.stats.unemployment < 0.25; },
+      cond: function (s) { return s.macro.realGrowth > 2.8 && s.macro.unemployment < 4; },
       effect: { groups: { privatesector: 0.04, middleclass: 0.04, capitalists: 0.05 } } },
     { id: "greenleader", name: "Global Climate Leader", type: "good",
       desc: "Britain is praised as a world leader on the environment.",
       cond: function (s) { return s.stats.environment > 0.72; },
       effect: { groups: { environment: 0.05, young: 0.04 } } }
+  ];
+
+  // ---------------------------------------------------------------------------
+  // DILEMMAS — decision cards in the style of political sims. Each turn one may
+  // land on the PM's desk; the player must choose, and each option moves real
+  // policy levers (which flow through the budget), the macro economy, voter
+  // groups and political capital. cond(state) optionally gates a dilemma.
+  // effects: policy{id:Δslider}, macro{field:Δ}, stats{id:Δ}, groups{id:Δ},
+  //          all:Δ (every group), capital:Δ.
+  // ---------------------------------------------------------------------------
+  var DILEMMAS = [
+    { id: "doctors", title: "Junior Doctors Threaten to Strike",
+      desc: "The BMA is balloting for walkouts over pay. A&E is already creaking and the headlines are brutal.",
+      options: [
+        { label: "Award a 22% pay deal", result: "Strikes called off, but it costs billions and the markets wince.",
+          effects: { policy: { nhs: 0.10 }, groups: { publicsector: 0.10, unions: 0.10, capitalists: -0.05 }, capital: -1 } },
+        { label: "Hold firm on pay", result: "You face months of strikes and waiting lists balloon.",
+          effects: { stats: { nhs: -0.06 }, groups: { publicsector: -0.10, unions: -0.10, parents: -0.04 } } },
+        { label: "Offer a one-off bonus", result: "A fudge that buys time without fixing the underlying grievance.",
+          effects: { groups: { publicsector: 0.03, unions: 0.02 }, capital: -1 } }
+      ] },
+    { id: "winterfuel", title: "Winter Fuel Payments",
+      desc: "The Treasury wants to means-test the pensioner winter fuel allowance to save money.",
+      options: [
+        { label: "Means-test it", result: "You save around £1.5bn — but pensioners are furious.",
+          effects: { groups: { pensioners: -0.14, wealthy: 0.02 }, macro: { deficit: -2 } } },
+        { label: "Keep it universal", result: "Pensioners are relieved; the deficit hawks grumble.",
+          effects: { groups: { pensioners: 0.06, capitalists: -0.03 } } }
+      ] },
+    { id: "smallboats", title: "Channel Crossings Spike",
+      desc: "A record week of small-boat crossings dominates every front page and phone-in.",
+      options: [
+        { label: "Hardline removals law", result: "Reform voters cheer; lawyers and liberals are up in arms.",
+          effects: { policy: { immigration: 0.18 }, groups: { patriots: 0.10, liberals: -0.10, minorities: -0.08 } } },
+        { label: "Speed up asylum processing", result: "A pragmatic fix that pleases liberals but not the right.",
+          effects: { stats: { immigration: -0.04 }, groups: { liberals: 0.06, patriots: -0.06 }, capital: -1 } }
+      ] },
+    { id: "carplant", title: "Carmaker Threatens to Pull Out",
+      desc: "A major manufacturer says it will move production abroad without state support for the transition to EVs.",
+      options: [
+        { label: "Offer a £2bn subsidy", result: "Thousands of jobs saved; critics call it corporate welfare.",
+          effects: { macro: { unemployment: -0.2 }, groups: { workingclass: 0.06, unions: 0.05, capitalists: 0.04 }, policy: { netzero: 0.05 } } },
+        { label: "Let the market decide", result: "The plant closes. A region loses its biggest employer.",
+          effects: { macro: { unemployment: 0.4, realGrowth: -0.2 }, groups: { workingclass: -0.08, unions: -0.06 } } }
+      ] },
+    { id: "sewage", title: "Sewage Scandal",
+      desc: "A water company is caught dumping sewage while paying huge dividends. The public is disgusted.",
+      options: [
+        { label: "Heavy fines & tough regulation", result: "Voters approve; investors flee the sector.",
+          effects: { policy: { businessreg: 0.12 }, stats: { environment: 0.05 }, groups: { environment: 0.10, capitalists: -0.08 } } },
+        { label: "Bring it into public ownership", result: "The left is delighted; it lands a big bill on the taxpayer.",
+          effects: { macro: { deficit: 6 }, groups: { socialists: 0.10, environment: 0.06, capitalists: -0.10 }, capital: -1 } },
+        { label: "Issue a stern warning", result: "Seen as weak. The scandal rumbles on.",
+          effects: { groups: { environment: -0.06 }, all: -0.01 } }
+      ] },
+    { id: "twochild", title: "Two-Child Benefit Cap",
+      desc: "Campaigners and your own backbenchers demand you scrap the two-child limit on benefits.",
+      options: [
+        { label: "Scrap the cap", result: "Child poverty falls; it costs around £3.5bn a year.",
+          effects: { policy: { welfare: 0.06 }, stats: { equality: 0.05 }, groups: { poor: 0.10, socialists: 0.08, parents: 0.05 } } },
+        { label: "Keep the cap", result: "You hold the line on spending and enrage the left of the party.",
+          effects: { groups: { poor: -0.06, socialists: -0.08 }, capital: -1 } }
+      ] },
+    { id: "defence", title: "NATO Pressure on Defence",
+      desc: "Allies and the Pentagon are pressing Britain to commit to 3% of GDP on defence.",
+      options: [
+        { label: "Commit to 3%", result: "Allies are reassured; the cost is enormous.",
+          effects: { policy: { defence: 0.25 }, groups: { patriots: 0.10, socialists: -0.06 } } },
+        { label: "Stick to 2.5%", result: "A compromise that satisfies nobody entirely.",
+          effects: { policy: { defence: 0.08 }, groups: { patriots: -0.03 } } }
+      ] },
+    { id: "rebellion", title: "Backbench Welfare Rebellion",
+      desc: "Dozens of your MPs threaten to vote down planned disability benefit cuts.",
+      options: [
+        { label: "Back down on the cuts", result: "You keep the party together but lose fiscal credibility.",
+          effects: { policy: { welfare: 0.05 }, groups: { poor: 0.06, socialists: 0.05 }, capital: -2 } },
+        { label: "Push it through", result: "You win the vote but burn huge political capital.",
+          effects: { macro: { deficit: -4 }, groups: { poor: -0.08, socialists: -0.06 }, capital: -3, all: -0.02 } }
+      ] },
+    { id: "schoolmeals", title: "Free School Meals Campaign",
+      desc: "A celebrity-backed campaign demands free school meals for all primary pupils.",
+      options: [
+        { label: "Fund it nationally", result: "Hugely popular with families; another line on the bill.",
+          effects: { policy: { childcare: 0.20 }, groups: { parents: 0.10, poor: 0.06 } } },
+        { label: "Target the poorest only", result: "A measured response that mutes the campaign.",
+          effects: { groups: { parents: 0.02, poor: 0.03 } } }
+      ] },
+    { id: "energy", title: "Energy Bills Surge",
+      desc: "A cold snap and volatile gas prices send household energy bills soaring.",
+      cond: function (s) { return s.macro.inflation > 3; },
+      options: [
+        { label: "Freeze bills with a subsidy", result: "Households relieved; it's expensive and props up inflation.",
+          effects: { macro: { deficit: 8, inflation: 0.2 }, all: 0.03, groups: { capitalists: -0.04 } } },
+        { label: "Targeted help for the poorest", result: "Cheaper and fairer, but middle earners feel the squeeze.",
+          effects: { macro: { deficit: 3 }, groups: { poor: 0.08, middleclass: -0.04 } } },
+        { label: "Let the market work", result: "The Treasury is happy; voters are cold and angry.",
+          effects: { groups: { poor: -0.10, workingclass: -0.06, pensioners: -0.05 } } }
+      ] },
+    { id: "housing", title: "Planning Reform Showdown",
+      desc: "You can override local objections to hit housing targets — but Tory shire and NIMBY voters revolt.",
+      options: [
+        { label: "Build, build, build", result: "Supply rises; homeowners and locals are furious.",
+          effects: { policy: { housing: 0.18 }, groups: { renters: 0.10, young: 0.06, homeowners: -0.08 } } },
+        { label: "Respect local vetoes", result: "Communities placated; the housing crisis deepens.",
+          effects: { stats: { housing: -0.05 }, groups: { homeowners: 0.05, renters: -0.06, young: -0.05 } } }
+      ] },
+    { id: "scandal", title: "A Minister Is Caught Out",
+      desc: "A cabinet minister is embroiled in a lobbying scandal. The lobby is baying.",
+      options: [
+        { label: "Sack them immediately", result: "Decisive — but you lose an ally and look chaotic.",
+          effects: { capital: -1, all: 0.01 } },
+        { label: "Stand by them", result: "Loyal, but the story runs for weeks and tars the government.",
+          effects: { all: -0.03, groups: { liberals: -0.03 } } }
+      ] }
   ];
 
   // ---------------------------------------------------------------------------
@@ -407,6 +568,9 @@
     NATIONS: NATIONS,
     GROUPS: GROUPS,
     STATS: STATS,
+    FISCAL: FISCAL,
+    FISCAL_MAP: FISCAL_MAP,
+    DILEMMAS: DILEMMAS,
     POLICIES: POLICIES,
     EVENTS: EVENTS,
     PRESETS: PRESETS,
