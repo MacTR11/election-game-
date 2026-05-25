@@ -254,6 +254,18 @@
   // ---------------------------------------------------------------------------
   var TERM_QUARTERS = 20; // 5-year fixed term
 
+  function pickPledges() {
+    var pool = D.PLEDGES.slice(), out = [];
+    for (var k = 0; k < 3 && pool.length; k++) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0].id);
+    return out;
+  }
+  function pledgeById(id) { for (var i = 0; i < D.PLEDGES.length; i++) if (D.PLEDGES[i].id === id) return D.PLEDGES[i]; return null; }
+  function pledgesKept(state) {
+    var kept = 0;
+    state.pledges.forEach(function (id) { var pl = pledgeById(id); if (pl && pl.ok(state)) kept++; });
+    return kept;
+  }
+
   var _polById = null;
   function polById(id) {
     if (!_polById) { _polById = {}; for (var i = 0; i < D.POLICIES.length; i++) _polById[D.POLICIES[i].id] = D.POLICIES[i]; }
@@ -272,7 +284,8 @@
                        deficit: F.spendingTotal - F.receiptsTotal,
                        debtPct: Math.round(F.debt / F.gdp * 100) },
               pressure: 0, pendingDilemma: null, dilemmaHistory: [],
-              approval: 0.5, lastElection: null, termsWon: 0, gameOver: false, log: [] };
+              unity: 0.7, discontent: 0, pledges: pickPledges(),
+              approval: 0.5, lastElection: null, termsWon: 0, gameOver: false, oustedBy: null, log: [] };
     var i;
     for (i = 0; i < D.POLICIES.length; i++) s.policies[D.POLICIES[i].id] = D.POLICIES[i].def;
     for (i = 0; i < D.STATS.length; i++) s.stats[D.STATS[i].id] = D.STATS[i].base;
@@ -463,13 +476,26 @@
     state.approval = computeApproval(state);
     state.capital = Math.min(state.maxCapital, state.capital + 3);
     state.pressure += 1; // demographic & cost pressure keeps building
+
+    // party morale: discontent builds while approval is poor and decays when it
+    // recovers. A sustained slump triggers a leadership challenge — survive it
+    // if you're not heading for certain defeat, otherwise your own MPs oust you.
+    if (state.approval < 0.42) state.discontent += (0.42 - state.approval) * 1.7;
+    else state.discontent = Math.max(0, state.discontent * 0.5);
+    state.unity = clamp01(0.62 + (state.approval - 0.45) * 1.4 - 0.5 * state.discontent);
+    state.leadershipChallenge = null;
+    if (state.turn > 3 && state.discontent > 0.45) {
+      if (state.approval < 0.40) { state.gameOver = true; state.oustedBy = "party"; }
+      else { state.leadershipChallenge = "survived"; state.discontent = 0; state.unity = clamp01(state.unity + 0.15); }
+    }
+
     state.turn += 1;
     state.quarter += 1;
     if (state.quarter > 4) { state.quarter = 1; state.year += 1; }
 
     var electionDue = state.turn >= TERM_QUARTERS;
     // a decision lands on the desk most quarters (never on an election quarter)
-    if (!electionDue && Math.random() < 0.7) state.pendingDilemma = pickDilemma(state);
+    if (!electionDue && !state.gameOver && Math.random() < 0.7) state.pendingDilemma = pickDilemma(state);
     return { electionDue: electionDue };
   }
 
@@ -510,7 +536,8 @@
   // soaks up most of the change), and project the Commons.
   function runGeneralElection(state) {
     var base = D.BASELINE[state.party] || 10;
-    var playerShare = clamp(base + (state.approval - 0.46) * 70, 4, 58);
+    var pledgeBonus = (pledgesKept(state) - 1.5) * 1.6; // trust dividend / penalty
+    var playerShare = clamp(base + (state.approval - 0.46) * 70 + pledgeBonus, 4, 58);
     var delta = playerShare - base;
 
     // distribute -delta across the others in proportion to their baseline,
@@ -554,10 +581,14 @@
       state.termsWon += 1;
       state.turn = 0;
       state.capital = state.maxCapital;
+      state.unity = clamp01(state.unity + 0.15);
+      state.discontent = 0;
+      state.pledges = pickPledges();   // a fresh manifesto for the new term
       // a fresh mandate buoys the groups a little
       for (var id in state.groups) state.groups[id] = clamp01(state.groups[id] + 0.04);
     } else {
       state.gameOver = true;
+      state.oustedBy = "voters";
     }
     return state;
   }
