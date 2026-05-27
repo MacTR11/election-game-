@@ -696,6 +696,112 @@
     return state;
   }
 
+  // =====================================================================
+  // OPPOSITION MODE — you don't run the country; you fight to win power.
+  // The incumbent government runs at its defaults and drifts mid-term; you
+  // build your party's poll share by attacking, positioning and campaigning.
+  // =====================================================================
+  var OPP_THEMES = {
+    nhs: "the NHS", economy: "the economy", cost: "the cost of living",
+    immigration: "immigration", crime: "crime", sleaze: "sleaze & competence"
+  };
+  function recordOppHistory(g) {
+    g.oppHistory.push({ label: g.year + " Q" + g.quarter, opp: g.oppShare, govApp: g.govApproval * 100 });
+    if (g.oppHistory.length > 60) g.oppHistory.shift();
+  }
+  function oppWeaknesses(g) {
+    var mn = macroNorm(g.macro);
+    return {
+      nhs: clamp01(1 - g.stats.nhs), economy: clamp01(0.55 - mn.gdp + 0.25),
+      cost: clamp01((g.macro.inflation - 2) / 6), immigration: clamp01(g.stats.immigration),
+      crime: clamp01(g.stats.crime), sleaze: clamp01(1 - g.unity)
+    };
+  }
+  function newOppositionState(party) {
+    var inc = party === "lab" ? "con" : "lab";  // the AI government you face
+    var g = newGovernState(inc);
+    g.role = "opposition";
+    g.party = party;                      // YOUR party
+    g.incumbent = inc;
+    g.energy = 6; g.maxEnergy = 6;
+    g.oppShare = D.BASELINE[party] || 12;
+    g.momentum = 0;
+    g.govApproval = computeApproval(g);
+    g.weak = oppWeaknesses(g);
+    g.regionEffort = {};
+    g.oppHistory = [];
+    g.choosePledges = false; g.pledges = [];
+    recordOppHistory(g);
+    return g;
+  }
+  // An opposition action (costs energy). Returns false if too little energy.
+  function oppAction(g, type, arg) {
+    var cost = type === "blitz" ? 4 : 2;
+    if (g.energy < cost) return false;
+    g.energy -= cost;
+    if (type === "attack") {
+      var w = g.weak[arg] != null ? g.weak[arg] : 0.3;
+      if (w > 0.45) { g.oppShare += 1.2 * w + 0.6; g.govApproval = clamp01(g.govApproval - 0.025); g.momentum += 1.2 * w; }
+      else { g.oppShare += 0.15; g.momentum -= 0.2; }            // attacking a strength barely lands
+      g.weak[arg] = clamp01(g.weak[arg] - 0.06);                 // point made; salience fades
+    } else if (type === "promote") {
+      g.oppShare += 0.9; g.momentum += 0.8;
+      if (g.groups[arg] != null) g.groups[arg] = clamp01(g.groups[arg] + 0.04);
+    } else if (type === "tour") {
+      g.regionEffort[arg] = (g.regionEffort[arg] || 0) + 3;      // banked ground game for polling day
+      g.oppShare += 0.4;
+    } else if (type === "blitz") {
+      g.oppShare += 1.6; g.momentum += 1.0;
+    }
+    g.oppShare = clamp(g.oppShare, 3, 60);
+    return true;
+  }
+  function simulateOppositionTurn(g) {
+    var targets = computeTargets(g, false), id, K = 0.5;
+    for (id in targets.stats) g.stats[id] += (targets.stats[id] - g.stats[id]) * K;
+    for (id in targets.groups) g.groups[id] += (targets.groups[id] - g.groups[id]) * K;
+    evolveMacro(g); computeFiscal(g);
+    var firing = [], i;
+    for (i = 0; i < D.EVENTS.length; i++) if (D.EVENTS[i].cond(g)) firing.push(D.EVENTS[i]);
+    for (i = 0; i < firing.length; i++) {
+      var ev = firing[i];
+      if (ev.effect.stats) for (id in ev.effect.stats) if (g.stats[id] != null) g.stats[id] = clamp01(g.stats[id] + ev.effect.stats[id]);
+      if (ev.effect.groups) for (id in ev.effect.groups) if (g.groups[id] != null) g.groups[id] = clamp01(g.groups[id] + ev.effect.groups[id]);
+      if (ev.effect.macro) for (id in ev.effect.macro) if (g.macro[id] != null) g.macro[id] += ev.effect.macro[id];
+    }
+    g.activeEvents = firing;
+    g.pressure += 1;
+    g.unity = clamp01(g.unity - 0.01); // governing erodes the incumbent over time
+    g.govApproval = computeApproval(g);
+    g.weak = oppWeaknesses(g);
+    // an unpopular government lifts the opposition; your momentum adds on top
+    var target = (D.BASELINE[g.party] || 12) + (0.5 - g.govApproval) * 42 + g.momentum;
+    g.oppShare += (clamp(target, 3, 60) - g.oppShare) * 0.4;
+    g.oppShare = clamp(g.oppShare, 3, 60);
+    g.momentum *= 0.55;
+    g.energy = Math.min(g.maxEnergy, g.energy + 4);
+    g.turn += 1; g.quarter += 1; if (g.quarter > 4) { g.quarter = 1; g.year += 1; }
+    recordOppHistory(g);
+    return { electionDue: g.turn >= TERM_QUARTERS };
+  }
+  function govShareFrom(g) { return clamp((D.BASELINE[g.incumbent] || 30) + (g.govApproval - 0.46) * 70, 4, 58); }
+  function runOppositionElection(g, regionAdj) {
+    var govShare = govShareFrom(g), shares = {}, p;
+    shares[g.party] = g.oppShare; shares[g.incumbent] = govShare;
+    var others = [], ob = 0;
+    for (p in D.BASELINE) if (p !== g.party && p !== g.incumbent) { others.push(p); ob += D.BASELINE[p]; }
+    var remain = Math.max(6, 100 - g.oppShare - govShare);
+    for (var i = 0; i < others.length; i++) shares[others[i]] = remain * (D.BASELINE[others[i]] / ob);
+    var sum = 0; for (p in shares) sum += shares[p];
+    for (p in shares) shares[p] = shares[p] / sum * 100;
+    var result = projectSeats(shares, regionAdj);
+    result.shares = shares; result.playerParty = g.party;
+    result.playerSeats = result.totals[g.party] || 0;
+    result.won = result.government.formateur === g.party;
+    result.playerMajority = 2 * result.playerSeats - 650;
+    return result;
+  }
+
   function sharesFromPreset(key) {
     var preset = D.PRESETS[key] || D.PRESETS.ge2024;
     var out = {}; for (var p in preset.shares) out[p] = preset.shares[p];
@@ -710,7 +816,13 @@
     formGovernment: formGovernment,
     localElection: localElection,
     newGovernState: newGovernState,
+    newOppositionState: newOppositionState,
     simulateTurn: simulateTurn,
+    simulateOppositionTurn: simulateOppositionTurn,
+    oppAction: oppAction,
+    runOppositionElection: runOppositionElection,
+    govShareFrom: govShareFrom,
+    OPP_THEMES: OPP_THEMES,
     resolveDilemma: resolveDilemma,
     computeApproval: computeApproval,
     computeFiscal: computeFiscal,
