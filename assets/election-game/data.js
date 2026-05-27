@@ -142,227 +142,224 @@
     spendingTotal: 1270   // total managed expenditure, £bn
   };
 
-  // Map each policy slider to a real budget line (£bn). At the slider's default
-  // position the line equals `base` (the real 2024–25 figure); moving the slider
-  // changes it by up to ±`swing`·(v−def). type "r" = receipt, "s" = spending.
-  var FISCAL_MAP = {
-    // receipts
-    incometax:  { type: "r", line: "Income tax",        base: 303, swing: 260 },
-    vat:        { type: "r", line: "VAT",               base: 175, swing: 150 },
-    corptax:    { type: "r", line: "Corporation tax",   base: 105, swing: 110 },
-    wealthtax:  { type: "r", line: "Capital & wealth taxes", base: 40, swing: 95 },
-    fuelduty:   { type: "r", line: "Fuel duty",         base: 25,  swing: 30 },
-    counciltax: { type: "r", line: "Council tax",       base: 45,  swing: 40 },
-    // spending
-    nhs:        { type: "s", line: "Health (NHS)",      base: 212, swing: 170 },
-    education:  { type: "s", line: "Education",         base: 116, swing: 95 },
-    police:     { type: "s", line: "Police & justice",  base: 47,  swing: 45 },
-    defence:    { type: "s", line: "Defence",           base: 57,  swing: 60 },
-    pension:    { type: "s", line: "State pension",     base: 138, swing: 95 },
-    welfare:    { type: "s", line: "Welfare & UC",      base: 195, swing: 150 },
-    childcare:  { type: "s", line: "Family & childcare", base: 10, swing: 35 },
-    housing:    { type: "s", line: "Housing",           base: 12,  swing: 45 },
-    rail:       { type: "s", line: "Transport",         base: 44,  swing: 40 },
-    netzero:    { type: "s", line: "Net zero & energy", base: 15,  swing: 45 },
-    foreignaid: { type: "s", line: "Foreign aid",       base: 15,  swing: 18 }
-  };
+  // Each policy carries its own real-world control (units, range, default) and
+  // its budget line is defined inline on the policy (see POLICIES / `fiscal`).
 
   // ---------------------------------------------------------------------------
-  // POLICIES — each slider value v in [0,1].
-  //   budget(v): net effect on the annual deficit in £bn
-  //              (positive = costs money / raises deficit,
-  //               negative = raises revenue / cuts deficit).
-  //   effects.stats[id](v)  -> additive delta to a stat   (apply each turn)
-  //   effects.groups[id](v) -> additive delta to a group's contentment
-  //   labels: text shown at the low and high ends of the slider.
+  // POLICIES — each is a real-world control: a value in real units (a tax rate,
+  // a £bn budget, pence per litre, £/month, % of GDP …) between `min` and `max`,
+  // starting at the real 2024–25 `def`.
+  //   fiscal: the budget line this lever sets. mode "direct" means the £bn line
+  //           equals the slider value (e.g. the NHS budget); mode "derived"
+  //           means the line = base + swing·d, where d = (value−def)/(max−min)
+  //           (e.g. a tax rate moving receipts). type "r" receipt / "s" spend.
+  //   effects.stats[id] / groups[id]: a coefficient k; the engine applies k·d,
+  //           so there is no effect at the default and the sign sets direction.
   // ---------------------------------------------------------------------------
   var POLICIES = [
     // ---- TAXATION ----
-    { id: "incometax", name: "Income Tax", cat: "Taxation", icon: "£",
-      def: 0.5, low: "Tax cuts", high: "Higher rates",
-      budget: function (v) { return -(v - 0.3) * 220; },
+    { id: "incometax", name: "Income Tax — Basic Rate", cat: "Taxation", icon: "£",
+      unit: "%", min: 10, max: 35, def: 20, step: 1, low: "Cut", high: "Raise",
+      fiscal: { type: "r", line: "Income tax (basic rate)", mode: "derived", base: 243, swing: 230 },
       effects: {
-        stats: { gdp: lin(-0.18), equality: lin(0.22), inflation: lin(-0.05) },
-        groups: { wealthy: lin(-0.45), middleclass: lin(-0.30), workingclass: lin(-0.18),
-                  poor: lin(0.10), socialists: lin(0.30), capitalists: lin(-0.40),
-                  publicsector: lin(0.12) }
+        stats: { gdp: -0.16, equality: 0.20, inflation: -0.05 },
+        groups: { wealthy: -0.28, middleclass: -0.34, workingclass: -0.22, poor: 0.08,
+                  socialists: 0.28, capitalists: -0.28, publicsector: 0.12 }
+      } },
+    { id: "incometax_higher", name: "Income Tax — Higher Rate", cat: "Taxation", icon: "£",
+      unit: "%", min: 30, max: 60, def: 40, step: 1, low: "Cut", high: "Raise",
+      fiscal: { type: "r", line: "Income tax (higher rate)", mode: "derived", base: 60, swing: 95 },
+      effects: {
+        stats: { gdp: -0.12, equality: 0.22 },
+        groups: { wealthy: -0.55, middleclass: -0.12, capitalists: -0.28, socialists: 0.26, selfemployed: -0.15 }
+      } },
+    { id: "ni", name: "National Insurance", cat: "Taxation", icon: "£",
+      unit: "%", min: 0, max: 16, def: 8, step: 0.5, low: "Cut", high: "Raise",
+      fiscal: { type: "r", line: "National Insurance", mode: "derived", base: 170, swing: 190 },
+      effects: {
+        stats: { gdp: -0.14, equality: -0.04, inflation: -0.03 },
+        groups: { workingclass: -0.34, privatesector: -0.22, middleclass: -0.20, selfemployed: -0.16,
+                  capitalists: -0.16, pensioners: 0.05 }
       } },
     { id: "vat", name: "VAT", cat: "Taxation", icon: "£",
-      def: 0.6, low: "Reduced", high: "Raised",
-      budget: function (v) { return -(v - 0.3) * 160; },
+      unit: "%", min: 0, max: 30, def: 20, step: 1, low: "Cut", high: "Raise",
+      fiscal: { type: "r", line: "VAT", mode: "derived", base: 175, swing: 150 },
       effects: {
-        stats: { inflation: lin(0.20), gdp: lin(-0.10), equality: lin(-0.12) },
-        groups: { poor: lin(-0.30), workingclass: lin(-0.22), pensioners: lin(-0.15),
-                  capitalists: lin(0.05) }
+        stats: { inflation: 0.22, gdp: -0.10, equality: -0.14 },
+        groups: { poor: -0.30, workingclass: -0.22, pensioners: -0.15, capitalists: 0.05 }
       } },
     { id: "corptax", name: "Corporation Tax", cat: "Taxation", icon: "£",
-      def: 0.5, low: "Business-friendly", high: "High",
-      budget: function (v) { return -(v - 0.3) * 90; },
+      unit: "%", min: 15, max: 38, def: 25, step: 1, low: "Business-friendly", high: "High",
+      fiscal: { type: "r", line: "Corporation tax", mode: "derived", base: 105, swing: 110 },
       effects: {
-        stats: { gdp: lin(-0.20), unemployment: lin(0.12), equality: lin(0.15) },
-        groups: { capitalists: lin(-0.55), selfemployed: lin(-0.25), privatesector: lin(-0.15),
-                  socialists: lin(0.25), wealthy: lin(-0.25) }
+        stats: { gdp: -0.22, unemployment: 0.12, equality: 0.12 },
+        groups: { capitalists: -0.55, selfemployed: -0.22, privatesector: -0.18, socialists: 0.24, wealthy: -0.22 }
       } },
-    { id: "wealthtax", name: "Wealth & Capital Gains Tax", cat: "Taxation", icon: "£",
-      def: 0.35, low: "Light touch", high: "Aggressive",
-      budget: function (v) { return -(v) * 70; },
+    { id: "cgt", name: "Capital Gains Tax", cat: "Taxation", icon: "£",
+      unit: "%", min: 10, max: 50, def: 24, step: 1, low: "Light touch", high: "Aligned with income",
+      fiscal: { type: "r", line: "Capital gains tax", mode: "derived", base: 18, swing: 30 },
       effects: {
-        stats: { equality: lin(0.30), gdp: lin(-0.12) },
-        groups: { wealthy: linN(-0.7, 0.2), capitalists: linN(-0.55, 0.2), socialists: lin(0.35),
-                  poor: lin(0.15), workingclass: lin(0.12) }
+        stats: { equality: 0.22, gdp: -0.12 },
+        groups: { wealthy: -0.55, capitalists: -0.45, socialists: 0.30, poor: 0.10, workingclass: 0.10 }
+      } },
+    { id: "inheritance", name: "Inheritance Tax", cat: "Taxation", icon: "£",
+      unit: "%", min: 0, max: 55, def: 40, step: 1, low: "Abolish", high: "Raise",
+      fiscal: { type: "r", line: "Inheritance tax", mode: "derived", base: 8, swing: 14 },
+      effects: {
+        stats: { equality: 0.18, gdp: -0.03 },
+        groups: { wealthy: -0.45, homeowners: -0.22, capitalists: -0.14, socialists: 0.20, poor: 0.06 }
       } },
     { id: "fuelduty", name: "Fuel Duty", cat: "Taxation", icon: "⛽",
-      def: 0.5, low: "Frozen / cut", high: "Raised",
-      budget: function (v) { return -(v - 0.3) * 40; },
+      unit: "p", min: 30, max: 80, def: 53, step: 1, low: "Cut / freeze", high: "Raise",
+      fiscal: { type: "r", line: "Fuel duty", mode: "derived", base: 25, swing: 28 },
       effects: {
-        stats: { environment: lin(0.18), inflation: lin(0.10) },
-        groups: { motorists: lin(-0.50), environment: lin(0.30), selfemployed: lin(-0.20),
-                  workingclass: lin(-0.15) }
+        stats: { environment: 0.16, inflation: 0.10 },
+        groups: { motorists: -0.50, environment: 0.30, selfemployed: -0.20, workingclass: -0.15 }
       } },
-    { id: "counciltax", name: "Council Tax", cat: "Taxation", icon: "🏘",
-      def: 0.5, low: "Capped", high: "Unrestricted",
-      budget: function (v) { return -(v - 0.5) * 30; },
+    { id: "counciltax", name: "Council Tax (Band D)", cat: "Taxation", icon: "🏘",
+      unit: "£", min: 1600, max: 3200, def: 2200, step: 50, low: "Capped", high: "Unrestricted",
+      fiscal: { type: "r", line: "Council tax", mode: "derived", base: 45, swing: 40 },
       effects: {
-        stats: { crime: lin(-0.06), housing: lin(0.04) },
-        groups: { homeowners: lin(-0.35), pensioners: lin(-0.22), middleclass: lin(-0.20),
-                  renters: lin(-0.05) }
+        stats: { crime: -0.05, housing: 0.03 },
+        groups: { homeowners: -0.35, pensioners: -0.24, middleclass: -0.20, renters: -0.06 }
       } },
 
-    // ---- PUBLIC SERVICES ----
-    { id: "nhs", name: "NHS Funding", cat: "Public Services", icon: "🏥",
-      def: 0.55, low: "Squeeze", high: "Record investment",
-      budget: function (v) { return v * 200; },
+    // ---- PUBLIC SERVICES (budgets in £bn) ----
+    { id: "nhs", name: "NHS Budget", cat: "Public Services", icon: "🏥",
+      unit: "£bn", min: 150, max: 330, def: 212, step: 2, low: "Squeeze", high: "Invest",
+      fiscal: { type: "s", line: "Health (NHS)", mode: "direct" },
       effects: {
-        stats: { nhs: lin(0.55), unemployment: lin(-0.08), equality: lin(0.10) },
-        groups: { publicsector: lin(0.30), pensioners: lin(0.28), poor: lin(0.18),
-                  unions: lin(0.18), parents: lin(0.15), capitalists: lin(-0.10) }
+        stats: { nhs: 0.85, unemployment: -0.08, equality: 0.10 },
+        groups: { publicsector: 0.30, pensioners: 0.28, poor: 0.18, unions: 0.18, parents: 0.15, capitalists: -0.10 }
       } },
     { id: "education", name: "Schools & Education", cat: "Public Services", icon: "🎓",
-      def: 0.55, low: "Cuts", high: "Major boost",
-      budget: function (v) { return v * 110; },
+      unit: "£bn", min: 80, max: 180, def: 116, step: 1, low: "Cut", high: "Invest",
+      fiscal: { type: "s", line: "Education", mode: "direct" },
       effects: {
-        stats: { education: lin(0.55), gdp: lin(0.10), equality: lin(0.15) },
-        groups: { parents: lin(0.35), young: lin(0.18), publicsector: lin(0.22),
-                  teachers: lin(0.3) }
+        stats: { education: 0.85, gdp: 0.10, equality: 0.15 },
+        groups: { parents: 0.35, young: 0.18, publicsector: 0.22, teachers: 0.3 }
       } },
     { id: "police", name: "Policing & Justice", cat: "Public Services", icon: "🚔",
-      def: 0.5, low: "Reduced", high: "Tough on crime",
-      budget: function (v) { return v * 60; },
+      unit: "£bn", min: 30, max: 85, def: 47, step: 1, low: "Cut", high: "Tough on crime",
+      fiscal: { type: "s", line: "Police & justice", mode: "direct" },
       effects: {
-        stats: { crime: lin(-0.45), equality: lin(-0.05) },
-        groups: { patriots: lin(0.30), pensioners: lin(0.20), homeowners: lin(0.15),
-                  liberals: lin(-0.20), minorities: lin(-0.18) }
+        stats: { crime: -0.70, equality: -0.04 },
+        groups: { patriots: 0.30, pensioners: 0.20, homeowners: 0.15, liberals: -0.20, minorities: -0.18 }
       } },
     { id: "defence", name: "Defence Spending", cat: "Public Services", icon: "🛡",
-      def: 0.5, low: "2% of GDP", high: "3%+ of GDP",
-      budget: function (v) { return v * 70; },
+      unit: "%GDP", min: 1.5, max: 4, def: 2.3, step: 0.1, low: "Cut", high: "Rearm",
+      fiscal: { type: "s", line: "Defence", mode: "derived", base: 64, swing: 70 },
       effects: {
-        stats: { unemployment: lin(-0.05), gdp: lin(0.04) },
-        groups: { patriots: lin(0.45), capitalists: lin(0.12), socialists: lin(-0.25),
-                  liberals: lin(-0.15), young: lin(-0.10) }
+        stats: { unemployment: -0.05, gdp: 0.04 },
+        groups: { patriots: 0.45, capitalists: 0.12, socialists: -0.25, liberals: -0.15, young: -0.10 }
+      } },
+    { id: "socialcare", name: "Social Care", cat: "Public Services", icon: "🧑‍🦽",
+      unit: "£bn", min: 15, max: 65, def: 28, step: 1, low: "Minimal", high: "Fix it",
+      fiscal: { type: "s", line: "Social care", mode: "direct" },
+      effects: {
+        stats: { nhs: 0.25, equality: 0.14 },
+        groups: { pensioners: 0.30, parents: 0.10, publicsector: 0.12, unions: 0.08, capitalists: -0.06 }
+      } },
+    { id: "localgov", name: "Local Government", cat: "Public Services", icon: "🏛",
+      unit: "£bn", min: 40, max: 115, def: 60, step: 1, low: "Austerity", high: "Well-funded",
+      fiscal: { type: "s", line: "Local government", mode: "direct" },
+      effects: {
+        stats: { crime: -0.14, housing: 0.10, education: 0.05 },
+        groups: { workingclass: 0.10, poor: 0.10, homeowners: 0.06, publicsector: 0.10, capitalists: -0.06 }
       } },
 
     // ---- WELFARE & PENSIONS ----
-    { id: "pension", name: "State Pension (Triple Lock)", cat: "Welfare", icon: "👵",
-      def: 0.6, low: "Frozen", high: "Generous uplift",
-      budget: function (v) { return v * 130; },
+    { id: "pension", name: "State Pension uprating", cat: "Welfare", icon: "👵",
+      unit: "%", min: 0, max: 10, def: 4.1, step: 0.1, low: "Freeze", high: "Generous",
+      fiscal: { type: "s", line: "State pension", mode: "derived", base: 138, swing: 95 },
       effects: {
-        stats: { equality: lin(0.12), inflation: lin(0.04) },
-        groups: { pensioners: linN(0.7, 0.2), poor: lin(0.12), capitalists: lin(-0.12),
-                  young: lin(-0.10), wealthy: lin(-0.08) }
+        stats: { equality: 0.12, inflation: 0.04 },
+        groups: { pensioners: 0.85, poor: 0.12, capitalists: -0.12, young: -0.12, wealthy: -0.08 }
       } },
-    { id: "welfare", name: "Universal Credit & Benefits", cat: "Welfare", icon: "🤝",
-      def: 0.45, low: "Sanctions / cuts", high: "Expanded",
-      budget: function (v) { return v * 120; },
+    { id: "welfare", name: "Universal Credit (monthly)", cat: "Welfare", icon: "🤝",
+      unit: "£/mo", min: 250, max: 700, def: 400, step: 10, low: "Sanctions / cuts", high: "Expanded",
+      fiscal: { type: "s", line: "Welfare & UC", mode: "derived", base: 195, swing: 150 },
       effects: {
-        stats: { equality: lin(0.30), crime: lin(-0.12), unemployment: lin(0.10) },
-        groups: { poor: linN(0.6, 0.2), workingclass: lin(0.20), socialists: lin(0.28),
-                  unions: lin(0.18), capitalists: lin(-0.22), wealthy: lin(-0.18) }
+        stats: { equality: 0.30, crime: -0.12, unemployment: 0.10 },
+        groups: { poor: 0.65, workingclass: 0.20, socialists: 0.28, unions: 0.16, capitalists: -0.22, wealthy: -0.18 }
       } },
-    { id: "minwage", name: "Minimum Wage", cat: "Welfare", icon: "💷",
-      def: 0.5, low: "Held down", high: "Real living wage+",
-      budget: function (v) { return 0; },
+    { id: "minwage", name: "National Minimum Wage", cat: "Welfare", icon: "💷",
+      unit: "£/hr", min: 8, max: 16, def: 11.44, step: 0.1, low: "Held down", high: "Living wage+",
       effects: {
-        stats: { equality: lin(0.22), inflation: lin(0.12), unemployment: lin(0.14), gdp: lin(-0.04) },
-        groups: { poor: lin(0.35), workingclass: lin(0.30), young: lin(0.18),
-                  capitalists: lin(-0.30), selfemployed: lin(-0.25), unions: lin(0.20) }
+        stats: { equality: 0.22, inflation: 0.12, unemployment: 0.16, gdp: -0.04 },
+        groups: { poor: 0.35, workingclass: 0.30, young: 0.18, capitalists: -0.30, selfemployed: -0.28, unions: 0.20 }
       } },
     { id: "childcare", name: "Childcare & Family Support", cat: "Welfare", icon: "🍼",
-      def: 0.45, low: "Minimal", high: "Universal free",
-      budget: function (v) { return v * 45; },
+      unit: "£bn", min: 0, max: 45, def: 10, step: 1, low: "Minimal", high: "Universal free",
+      fiscal: { type: "s", line: "Family & childcare", mode: "direct" },
       effects: {
-        stats: { equality: lin(0.15), gdp: lin(0.10), unemployment: lin(-0.06) },
-        groups: { parents: linN(0.55, 0.2), young: lin(0.15), women: lin(0.2),
-                  capitalists: lin(-0.06) }
+        stats: { equality: 0.15, gdp: 0.10, unemployment: -0.06 },
+        groups: { parents: 0.55, young: 0.15, women: 0.2, capitalists: -0.06 }
       } },
 
     // ---- ECONOMY & HOUSING ----
-    { id: "housing", name: "Housebuilding Programme", cat: "Economy", icon: "🏗",
-      def: 0.4, low: "Market-led", high: "Mass council housing",
-      budget: function (v) { return v * 50; },
+    { id: "housing", name: "Housebuilding", cat: "Economy", icon: "🏗",
+      unit: "k/yr", min: 100, max: 500, def: 200, step: 10, low: "Market-led", high: "State programme",
+      fiscal: { type: "s", line: "Housing", mode: "derived", base: 12, swing: 45 },
       effects: {
-        stats: { housing: lin(0.55), gdp: lin(0.12), environment: lin(-0.08), unemployment: lin(-0.08) },
-        groups: { renters: linN(0.5, 0.2), young: lin(0.25), homeowners: lin(-0.12),
-                  privatesector: lin(0.10), environment: lin(-0.12) }
+        stats: { housing: 0.65, gdp: 0.12, environment: -0.08, unemployment: -0.08 },
+        groups: { renters: 0.5, young: 0.25, homeowners: -0.14, privatesector: 0.10, environment: -0.12 }
+      } },
+    { id: "infra", name: "Infrastructure Investment", cat: "Economy", icon: "🏗",
+      unit: "£bn", min: 10, max: 95, def: 30, step: 1, low: "Minimal", high: "Build big",
+      fiscal: { type: "s", line: "Infrastructure", mode: "direct" },
+      effects: {
+        stats: { gdp: 0.24, housing: 0.10, environment: -0.04, unemployment: -0.10 },
+        groups: { privatesector: 0.12, workingclass: 0.10, capitalists: 0.10, environment: -0.05 }
       } },
     { id: "rail", name: "Public Transport & Rail", cat: "Economy", icon: "🚆",
-      def: 0.5, low: "Privatised", high: "Nationalised & subsidised",
-      budget: function (v) { return v * 35; },
+      unit: "£bn", min: 10, max: 85, def: 44, step: 1, low: "Cut subsidy", high: "Subsidise / nationalise",
+      fiscal: { type: "s", line: "Transport", mode: "direct" },
       effects: {
-        stats: { environment: lin(0.18), gdp: lin(0.06) },
-        groups: { commuters: lin(0.3), unions: lin(0.22), environment: lin(0.20),
-                  socialists: lin(0.18), capitalists: lin(-0.20), motorists: lin(0.05) }
+        stats: { environment: 0.18, gdp: 0.06 },
+        groups: { commuters: 0.3, unions: 0.22, environment: 0.20, socialists: 0.18, capitalists: -0.20, motorists: 0.05 }
+      } },
+    { id: "netzero", name: "Net Zero & Energy", cat: "Economy", icon: "🌍",
+      unit: "£bn", min: 0, max: 65, def: 15, step: 1, low: "Roll back", high: "Accelerate",
+      fiscal: { type: "s", line: "Net zero & energy", mode: "direct" },
+      effects: {
+        stats: { environment: 0.55, gdp: -0.06, inflation: 0.05, unemployment: 0.02 },
+        groups: { environment: 0.6, young: 0.22, green: 0.4, motorists: -0.22, capitalists: -0.18, patriots: -0.18, workingclass: -0.10 }
       } },
     { id: "tuition", name: "University Tuition Fees", cat: "Economy", icon: "📚",
-      def: 0.55, low: "Abolished (free)", high: "Full fees",
-      budget: function (v) { return -(v - 0.2) * 20; },
+      unit: "£/yr", min: 0, max: 15000, def: 9250, step: 250, low: "Abolish", high: "Full fees",
       effects: {
-        stats: { education: lin(-0.10), equality: lin(-0.18) },
-        groups: { students: linN(-0.7, 0.2), young: lin(-0.30), parents: lin(-0.12),
-                  socialists: lin(-0.18) }
+        stats: { education: -0.10, equality: -0.18 },
+        groups: { students: -0.7, young: -0.30, parents: -0.12, socialists: -0.18 }
       } },
     { id: "businessreg", name: "Business Regulation", cat: "Economy", icon: "🏢",
-      def: 0.5, low: "Deregulate", high: "Strong protections",
-      budget: function (v) { return 0; },
+      unit: "/10", min: 0, max: 10, def: 5, step: 1, low: "Deregulate", high: "Strong protections",
       effects: {
-        stats: { gdp: lin(-0.10), equality: lin(0.12), environment: lin(0.10) },
-        groups: { capitalists: lin(-0.30), selfemployed: lin(-0.20), unions: lin(0.20),
-                  environment: lin(0.12), workingclass: lin(0.08) }
+        stats: { gdp: -0.12, equality: 0.12, environment: 0.10 },
+        groups: { capitalists: -0.30, selfemployed: -0.20, unions: 0.20, environment: 0.12, workingclass: 0.08 }
       } },
 
     // ---- SOCIETY ----
-    { id: "immigration", name: "Immigration Policy", cat: "Society", icon: "🛂",
-      def: 0.5, low: "Open / liberal", high: "Strict / closed",
-      budget: function (v) { return (v - 0.5) * 10; },
+    { id: "immigration", name: "Net Migration (target)", cat: "Society", icon: "🛂",
+      unit: "k/yr", min: 0, max: 700, def: 350, step: 10, low: "Closed", high: "Open",
       effects: {
-        stats: { immigration: lin(-0.45), gdp: lin(-0.18), nhs: lin(-0.06), unemployment: lin(-0.05) },
-        groups: { patriots: lin(0.45), reformvoters: lin(0.4), minorities: lin(-0.35),
-                  liberals: lin(-0.35), capitalists: lin(-0.18), young: lin(-0.12),
-                  workingclass: lin(0.12) }
-      } },
-    { id: "netzero", name: "Net Zero & Climate", cat: "Society", icon: "🌍",
-      def: 0.5, low: "Roll back", high: "Accelerate",
-      budget: function (v) { return v * 40; },
-      effects: {
-        stats: { environment: lin(0.50), gdp: lin(-0.10), inflation: lin(0.06), unemployment: lin(0.04) },
-        groups: { environment: linN(0.6, 0.2), young: lin(0.22), green: 0.4, motorists: lin(-0.25),
-                  capitalists: lin(-0.20), patriots: lin(-0.18), workingclass: lin(-0.10) }
+        stats: { immigration: 0.55, gdp: 0.20, nhs: 0.05, unemployment: 0.04 },
+        groups: { patriots: -0.45, reformvoters: -0.4, minorities: 0.35, liberals: 0.35,
+                  capitalists: 0.20, young: 0.12, workingclass: -0.14 }
       } },
     { id: "foreignaid", name: "Foreign Aid", cat: "Society", icon: "🌐",
-      def: 0.45, low: "Cut to 0.3%", high: "0.7%+ of GNI",
-      budget: function (v) { return v * 18; },
+      unit: "%GNI", min: 0, max: 0.7, def: 0.5, step: 0.05, low: "Cut", high: "0.7% target",
+      fiscal: { type: "s", line: "Foreign aid", mode: "derived", base: 15, swing: 18 },
       effects: {
-        stats: { equality: lin(0.04) },
-        groups: { liberals: lin(0.18), religious: lin(0.12), patriots: lin(-0.25),
-                  reformvoters: lin(-0.3), poor: lin(-0.08) }
+        stats: { equality: 0.04 },
+        groups: { liberals: 0.18, religious: 0.12, patriots: -0.25, reformvoters: -0.3, poor: -0.08 }
       } },
-    { id: "civil", name: "Civil Liberties & Surveillance", cat: "Society", icon: "⚖",
-      def: 0.5, low: "Maximise freedoms", high: "Security-first",
-      budget: function (v) { return v * 8; },
+    { id: "civil", name: "Civil Liberties ↔ Security", cat: "Society", icon: "⚖",
+      unit: "/10", min: 0, max: 10, def: 5, step: 1, low: "Freedoms", high: "Security-first",
+      fiscal: { type: "s", line: "Security & surveillance", mode: "derived", base: 8, swing: 8 },
       effects: {
-        stats: { crime: lin(-0.14), equality: lin(-0.06) },
-        groups: { patriots: lin(0.25), pensioners: lin(0.12), liberals: lin(-0.40),
-                  young: lin(-0.15), minorities: lin(-0.15) }
+        stats: { crime: -0.16, equality: -0.06 },
+        groups: { patriots: 0.25, pensioners: 0.12, liberals: -0.40, young: -0.15, minorities: -0.15 }
       } }
   ];
 
@@ -603,6 +600,64 @@
           effects: { macro: { deficit: 3 }, groups: { workingclass: 0.05, liberals: 0.04 } } },
         { label: "Keep control in Westminster", result: "Tidy for the Treasury; resentment builds in the regions.",
           effects: { groups: { workingclass: -0.04 } } }
+      ] },
+    { id: "indyref", title: "Demand for a Second Scottish Referendum",
+      desc: "After strong nationalist results, Holyrood demands the power to hold another independence vote.",
+      options: [
+        { label: "Refuse a referendum", result: "Unionists are reassured; nationalist grievance hardens.",
+          effects: { groups: { patriots: 0.06, liberals: -0.04 } } },
+        { label: "Grant a Section 30 order", result: "A democratic gesture — and a constitutional gamble.",
+          effects: { all: -0.02, groups: { patriots: -0.10, liberals: 0.06 } } }
+      ] },
+    { id: "mortgages", title: "Mortgage Rate Shock",
+      desc: "The Bank holds rates high to fight inflation and millions face a brutal remortgage cliff-edge.",
+      cond: function (s) { return s.macro.inflation > 3.5; },
+      options: [
+        { label: "Launch a mortgage support scheme", result: "Households relieved; it adds to borrowing and props up prices.",
+          effects: { macro: { deficit: 6 }, groups: { homeowners: 0.10, middleclass: 0.05 } } },
+        { label: "Respect Bank independence, do nothing", result: "Orthodox and prudent; squeezed homeowners are furious.",
+          effects: { groups: { homeowners: -0.10, middleclass: -0.06 } } }
+      ] },
+    { id: "riots", title: "Disorder on the Streets",
+      desc: "A spell of rioting and looting erupts across several cities. The police are stretched.",
+      cond: function (s) { return s.stats.crime > 0.5 || s.groups.poor < 0.4; },
+      options: [
+        { label: "Crackdown & fast-track courts", result: "Order restored hard; civil-liberties groups object.",
+          effects: { policy: { police: 6, civil: 2 }, stats: { crime: -0.06 }, groups: { patriots: 0.08, liberals: -0.08 } } },
+        { label: "Address the root causes", result: "Long-term and humane; the right calls you soft.",
+          effects: { policy: { localgov: 8, welfare: 20 }, groups: { poor: 0.06, patriots: -0.06 } } }
+      ] },
+    { id: "steel", title: "The Last Steelworks Faces Closure",
+      desc: "Britain's remaining primary steel plant will shut without state help, taking thousands of jobs.",
+      options: [
+        { label: "Nationalise / subsidise it", result: "Jobs and sovereignty saved; a heavy, ongoing cost.",
+          effects: { macro: { deficit: 4, unemployment: -0.2 }, groups: { workingclass: 0.08, unions: 0.08, capitalists: -0.05 } } },
+        { label: "Let it close", result: "Fiscally clean; a heartland community is devastated.",
+          effects: { macro: { unemployment: 0.3 }, groups: { workingclass: -0.10, unions: -0.08 } } }
+      ] },
+    { id: "brexit", title: "A Chance to Reset EU Relations",
+      desc: "Brussels offers a deal: closer trade alignment in return for accepting some rules and contributions.",
+      options: [
+        { label: "Pursue closer alignment", result: "Business and growth welcome it; sovereignty hawks revolt.",
+          effects: { macro: { realGrowth: 0.3 }, groups: { capitalists: 0.08, liberals: 0.06, patriots: -0.12, reformvoters: -0.12 } } },
+        { label: "Keep your distance", result: "The base is happy; exporters keep grumbling about friction.",
+          effects: { macro: { realGrowth: -0.1 }, groups: { patriots: 0.08, capitalists: -0.05 } } }
+      ] },
+    { id: "fourday", title: "The Four-Day Week",
+      desc: "Unions and trial schemes push for a shorter working week with no loss of pay.",
+      options: [
+        { label: "Back public-sector trials", result: "Workers delighted; business and the Treasury are sceptical.",
+          effects: { groups: { unions: 0.10, workingclass: 0.06, young: 0.05, capitalists: -0.08 }, macro: { realGrowth: -0.1 } } },
+        { label: "Reject it", result: "The orthodox choice; you look out of touch to younger voters.",
+          effects: { groups: { unions: -0.06, young: -0.04 } } }
+      ] },
+    { id: "flooding", title: "Catastrophic Floods",
+      desc: "Record rainfall devastates towns and farmland. The clean-up bill is enormous and climate questions loom.",
+      options: [
+        { label: "Big resilience & green investment", result: "Praised for leadership; it's expensive.",
+          effects: { policy: { netzero: 8, infra: 10 }, macro: { deficit: 5 }, groups: { environment: 0.10, patriots: 0.03 } } },
+        { label: "Emergency repairs only", result: "Cheaper now; you look short-termist when the next flood hits.",
+          effects: { stats: { environment: -0.04 }, groups: { environment: -0.06 } } }
       ] }
   ];
 
@@ -659,7 +714,6 @@
     GROUPS: GROUPS,
     STATS: STATS,
     FISCAL: FISCAL,
-    FISCAL_MAP: FISCAL_MAP,
     DILEMMAS: DILEMMAS,
     PLEDGES: PLEDGES,
     POLICIES: POLICIES,
