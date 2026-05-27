@@ -16,6 +16,8 @@
     shares: E.sharesFromPreset("ge2024"),
     govern: null,
     governTab: "policies",
+    policyCat: "Taxation",
+    policyDetail: null,
     byseat: null,
     selectedSeat: null,
     mapType: "geo",
@@ -59,7 +61,7 @@
         party: g.party, turn: g.turn, year: g.year, quarter: g.quarter,
         capital: g.capital, maxCapital: g.maxCapital, policies: g.policies,
         stats: g.stats, groups: g.groups, macro: g.macro, pressure: g.pressure,
-        unity: g.unity, discontent: g.discontent, pledges: g.pledges,
+        unity: g.unity, discontent: g.discontent, pledges: g.pledges, history: g.history,
         dilemmaHistory: g.dilemmaHistory, termsWon: g.termsWon, approval: g.approval,
         pendingDilemma: g.pendingDilemma ? g.pendingDilemma.id : null,
         activeEvents: g.activeEvents.map(function (e) { return e.id; })
@@ -80,6 +82,7 @@
       if (s.macro) g.macro = s.macro;
       if (s.pledges) g.pledges = s.pledges;
       g.dilemmaHistory = s.dilemmaHistory || [];
+      g.history = s.history && s.history.length ? s.history : g.history;
       g.activeEvents = (s.activeEvents || []).map(function (id) {
         return D.EVENTS.filter(function (e) { return e.id === id; })[0];
       }).filter(Boolean);
@@ -356,22 +359,22 @@
       '<div style="text-align:right"><div class="lab2">Approval</div><div class="big ' +
       (g.approval > 0.5 ? "outcome-maj" : g.approval < 0.4 ? "outcome-hung" : "") + '">' + approvalPct + '%</div></div></div>';
 
-    var m = g.macro;
+    var m = g.macro, pv = g.history.length > 1 ? g.history[g.history.length - 2] : null;
     var kpis = '<div class="kpis">' +
-      kpi("GDP growth", m.realGrowth.toFixed(1) + "<small>%/yr</small>", m.realGrowth > 1.5 ? "var(--good)" : m.realGrowth > 0 ? "var(--warn)" : "var(--bad)") +
-      kpi("Inflation", m.inflation.toFixed(1) + "<small>% CPI</small>", m.inflation < 3 ? "var(--good)" : m.inflation < 5 ? "var(--warn)" : "var(--bad)") +
-      kpi("Unemployment", m.unemployment.toFixed(1) + "<small>%</small>", m.unemployment < 4.5 ? "var(--good)" : m.unemployment < 6 ? "var(--warn)" : "var(--bad)") +
-      kpi("Deficit / yr", fmtMoney(m.deficit), m.deficit > 180 ? "var(--bad)" : m.deficit > 120 ? "var(--warn)" : "var(--good)") +
-      kpi("National debt", m.debtPct + "<small>% GDP</small>", m.debtPct > 105 ? "var(--bad)" : m.debtPct > 97 ? "var(--warn)" : "var(--good)") +
+      kpi("GDP growth", m.realGrowth.toFixed(1) + "<small>%/yr</small>" + trend(m.realGrowth, pv && pv.growth, true), m.realGrowth > 1.5 ? "var(--good)" : m.realGrowth > 0 ? "var(--warn)" : "var(--bad)") +
+      kpi("Inflation", m.inflation.toFixed(1) + "<small>% CPI</small>" + trend(m.inflation, pv && pv.inflation, false), m.inflation < 3 ? "var(--good)" : m.inflation < 5 ? "var(--warn)" : "var(--bad)") +
+      kpi("Unemployment", m.unemployment.toFixed(1) + "<small>%</small>" + trend(m.unemployment, pv && pv.unemployment, false), m.unemployment < 4.5 ? "var(--good)" : m.unemployment < 6 ? "var(--warn)" : "var(--bad)") +
+      kpi("Deficit / yr", fmtMoney(m.deficit) + trend(m.deficit, pv && pv.deficit, false), m.deficit > 180 ? "var(--bad)" : m.deficit > 120 ? "var(--warn)" : "var(--good)") +
+      kpi("National debt", m.debtPct + "<small>% GDP</small>" + trend(m.debtPct, pv && pv.debtPct, false), m.debtPct > 105 ? "var(--bad)" : m.debtPct > 97 ? "var(--warn)" : "var(--good)") +
       kpi("Seats today", live.playerSeats + "<small>/650</small>", live.won ? "var(--good)" : "var(--bad)") +
       '</div>';
 
-    var tabs = '<div class="tabs">' + [["policies", "Policies"], ["country", "The Country"], ["voters", "Voters"], ["briefing", "Briefing"]]
+    var tabs = '<div class="tabs">' + [["policies", "Policies"], ["economy", "Economy"], ["voters", "Voters"], ["briefing", "Briefing"]]
       .map(function (t) { return '<div class="tab' + (S.governTab === t[0] ? " active" : "") + '" data-tab="' + t[0] + '">' + t[1] + '</div>'; }).join("") + '</div>';
 
     var body;
     if (S.governTab === "policies") body = tabPolicies();
-    else if (S.governTab === "country") body = tabCountry();
+    else if (S.governTab === "economy") body = tabEconomy();
     else if (S.governTab === "voters") body = tabVoters();
     else body = tabBriefing(live);
 
@@ -392,7 +395,14 @@
       '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
       U.seatBar(live.totals) + U.legend(live.totals) + '</div></div>';
 
-    return head + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal();
+    return head + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal();
+  }
+  function trend(cur, prev, goodHigh) {
+    if (prev == null) return "";
+    var d = cur - prev;
+    if (Math.abs(d) < 0.05) return "";
+    var up = d > 0, good = goodHigh ? up : !up;
+    return ' <span style="font-size:12px;color:' + (good ? "var(--good)" : "var(--bad)") + '">' + (up ? "▲" : "▼") + "</span>";
   }
   function dilemmaModal() {
     var g = S.govern, d = g.pendingDilemma;
@@ -434,50 +444,100 @@
     var delta = pol.fiscal.mode === "direct" ? (v - pol.def) : pol.fiscal.swing * (v - pol.def) / (pol.max - pol.min);
     return pol.fiscal.type === "s" ? delta : -delta;
   }
+  var POLICY_CATS = ["Taxation", "Public Services", "Welfare", "Economy", "Society"];
+  var STAT_NAME = { gdp: "Growth", inflation: "Inflation", unemployment: "Unemployment",
+    nhs: "NHS / Health", education: "Education", crime: "Crime", housing: "Housing",
+    immigration: "Net migration", environment: "Environment", equality: "Equality" };
+  function statIsBadWhenHigh(id) { return id === "inflation" || id === "unemployment" || id === "crime" || id === "immigration"; }
+
   function tabPolicies() {
-    var g = S.govern, cats = {}, order = [];
-    D.POLICIES.forEach(function (p) { if (!cats[p.cat]) { cats[p.cat] = []; order.push(p.cat); } cats[p.cat].push(p); });
-    var html = '<div class="two">';
-    order.forEach(function (cat) {
-      html += '<div class="panel"><div class="policy-cat">' + cat + '</div>';
-      cats[cat].forEach(function (pol) {
-        var v = g.policies[pol.id];
-        var imp = deficitImpact(pol, v);
-        var impTxt = Math.abs(imp) < 0.5 ? '<small class="faint">at default</small>'
-          : '<small style="color:' + (imp > 0 ? "var(--bad)" : "var(--good)") + '">' + (imp > 0 ? "+" : "−") + "£" + Math.abs(Math.round(imp)) + "bn</small>";
-        html += '<div class="slider-row"><div class="name">' + pol.icon + " " + pol.name +
-          '<small>' + pol.low + " ↔ " + pol.high + '</small></div>' +
-          '<input type="range" min="' + pol.min + '" max="' + pol.max + '" step="' + (pol.step || 1) + '" value="' + v + '" data-policy="' + pol.id + '">' +
-          '<div class="val"><span class="pv">' + fmtPolicyVal(pol, v) + '</span><br>' + impTxt + '</div></div>';
-      });
-      html += '</div>';
-    });
-    html += '</div>';
-    return html;
+    var g = S.govern;
+    var pills = POLICY_CATS.map(function (c) {
+      return '<div class="tab' + (S.policyCat === c ? " active" : "") + '" data-polcat="' + c + '">' + c + '</div>';
+    }).join("");
+    var rows = D.POLICIES.filter(function (p) { return p.cat === S.policyCat; }).map(function (pol) {
+      var v = g.policies[pol.id], imp = deficitImpact(pol, v);
+      var impTxt = Math.abs(imp) < 0.5 ? '<span class="faint">±0</span>'
+        : '<span style="color:' + (imp > 0 ? "var(--bad)" : "var(--good)") + '">' + (imp > 0 ? "+" : "−") + "£" + Math.abs(Math.round(imp)) + "bn</span>";
+      var moved = Math.abs(v - pol.def) > 1e-9;
+      return '<div class="pol-row" data-poldetail="' + pol.id + '">' +
+        '<div class="pol-ic">' + pol.icon + '</div>' +
+        '<div class="pol-name">' + pol.name + (moved ? ' <span class="moved">●</span>' : "") + '<small>' + pol.low + " ↔ " + pol.high + '</small></div>' +
+        '<div class="pol-val">' + fmtPolicyVal(pol, v) + '</div>' +
+        '<div class="pol-imp">' + impTxt + '</div><div class="pol-go">›</div></div>';
+    }).join("");
+    return '<div class="panel"><div class="tabs subtabs">' + pills + '</div>' +
+      '<div class="pol-list">' + rows + '</div>' +
+      '<p class="notice">Click a policy to set it in real terms and see exactly what it costs and which parts of the economy and which voters it helps or hurts.</p></div>';
   }
 
-  function tabCountry() {
-    var g = S.govern, m = g.macro;
-    var rows = D.STATS.map(function (st) {
-      var v = g.stats[st.id];
-      return '<div class="stat-row"><div class="name">' + st.name + '</div>' +
-        '<div class="statbar"><i style="width:' + (v * 100) + '%;background:' + U.statColor(st, v) + '"></i></div>' +
-        '<div class="v">' + Math.round(v * 100) + '</div></div>';
+  // Democracy-style policy detail: the lever plus a clear impact breakdown.
+  function policyDetailModal() {
+    var g = S.govern, id = S.policyDetail; if (!id) return "";
+    var pol = D.POLICIES.filter(function (p) { return p.id === id; })[0]; if (!pol) return "";
+    var v = g.policies[id], imp = deficitImpact(pol, v);
+    var impLine = !pol.fiscal ? '<span class="faint">no direct budget cost</span>'
+      : '<b style="color:' + (imp > 0 ? "var(--bad)" : "var(--good)") + '">' + (imp > 0 ? "+£" + Math.round(imp) + "bn to the deficit" : "−£" + Math.abs(Math.round(imp)) + "bn (saves money)") + '</b>';
+    // economic effects of raising this lever
+    var econ = Object.keys(pol.effects.stats || {}).map(function (sid) {
+      var k = pol.effects.stats[sid]; if (!k) return "";
+      var up = k > 0, good = up ? !statIsBadWhenHigh(sid) : statIsBadWhenHigh(sid);
+      var mag = Math.min(3, Math.ceil(Math.abs(k) / 0.18));
+      return '<div class="eff-row"><span>' + (STAT_NAME[sid] || sid) + '</span>' +
+        '<span style="color:' + (good ? "var(--good)" : "var(--bad)") + '">' + (up ? "▲" : "▼") + " ".repeat(0) +
+        '<span class="faint" style="margin-left:4px">' + "▮".repeat(mag) + '</span></span></div>';
+    }).join("") || '<div class="faint">No direct economic effect.</div>';
+    // voter winners / losers if raised
+    var gains = [], loses = [];
+    Object.keys(pol.effects.groups || {}).forEach(function (gid) {
+      var grp = D.GROUPS.filter(function (x) { return x.id === gid; })[0]; if (!grp) return;
+      var k = pol.effects.groups[gid]; if (!k) return;
+      (k > 0 ? gains : loses).push(grp.name);
+    });
+    function pills(arr, col) {
+      return arr.length ? arr.map(function (nm) { return '<span class="pill" style="background:' + col + '22;color:' + col + '">' + U.esc(nm) + '</span>'; }).join(" ") : '<span class="faint">—</span>';
+    }
+    return '<div class="modal-overlay pol-overlay"><div class="modal">' +
+      '<div class="modal-tag">' + pol.cat + '</div><h2>' + pol.icon + " " + U.esc(pol.name) + '</h2>' +
+      '<div class="pol-detail-set"><div class="row" style="justify-content:space-between;align-items:baseline">' +
+        '<span class="faint">' + U.esc(pol.low) + '</span><span class="pdval pv" style="font-size:22px;font-weight:800">' + fmtPolicyVal(pol, v) + '</span>' +
+        '<span class="faint">' + U.esc(pol.high) + '</span></div>' +
+      '<input type="range" style="width:100%" min="' + pol.min + '" max="' + pol.max + '" step="' + (pol.step || 1) + '" value="' + v + '" data-policy="' + pol.id + '">' +
+      '<div style="margin-top:6px">Budget impact: ' + impLine + '</div></div>' +
+      '<div class="viz2" style="margin-top:14px">' +
+        '<div><div class="lab2" style="margin-bottom:6px">Raising this affects</div>' + econ + '</div>' +
+        '<div><div class="lab2" style="margin-bottom:6px">Pleases</div>' + pills(gains, "#2ecc71") +
+        '<div class="lab2" style="margin:10px 0 6px">Upsets</div>' + pills(loses, "#e74c3c") + '</div>' +
+      '</div>' +
+      '<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn primary" data-act="closepolicy">Done</button></div>' +
+      '</div></div>';
+  }
+
+  function tabEconomy() {
+    var g = S.govern, m = g.macro, h = g.history;
+    function ser(key) { return h.map(function (x) { return x[key]; }); }
+    var charts = [
+      { t: "Approval", v: (g.approval * 100).toFixed(1) + "%", s: ser("approval").map(function (x) { return x * 100; }), c: "#c9a227", band: [45, 60] },
+      { t: "GDP growth", v: m.realGrowth.toFixed(1) + "%", s: ser("growth"), c: "#2ecc71", band: [1.5, 3] },
+      { t: "Inflation", v: m.inflation.toFixed(1) + "%", s: ser("inflation"), c: "#f5a623", band: [0, 2] },
+      { t: "Unemployment", v: m.unemployment.toFixed(1) + "%", s: ser("unemployment"), c: "#12b6cf" },
+      { t: "Deficit", v: fmtMoney(m.deficit), s: ser("deficit"), c: "#e74c3c" },
+      { t: "Debt", v: m.debtPct + "% GDP", s: ser("debtPct"), c: "#faa61a" }
+    ];
+    var cards = charts.map(function (c) {
+      return '<div class="chart-card"><div class="chart-h"><span>' + c.t + '</span><b>' + c.v + '</b></div>' +
+        U.lineChart(c.s, { color: c.c, band: c.band }) + '</div>';
     }).join("");
-    // real budget breakdown
+    var chartPanel = '<div class="panel" style="margin-bottom:16px"><h3>The Economy over time</h3>' +
+      '<div class="chart-grid">' + cards + '</div>' +
+      '<p class="notice">Each chart tracks a headline figure quarter by quarter. Shaded bands show a healthy range. Watch how your policies move them.</p></div>';
+
     function fLines(obj) {
-      var keys = Object.keys(obj).sort(function (a, b) { return obj[b] - obj[a]; });
-      return keys.map(function (k) {
+      return Object.keys(obj).sort(function (a, b) { return obj[b] - obj[a]; }).map(function (k) {
         return '<tr><td>' + U.esc(k) + '</td><td class="num">£' + Math.round(obj[k]) + 'bn</td></tr>';
       }).join("");
     }
-    var budget = '<div class="panel" style="margin-bottom:16px"><h3>The Economy — real figures</h3>' +
-      '<div class="kpis" style="margin-bottom:8px">' +
-        kpi("GDP", "£" + (m.gdp / 1000).toFixed(2) + "<small>tn</small>") +
-        kpi("Real growth", m.realGrowth.toFixed(1) + "<small>%</small>") +
-        kpi("Inflation (CPI)", m.inflation.toFixed(1) + "<small>%</small>") +
-        kpi("Unemployment", m.unemployment.toFixed(1) + "<small>%</small>") +
-      '</div>' +
+    var budget = '<div class="panel" style="margin-bottom:16px"><h3>The Public Finances (£bn)</h3>' +
       '<div class="viz2"><div><table class="tbl"><thead><tr><th>Receipts</th><th class="num">£bn</th></tr></thead><tbody>' +
         fLines(g.fiscalLines.r) + '<tr style="font-weight:800"><td>Total receipts</td><td class="num">£' + m.receipts + 'bn</td></tr></tbody></table></div>' +
       '<div><table class="tbl"><thead><tr><th>Spending</th><th class="num">£bn</th></tr></thead><tbody>' +
@@ -486,9 +546,17 @@
         kpi("Deficit / yr", fmtMoney(m.deficit), m.deficit > 150 ? "var(--bad)" : "var(--warn)") +
         kpi("Net debt", "£" + (m.debt / 1000).toFixed(2) + "tn <small>" + m.debtPct + "% GDP</small>") +
         kpi("Debt interest", fmtMoney(m.debtInterest)) +
-      '</div><p class="notice">Starting figures are the real UK 2024–25 position (OBR / ONS). Each policy slider moves its own budget line; receipts grow with the economy and debt interest with the debt stock.</p></div>';
-    return budget + '<div class="panel"><h3>State of the Nation (quality of services)</h3>' + rows +
-      '<p class="notice">These qualitative indicators move with a lag and feed into each other — poor education drives crime, a strained NHS hits pensioners, and so on.</p></div>';
+      '</div><p class="notice">Starting figures are the real UK 2024–25 position (OBR / ONS). Receipts grow with the economy; spending rises with inflation; debt interest climbs with the debt.</p></div>';
+
+    var rows = D.STATS.map(function (st) {
+      var v = g.stats[st.id];
+      return '<div class="stat-row"><div class="name">' + st.name + '</div>' +
+        '<div class="statbar"><i style="width:' + (v * 100) + '%;background:' + U.statColor(st, v) + '"></i></div>' +
+        '<div class="v">' + Math.round(v * 100) + '</div></div>';
+    }).join("");
+    var services = '<div class="panel"><h3>State of the Nation (quality of services)</h3>' + rows +
+      '<p class="notice">These move with a lag and feed into each other — poor education drives crime, a strained NHS hits pensioners — and decay over time unless you invest.</p></div>';
+    return chartPanel + budget + services;
   }
 
   function tabVoters() {
@@ -593,6 +661,13 @@
     app.querySelectorAll("[data-tab]").forEach(function (el) {
       el.addEventListener("click", function () { S.governTab = el.getAttribute("data-tab"); render(); });
     });
+    // policy category pills + opening a policy's detail panel
+    app.querySelectorAll("[data-polcat]").forEach(function (el) {
+      el.addEventListener("click", function () { S.policyCat = el.getAttribute("data-polcat"); render(); });
+    });
+    app.querySelectorAll("[data-poldetail]").forEach(function (el) {
+      el.addEventListener("click", function () { S.policyDetail = el.getAttribute("data-poldetail"); render(); });
+    });
     // generic actions
     app.querySelectorAll("[data-act]").forEach(function (el) {
       el.addEventListener("click", function () { action(el.getAttribute("data-act")); });
@@ -696,6 +771,7 @@
         else if (!g.pendingDilemma) toast("Quarter ended — " + g.year + " Q" + g.quarter);
         break;
       }
+      case "closepolicy": S.policyDetail = null; render(); break;
       case "continuesave": if (loadGame()) go("govern"); break;
       case "discardsave": clearSave(); render(); break;
       case "restart": clearSave(); S.govern = null; go("govern-setup"); break;
@@ -818,6 +894,9 @@
         E.resolveDilemma(S.govern, parseInt(d.getAttribute("data-dilemma"), 10));
         render();
         return;
+      }
+      if (e.target.classList && e.target.classList.contains("pol-overlay")) {
+        S.policyDetail = null; render(); return;
       }
       var seat = e.target.closest("[data-seat]");
       if (seat) {

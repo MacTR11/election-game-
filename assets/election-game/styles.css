@@ -166,6 +166,32 @@ a { color: var(--commons-l); }
 .gcell .gbar > i { display: block; height: 100%; }
 
 .policy-cat { margin: 0 0 6px; font-size: 12px; letter-spacing: .8px; text-transform: uppercase; color: var(--gold); font-weight: 800; }
+
+/* policy category sub-tabs + clickable policy list */
+.tabs.subtabs { margin-bottom: 12px; }
+.tabs.subtabs .tab { font-size: 12.5px; padding: 6px 12px; }
+.pol-list { display: grid; gap: 6px; }
+.pol-row { display: grid; grid-template-columns: 26px 1fr auto auto 16px; gap: 10px; align-items: center;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); cursor: pointer; transition: border-color .12s, transform .05s; }
+.pol-row:hover { border-color: var(--commons-l); }
+.pol-row:active { transform: translateY(1px); }
+.pol-ic { font-size: 17px; text-align: center; }
+.pol-name { font-size: 13.5px; font-weight: 600; min-width: 0; }
+.pol-name small { display: block; color: var(--ink-faint); font-weight: 500; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pol-name .moved { color: var(--gold); font-size: 10px; vertical-align: middle; }
+.pol-val { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 14px; }
+.pol-imp { font-size: 12px; font-variant-numeric: tabular-nums; }
+.pol-go { color: var(--ink-faint); font-size: 18px; }
+.pol-detail-set { background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.eff-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 3px 0; border-bottom: 1px solid var(--border); }
+
+/* economy charts */
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.chart-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.chart-card .chart-h { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.chart-card .chart-h span { font-size: 12px; color: var(--ink-dim); }
+.chart-card .chart-h b { font-size: 17px; font-variant-numeric: tabular-nums; }
+svg.linechart { width: 100%; height: 64px; display: block; }
 .event { border-left: 3px solid var(--bad); background: rgba(231,76,60,.08); padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; }
 .event.good { border-left-color: var(--good); background: rgba(46,204,113,.08); }
 .event .et { font-weight: 700; font-size: 13px; }

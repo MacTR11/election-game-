@@ -283,7 +283,7 @@
                        receipts: F.receiptsTotal, spending: F.spendingTotal,
                        deficit: F.spendingTotal - F.receiptsTotal,
                        debtPct: Math.round(F.debt / F.gdp * 100) },
-              pressure: 0, pendingDilemma: null, dilemmaHistory: [],
+              pressure: 0, pendingDilemma: null, dilemmaHistory: [], history: [],
               unity: 0.7, discontent: 0, pledges: pickPledges(),
               approval: 0.5, lastElection: null, termsWon: 0, gameOver: false, oustedBy: null, log: [] };
     var i;
@@ -294,7 +294,18 @@
     computeTargets(s, true);
     computeFiscal(s);
     s.approval = computeApproval(s);
+    recordHistory(s);
     return s;
+  }
+
+  // Snapshot the headline numbers each quarter so the UI can chart trends.
+  function recordHistory(s) {
+    s.history.push({
+      label: s.year + " Q" + s.quarter, approval: s.approval,
+      growth: s.macro.realGrowth, inflation: s.macro.inflation,
+      unemployment: s.macro.unemployment, deficit: s.macro.deficit, debtPct: s.macro.debtPct
+    });
+    if (s.history.length > 60) s.history.shift();
   }
 
   // Translate the real macro numbers into the 0..1 signals the political model
@@ -511,6 +522,7 @@
     state.turn += 1;
     state.quarter += 1;
     if (state.quarter > 4) { state.quarter = 1; state.year += 1; }
+    recordHistory(state);
 
     var electionDue = state.turn >= TERM_QUARTERS;
     // a decision lands on the desk most quarters (never on an election quarter)

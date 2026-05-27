@@ -164,6 +164,38 @@
     }).join("") + '</div>';
   }
 
+  // --- compact line chart for a metric over time (Democracy-style trend) ----
+  // series: array of numbers. opts: { color, min, max, good ('high'|'low'),
+  //   fmt(v), band:[lo,hi] optional shaded healthy band }.
+  function lineChart(series, opts) {
+    opts = opts || {};
+    var W = 240, H = 70, padL = 4, padR = 4, padT = 8, padB = 8;
+    var n = series.length;
+    var lo = opts.min, hi = opts.max;
+    if (lo == null || hi == null) {
+      lo = Math.min.apply(null, series); hi = Math.max.apply(null, series);
+      var m = (hi - lo) * 0.2 || 1; lo -= m; hi += m;
+    }
+    if (hi === lo) hi = lo + 1;
+    var color = opts.color || "var(--commons-l)";
+    function X(i) { return padL + (n <= 1 ? 0 : i / (n - 1) * (W - padL - padR)); }
+    function Y(v) { return padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB); }
+    var pts = series.map(function (v, i) { return X(i).toFixed(1) + "," + Y(v).toFixed(1); });
+    var area = "M" + X(0).toFixed(1) + "," + (H - padB) + " L" + pts.join(" L") + " L" + X(n - 1).toFixed(1) + "," + (H - padB) + " Z";
+    var band = "";
+    if (opts.band) {
+      var y1 = Y(Math.min(opts.band[1], hi)), y2 = Y(Math.max(opts.band[0], lo));
+      band = '<rect x="' + padL + '" y="' + y1.toFixed(1) + '" width="' + (W - padL - padR) + '" height="' + Math.max(0, y2 - y1).toFixed(1) + '" fill="#ffffff" opacity="0.05"/>';
+    }
+    var last = series[n - 1], lastX = X(n - 1), lastY = Y(last);
+    return '<svg class="linechart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img">' +
+      band +
+      '<path d="' + area + '" fill="' + color + '" opacity="0.13"/>' +
+      '<polyline points="' + pts.join(" ") + '" fill="none" stroke="' + color + '" stroke-width="1.6" stroke-linejoin="round"/>' +
+      '<circle cx="' + lastX.toFixed(1) + '" cy="' + lastY.toFixed(1) + '" r="2.4" fill="' + color + '"/>' +
+      '</svg>';
+  }
+
   // --- national vote-share bars with swing vs 2024 (polling viz) ------------
   function voteSwing(shares) {
     var D = window.UKGAME.DATA, base = D.BASELINE;
@@ -223,7 +255,7 @@
   window.UKGAME.UI = {
     esc: esc, pname: pname, pcolor: pcolor, pshort: pshort,
     hemicycle: hemicycle, hexmap: hexmap, geomap: geomap, seatBar: seatBar, legend: legend, headline: headline,
-    voteSwing: voteSwing, seatCard: seatCard,
+    voteSwing: voteSwing, seatCard: seatCard, lineChart: lineChart,
     statColor: statColor, orderedParties: orderedParties, num: num,
     SEAT_ORDER: SEAT_ORDER
   };
