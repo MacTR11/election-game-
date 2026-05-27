@@ -16,6 +16,7 @@
     shares: E.sharesFromPreset("ge2024"),
     govern: null,
     governTab: "policies",
+    setupRole: "government",
     policyCat: "Taxation",
     policyDetail: null,
     pledgeSel: [],
@@ -55,16 +56,19 @@
   }
 
   // -------------------------------------------------------- save / load
-  var SAVE_KEY = "uknumber10_save_v2";
+  var SAVE_KEY = "uknumber10_save_v3";
   function saveGame() {
     var g = S.govern; if (!g) return;
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({
+        role: g.role || "government", incumbent: g.incumbent,
         party: g.party, turn: g.turn, year: g.year, quarter: g.quarter,
         capital: g.capital, maxCapital: g.maxCapital, policies: g.policies,
         stats: g.stats, groups: g.groups, macro: g.macro, pressure: g.pressure,
         unity: g.unity, discontent: g.discontent, pledges: g.pledges, history: g.history,
         dilemmaHistory: g.dilemmaHistory, termsWon: g.termsWon, approval: g.approval,
+        oppShare: g.oppShare, govApproval: g.govApproval, energy: g.energy, maxEnergy: g.maxEnergy,
+        momentum: g.momentum, oppHistory: g.oppHistory,
         pendingDilemma: g.pendingDilemma ? g.pendingDilemma.id : null,
         activeEvents: g.activeEvents.map(function (e) { return e.id; })
       }));
@@ -75,8 +79,10 @@
   function loadGame() {
     try {
       var s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (!s) return false;
-      var g = E.newGovernState(s.party);
-      ["turn", "year", "quarter", "capital", "maxCapital", "pressure", "unity", "discontent", "termsWon", "approval"]
+      var opp = s.role === "opposition";
+      var g = opp ? E.newOppositionState(s.party) : E.newGovernState(s.party);
+      ["turn", "year", "quarter", "capital", "maxCapital", "pressure", "unity", "discontent", "termsWon", "approval",
+       "oppShare", "govApproval", "energy", "maxEnergy", "momentum", "incumbent"]
         .forEach(function (k) { if (s[k] != null) g[k] = s[k]; });
       if (s.policies) g.policies = s.policies;
       if (s.stats) g.stats = s.stats;
@@ -85,12 +91,13 @@
       if (s.pledges) g.pledges = s.pledges;
       g.dilemmaHistory = s.dilemmaHistory || [];
       g.history = s.history && s.history.length ? s.history : g.history;
+      if (opp) { g.oppHistory = s.oppHistory && s.oppHistory.length ? s.oppHistory : g.oppHistory; }
       g.activeEvents = (s.activeEvents || []).map(function (id) {
         return D.EVENTS.filter(function (e) { return e.id === id; })[0];
       }).filter(Boolean);
       g.pendingDilemma = s.pendingDilemma ? (D.DILEMMAS.filter(function (d) { return d.id === s.pendingDilemma; })[0] || null) : null;
       g.gameOver = false; g.lastElection = null;
-      S.govern = g; return true;
+      S.govern = g; S.loadedRole = opp ? "opposition" : "government"; return true;
     } catch (e) { return false; }
   }
   function autosave() {
@@ -120,20 +127,21 @@
       case "govern-setup":html = viewGovernSetup(); break;
       case "pledges":     html = viewPledgeSelect(); break;
       case "campaign":    html = viewCampaign(); break;
+      case "opposition":  html = viewOpposition(); break;
       case "govern":      html = viewGovern(); break;
       case "election":    html = viewElectionNight(); break;
       default:            html = viewHome();
     }
     app.innerHTML = html;
-    if (S.screen === "govern" && S.govern) autosave();
+    if ((S.screen === "govern" || S.screen === "opposition") && S.govern) autosave();
     afterRender();
   }
 
   // ----------------------------------------------------------------- home view
   function viewHome() {
     var modes = [
-      { s: "govern-setup", ico: "🏛", h: "Govern the Country", tag: "Flagship mode",
-        p: "Take charge as PM. Set 28 policies in real terms — actual tax rates, £bn budgets, the triple lock, net migration — on the real UK 2024–25 public finances. Balance the books, run real GDP/inflation/debt, weather decision dilemmas and keep your party and the voters onside." },
+      { s: "govern-setup", ico: "🏛", h: "Lead a Party", tag: "Flagship mode",
+        p: "Govern as PM — set 28 real policies (tax rates, £bn budgets, the triple lock) on the real UK 2024–25 finances, weather PMQs and dilemmas, and win re-election. Or lead the Opposition: attack the government, win over voters and campaign your way into Number 10." },
       { s: "simulator", ico: "🗳", h: "General Election Simulator", tag: "Swingometer + map",
         p: "Dial in national vote shares — or load the latest polls — and project all 650 real constituencies seat-by-seat, with a full UK map, swing chart, battlegrounds and the Commons hemicycle. Click any seat for detail." }
     ];
@@ -256,6 +264,7 @@
 
   // --------------------------------------------------------- govern: setup
   function viewGovernSetup() {
+    var opp = S.setupRole === "opposition";
     var cards = D.MAIN_PARTIES.filter(function (p) { return D.PARTIES[p].playable; }).map(function (p) {
       var party = D.PARTIES[p];
       var econ = party.econ < -0.2 ? "Left" : party.econ > 0.2 ? "Right" : "Centre";
@@ -263,17 +272,23 @@
       return '<div class="mode-card" data-party="' + p + '" style="border-top:4px solid ' + party.color + '">' +
         '<div class="ico" style="color:' + party.color + '">●</div><h2>' + party.name + '</h2>' +
         '<p>' + econ + ' on economics · ' + soc + ' on social issues.<br>2024 vote: ' + (D.BASELINE[p] || "<1") + '%</p>' +
-        '<div class="tag">Govern as ' + party.short + ' →</div></div>';
+        '<div class="tag">' + (opp ? "Lead " + party.short + " in opposition" : "Govern as " + party.short) + ' →</div></div>';
     }).join("");
     var resume = hasSave()
       ? '<div class="panel" style="margin-bottom:18px;display:flex;align-items:center;gap:14px">' +
-        '<div><div class="lab2">Saved government</div><div style="font-weight:800">You have a government in progress.</div></div>' +
+        '<div><div class="lab2">Saved game</div><div style="font-weight:800">You have a game in progress.</div></div>' +
         '<span class="spacer"></span><button class="btn primary" data-act="continuesave">Continue ▶</button>' +
         '<button class="btn sm" data-act="discardsave">Discard</button></div>'
       : "";
-    return '<h2 class="section-title">Form a Government</h2>' +
-      '<p class="subtitle">Choose the party you will lead into Number 10. Your starting coalition of voters depends on who you are.</p>' +
-      resume + '<div class="modes">' + cards + '</div>';
+    var roleToggle = '<div class="tabs" style="margin-bottom:6px">' +
+      '<div class="tab' + (!opp ? " active" : "") + '" data-setuprole="government">🏛 Lead the Government</div>' +
+      '<div class="tab' + (opp ? " active" : "") + '" data-setuprole="opposition">📣 Lead the Opposition</div></div>';
+    var blurb = opp
+      ? "You start out of power. Attack the government, win over voters and campaign to take office at the next election."
+      : "You take charge as Prime Minister and set the country's policies from day one.";
+    return '<h2 class="section-title">Choose Your Role</h2>' +
+      '<p class="subtitle">' + blurb + '</p>' + resume + roleToggle +
+      '<div class="modes" style="margin-top:14px">' + cards + '</div>';
   }
 
   // ----------------------------------------------------- manifesto pledges
@@ -306,7 +321,7 @@
     var g = S.govern, c = S.campaign;
     var spent = campaignSpent(), left = c.budget - spent;
     var adj = E.campaignAdj(g.party, c.alloc);
-    var proj = E.runGeneralElection(g, adj);
+    var proj = g.role === "opposition" ? E.runOppositionElection(g, adj) : E.runGeneralElection(g, adj);
     var byReg = {}; proj.byRegion.forEach(function (br) { byReg[br.region.id] = br.seats; });
     var rows = D.REGIONS.map(function (r) {
       var seats = byReg[r.id] || {}, mine = seats[g.party] || 0;
@@ -326,6 +341,66 @@
       '<div class="row" style="margin-top:12px"><button class="btn primary" data-act="pollingday" style="flex:1;justify-content:center">Polling Day ▶</button>' +
       '<button class="btn" data-act="resetcamp">Reset</button></div></div>' +
       '<div class="panel"><h3>Projected Commons</h3>' + U.hemicycle(proj.totals) + U.seatBar(proj.totals) + U.legend(proj.totals, { shares: proj.shares }) + '</div></div>';
+  }
+
+  // ------------------------------------------------------------- opposition
+  function viewOpposition() {
+    var g = S.govern;
+    if (g.gameOver) return viewGameOver();
+    var party = D.PARTIES[g.party], inc = D.PARTIES[g.incumbent];
+    var govShare = E.govShareFrom(g);
+    var live = E.runOppositionElection(g);
+    var termPct = Math.min(100, g.turn / E.TERM_QUARTERS * 100);
+    var head = '<div class="headline">' +
+      '<span class="sw" style="width:34px;height:34px;border-radius:8px;background:' + party.color + '"></span>' +
+      '<div><div class="lab2">' + party.name + ' · Leader of the Opposition</div><div class="big">' + g.year + ' · Q' + g.quarter + '</div></div>' +
+      '<div class="spacer"></div>' +
+      '<div style="text-align:right"><div class="lab2">Your poll share</div><div class="big" style="color:' + party.color + '">' + g.oppShare.toFixed(1) + '%</div></div></div>';
+    var kpis = '<div class="kpis">' +
+      kpi("You (" + party.short + ")", g.oppShare.toFixed(1) + "<small>%</small>", party.color) +
+      kpi(inc.short + " govt", govShare.toFixed(1) + "<small>%</small>", inc.color) +
+      kpi("Govt approval", (g.govApproval * 100).toFixed(0) + "<small>%</small>", g.govApproval < 0.42 ? "var(--good)" : "var(--warn)") +
+      kpi("Seats if voted today", live.playerSeats + "<small>/650</small>", live.won ? "var(--good)" : "var(--bad)") +
+      kpi("Govt seats", (live.totals[g.incumbent] || 0) + "<small>/650</small>") +
+      '</div>';
+    // poll chart
+    var oppSeries = g.oppHistory.map(function (x) { return x.opp; });
+    var govSeries = g.oppHistory.map(function (x) { return x.govApp; });
+    var chart = '<div class="panel" style="margin-top:16px"><h3>The Polls</h3><div class="viz2">' +
+      '<div class="chart-card"><div class="chart-h"><span>Your vote share</span><b style="color:' + party.color + '">' + g.oppShare.toFixed(1) + '%</b></div>' + U.lineChart(oppSeries, { color: party.color }) + '</div>' +
+      '<div class="chart-card"><div class="chart-h"><span>Government approval</span><b>' + (g.govApproval * 100).toFixed(0) + '%</b></div>' + U.lineChart(govSeries, { color: inc.color, band: [42, 60] }) + '</div>' +
+      '</div></div>';
+    // government scorecard — attack targets
+    var weakRows = Object.keys(E.OPP_THEMES).map(function (k) {
+      var w = g.weak[k] || 0;
+      var col = w > 0.55 ? "var(--bad)" : w > 0.4 ? "var(--warn)" : "var(--good)";
+      return '<div class="stat-row"><div class="name" style="text-transform:capitalize">' + E.OPP_THEMES[k] + '</div>' +
+        '<div class="statbar"><i style="width:' + (w * 100) + '%;background:' + col + '"></i></div>' +
+        '<button class="btn sm" data-opp="attack:' + k + '"' + (g.energy < 2 ? " disabled" : "") + '>Attack</button></div>';
+    }).join("");
+    var scorecard = '<div class="panel"><h3>Attack the Government</h3>' + weakRows +
+      '<p class="notice">The longer bars are where the government is weakest — attacks land hardest there.</p></div>';
+    // positioning + ground game
+    var stances = [["pensioners", "Protect pensions"], ["workingclass", "Side with working families"], ["patriots", "Control immigration"],
+      ["capitalists", "Cut business taxes"], ["environment", "A green new deal"], ["young", "A future for the young"]];
+    var promote = '<div class="panel"><h3>Promote Your Party</h3><div class="row" style="gap:6px;flex-wrap:wrap">' +
+      stances.map(function (s) { return '<button class="btn sm" data-opp="promote:' + s[0] + '"' + (g.energy < 2 ? " disabled" : "") + '>' + s[1] + '</button>'; }).join("") +
+      '</div><div class="row" style="gap:6px;margin-top:10px"><button class="btn" data-opp="blitz"' + (g.energy < 4 ? " disabled" : "") + '>📣 National media blitz (4)</button></div>' +
+      '<p class="notice">Win over a voter bloc, or spend big on a national blitz. Each move costs campaign energy.</p></div>';
+    var dots = ""; for (var i = 0; i < g.maxEnergy; i++) dots += '<i class="' + (i < g.energy ? "on" : "") + '"></i>';
+    var sidebar = '<div class="panel"><h3>The Parliament</h3>' +
+      '<div class="statbar" style="margin-bottom:6px"><i style="width:' + termPct + '%;background:' + party.color + '"></i></div>' +
+      '<div class="muted" style="font-size:12px">Quarter ' + g.turn + ' of ' + E.TERM_QUARTERS + ' until the election you must win.</div>' +
+      '<div style="margin:14px 0 4px"><div class="lab2">Campaign energy · <b style="color:var(--gold)">' + g.energy + ' / ' + g.maxEnergy + '</b></div><div class="capital-dots">' + dots + '</div></div>' +
+      '<div class="muted" style="font-size:11.5px;margin-bottom:14px">Spent on attacks, positioning and the ground game. Regenerates each quarter.</div>' +
+      '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center;margin-bottom:8px">End Quarter ▶</button>' +
+      '<button class="btn" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Force an Election</button>' +
+      '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Stand down</button>' +
+      '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
+      U.seatBar(live.totals) + U.legend(live.totals) + '</div></div>';
+    return head + kpis + chart +
+      '<div class="dash" style="margin-top:16px"><div>' + scorecard + '<div style="height:16px"></div>' + promote + '</div>' + sidebar + '</div>' +
+      dilemmaModal();
   }
 
   // --------------------------------------------------------- govern: main
@@ -615,21 +690,25 @@
 
   // --------------------------------------------------------- election night
   function viewElectionNight() {
-    var r = S.govern.lastElection, won = r.won, gv = r.government;
-    var govDesc = gv.type === "majority" ? U.pname(gv.formateur) + " majority government"
-      : gv.type === "coalition" ? U.pname(gv.formateur) + "-led coalition (" + gv.members.map(U.pshort).join(" + ") + ")"
-      : U.pname(gv.formateur) + " minority government";
+    var g = S.govern, r = g.lastElection, won = r.won, gv = r.government;
+    var isOpp = g.role === "opposition";
     var contLabel = gv.type === "majority" ? "Continue — majority of " + r.playerMajority
       : gv.type === "coalition" ? "Continue — form your coalition ▶" : "Continue — lead a minority ▶";
+    var btn;
+    if (isOpp && won) btn = '<button class="btn primary" data-act="takepower">Enter Number 10 ▶</button>';
+    else if (isOpp) btn = '<button class="btn" data-act="fighton">Carry on as Opposition ▶</button>';
+    else if (won) btn = '<button class="btn primary" data-act="continueterm">' + contLabel + '</button>';
+    else btn = '<button class="btn danger" data-act="seegameover">See the damage</button>';
+    var sub = isOpp
+      ? (won ? D.PARTIES[r.playerParty].name + " has WON POWER — " + r.playerSeats + " seats on " + r.shares[r.playerParty].toFixed(1) + "%!"
+             : D.PARTIES[r.playerParty].name + " took " + r.playerSeats + " seats on " + r.shares[r.playerParty].toFixed(1) + "% — not enough this time.")
+      : D.PARTIES[r.playerParty].name + " won " + r.shares[r.playerParty].toFixed(1) + "% of the national vote and " + r.playerSeats + " seats.";
     return '<h2 class="section-title">Election Night</h2>' +
-      '<p class="subtitle">' + D.PARTIES[r.playerParty].name + ' won ' + r.shares[r.playerParty].toFixed(1) + '% of the national vote and ' + r.playerSeats + ' seats.</p>' +
+      '<p class="subtitle">' + sub + '</p>' +
       U.headline(r) + governmentPanel(gv) +
       '<div class="panel" style="margin-top:16px"><h3>The New House of Commons</h3>' + U.hemicycle(r.totals) + U.seatBar(r.totals) + U.legend(r.totals, { shares: r.shares }) + '</div>' +
       '<div class="panel" style="margin-top:16px"><h3>Constituency Map</h3>' + mapView(r.seatWinners) + '</div>' +
-      '<div class="row" style="margin-top:16px;justify-content:center">' +
-      (won ? '<button class="btn primary" data-act="continueterm">' + contLabel + '</button>'
-           : '<button class="btn danger" data-act="seegameover">See the damage</button>') +
-      '</div>';
+      '<div class="row" style="margin-top:16px;justify-content:center">' + btn + '</div>';
   }
 
   // -------------------------------------------------------------- listeners
@@ -639,12 +718,29 @@
       el.addEventListener("click", function () { go(el.getAttribute("data-go")); });
     });
     // party selection
+    app.querySelectorAll("[data-setuprole]").forEach(function (el) {
+      el.addEventListener("click", function () { S.setupRole = el.getAttribute("data-setuprole"); render(); });
+    });
     app.querySelectorAll("[data-party]").forEach(function (el) {
       el.addEventListener("click", function () {
-        S.govern = E.newGovernState(el.getAttribute("data-party"));
-        S.governTab = "policies";
-        S.pledgeSel = S.govern.pledges.slice(); // pre-seed with sensible defaults
-        go("pledges");
+        var party = el.getAttribute("data-party");
+        if (S.setupRole === "opposition") {
+          S.govern = E.newOppositionState(party);
+          go("opposition");
+        } else {
+          S.govern = E.newGovernState(party);
+          S.governTab = "policies";
+          S.pledgeSel = S.govern.pledges.slice(); // pre-seed with sensible defaults
+          go("pledges");
+        }
+      });
+    });
+    // opposition actions (attack / promote / blitz)
+    app.querySelectorAll("[data-opp]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        var parts = el.getAttribute("data-opp").split(":");
+        if (E.oppAction(S.govern, parts[0], parts[1])) render();
+        else toast("Not enough campaign energy.");
       });
     });
     // manifesto pledge chips (max 3)
@@ -752,6 +848,11 @@
       }
       case "endturn": {
         if (g.pendingDilemma) { toast("Settle the decision on your desk first."); return; }
+        if (g.role === "opposition") {
+          var ro = E.simulateOppositionTurn(g);
+          if (ro.electionDue) { startCampaign(); go("campaign"); return; }
+          render(); toast("Quarter ended — " + g.year + " Q" + g.quarter); break;
+        }
         var res = E.simulateTurn(g);
         if (g.gameOver) { render(); return; }
         if (res.electionDue) { startCampaign(); go("campaign"); return; }
@@ -763,10 +864,23 @@
       case "confirmpledges":
         if (S.pledgeSel.length === 3) { g.pledges = S.pledgeSel.slice(); g.choosePledges = false; go("govern"); }
         break;
-      case "pollingday": runElection(E.campaignAdj(g.party, S.campaign.alloc)); break;
+      case "pollingday": {
+        var adj = E.campaignAdj(g.party, S.campaign.alloc);
+        if (g.role === "opposition") {
+          g.lastElection = E.runOppositionElection(g, adj); S.campaign = null; go("election");
+        } else runElection(adj);
+        break;
+      }
+      case "takepower": {
+        var pp = g.party; S.govern = E.newGovernState(pp); S.governTab = "policies";
+        S.pledgeSel = S.govern.pledges.slice(); clearSave(); go("pledges"); break;
+      }
+      case "fighton":
+        g.turn = 0; g.momentum = 0; g.oppHistory = []; g.lastElection = null;
+        g.year = g.year; go("opposition"); break;
       case "resetcamp": startCampaign(); render(); break;
       case "closepolicy": S.policyDetail = null; render(); break;
-      case "continuesave": if (loadGame()) go("govern"); break;
+      case "continuesave": if (loadGame()) go(S.loadedRole === "opposition" ? "opposition" : "govern"); break;
       case "discardsave": clearSave(); render(); break;
       case "restart": clearSave(); S.govern = null; go("govern-setup"); break;
       case "fetchpolls": fetchLatestPolls(); break;
