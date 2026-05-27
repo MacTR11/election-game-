@@ -18,6 +18,8 @@
     governTab: "policies",
     policyCat: "Taxation",
     policyDetail: null,
+    pledgeSel: [],
+    campaign: null,
     byseat: null,
     selectedSeat: null,
     mapType: "geo",
@@ -118,6 +120,8 @@
       case "byelection":  html = viewByElection(); break;
       case "local":       html = viewLocal(); break;
       case "govern-setup":html = viewGovernSetup(); break;
+      case "pledges":     html = viewPledgeSelect(); break;
+      case "campaign":    html = viewCampaign(); break;
       case "govern":      html = viewGovern(); break;
       case "election":    html = viewElectionNight(); break;
       default:            html = viewHome();
@@ -342,6 +346,58 @@
       resume + '<div class="modes">' + cards + '</div>';
   }
 
+  // ----------------------------------------------------- manifesto pledges
+  function viewPledgeSelect() {
+    var g = S.govern;
+    var chips = D.PLEDGES.map(function (pl) {
+      var on = S.pledgeSel.indexOf(pl.id) >= 0;
+      return '<div class="pledge-chip' + (on ? " on" : "") + '" data-pledge="' + pl.id + '">' +
+        '<span class="tick">' + (on ? "✓" : "+") + '</span>' + U.esc(pl.text) + '</div>';
+    }).join("");
+    var ready = S.pledgeSel.length === 3;
+    return '<h2 class="section-title">Your Manifesto</h2>' +
+      '<p class="subtitle">Pick the <b>three</b> pledges you will be judged on at the next election. Keeping them earns a trust dividend at the ballot box; breaking them costs you. (' + S.pledgeSel.length + '/3 chosen)</p>' +
+      '<div class="panel"><div class="pledge-grid">' + chips + '</div>' +
+      '<div class="row" style="margin-top:16px;justify-content:flex-end">' +
+      '<button class="btn primary" data-act="confirmpledges"' + (ready ? "" : " disabled") + '>' +
+      (g.termsWon > 0 ? "Begin the new term ▶" : "Enter Number 10 ▶") + '</button></div>' +
+      '<p class="notice">Choose a mix you can actually deliver — an over-ambitious manifesto is hard to keep.</p></div>';
+  }
+
+  // ----------------------------------------------------------- campaign
+  function startCampaign() {
+    S.campaign = { budget: 14, alloc: {} };
+    D.REGIONS.forEach(function (r) { S.campaign.alloc[r.id] = 0; });
+  }
+  function campaignSpent() {
+    return D.REGIONS.reduce(function (a, r) { return a + (S.campaign.alloc[r.id] || 0); }, 0);
+  }
+  function viewCampaign() {
+    var g = S.govern, c = S.campaign;
+    var spent = campaignSpent(), left = c.budget - spent;
+    var adj = E.campaignAdj(g.party, c.alloc);
+    var proj = E.runGeneralElection(g, adj);
+    var byReg = {}; proj.byRegion.forEach(function (br) { byReg[br.region.id] = br.seats; });
+    var rows = D.REGIONS.map(function (r) {
+      var seats = byReg[r.id] || {}, mine = seats[g.party] || 0;
+      var al = c.alloc[r.id] || 0;
+      var boost = al > 0 ? "+" + E.campaignBoost(al).toFixed(1) + "pts" : "—";
+      return '<div class="camp-row"><div class="camp-reg">' + U.esc(r.region || r.name) + '<small>' + r.seats + ' seats · you win ' + mine + ' · ' + boost + '</small></div>' +
+        '<div class="camp-ctrl"><button class="btn sm" data-camp="' + r.id + '" data-dir="-1"' + (al <= 0 ? " disabled" : "") + '>−</button>' +
+        '<span class="camp-n">' + al + '</span>' +
+        '<button class="btn sm" data-camp="' + r.id + '" data-dir="1"' + (left <= 0 ? " disabled" : "") + '>+</button></div></div>';
+    }).join("");
+    return '<h2 class="section-title">The Campaign</h2>' +
+      '<p class="subtitle">' + D.PARTIES[g.party].name + ' is going to the country. Spend your campaign effort where it counts — concentrate on the battlegrounds.</p>' +
+      U.headline(proj) + governmentPanel(proj.government) +
+      '<div class="split"><div class="panel"><h3>War chest · <span style="color:var(--gold)">' + left + ' / ' + c.budget + ' left</span></h3>' +
+      '<div class="camp-list">' + rows + '</div>' +
+      '<p class="notice">Each point of effort lifts your vote in that region (with diminishing returns). The projection above updates as you allocate.</p>' +
+      '<div class="row" style="margin-top:12px"><button class="btn primary" data-act="pollingday" style="flex:1;justify-content:center">Polling Day ▶</button>' +
+      '<button class="btn" data-act="resetcamp">Reset</button></div></div>' +
+      '<div class="panel"><h3>Projected Commons</h3>' + U.hemicycle(proj.totals) + U.seatBar(proj.totals) + U.legend(proj.totals, { shares: proj.shares }) + '</div></div>';
+  }
+
   // --------------------------------------------------------- govern: main
   function viewGovern() {
     var g = S.govern;
@@ -382,13 +438,15 @@
     for (var i = 0; i < g.maxCapital; i++) dots += '<i class="' + (i < g.capital ? "on" : "") + '"></i>';
     var unityCol = g.unity > 0.55 ? "var(--good)" : g.unity > 0.38 ? "var(--warn)" : "var(--bad)";
     var unityWarn = g.unity < 0.4 ? '<div class="muted" style="font-size:11px;color:var(--bad);margin-top:4px">Your backbenchers are restless — a leadership challenge looms.</div>' : "";
+    var regen = E.capitalRegen(g);
     var sidebar = '<div class="panel"><h3>The Term</h3>' +
       '<div class="statbar" style="margin-bottom:6px"><i style="width:' + termPct + '%;background:var(--commons-l)"></i></div>' +
       '<div class="muted" style="font-size:12px">Quarter ' + g.turn + ' of ' + E.TERM_QUARTERS + ' before the next scheduled election.</div>' +
-      '<div style="margin:14px 0 4px"><div class="lab2">Party unity</div>' +
+      '<div style="margin:14px 0 4px"><div class="lab2">Party unity · ' + Math.round(g.unity * 100) + '%</div>' +
       '<div class="statbar"><i style="width:' + (g.unity * 100) + '%;background:' + unityCol + '"></i></div>' + unityWarn + '</div>' +
-      '<div style="margin:14px 0 6px"><div class="lab2">Political capital</div><div class="capital-dots">' + dots + '</div></div>' +
-      '<div class="muted" style="font-size:12px;margin-bottom:14px">Spent when you change policy. Regenerates each quarter.</div>' +
+      '<div style="margin:14px 0 4px"><div class="lab2">Political capital · <b style="color:var(--gold)">' + g.capital + ' / ' + g.maxCapital + '</b> <span class="faint">(+' + regen + '/qtr)</span></div>' +
+      '<div class="capital-dots">' + dots + '</div></div>' +
+      '<div class="muted" style="font-size:11.5px;margin-bottom:14px">Spent to change policy (further moves cost more). You regenerate <b>+' + regen + '/quarter</b> — more when you\'re popular and united; your election mandate sets the cap.</div>' +
       '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center;margin-bottom:8px">End Quarter ▶</button>' +
       '<button class="btn" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Call General Election</button>' +
       '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Resign</button>' +
@@ -654,7 +712,28 @@
     app.querySelectorAll("[data-party]").forEach(function (el) {
       el.addEventListener("click", function () {
         S.govern = E.newGovernState(el.getAttribute("data-party"));
-        S.governTab = "policies"; go("govern");
+        S.governTab = "policies";
+        S.pledgeSel = S.govern.pledges.slice(); // pre-seed with sensible defaults
+        go("pledges");
+      });
+    });
+    // manifesto pledge chips (max 3)
+    app.querySelectorAll("[data-pledge]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        var id = el.getAttribute("data-pledge"), i = S.pledgeSel.indexOf(id);
+        if (i >= 0) S.pledgeSel.splice(i, 1);
+        else if (S.pledgeSel.length < 3) S.pledgeSel.push(id);
+        render();
+      });
+    });
+    // campaign allocation +/-
+    app.querySelectorAll("[data-camp]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        var r = el.getAttribute("data-camp"), dir = parseInt(el.getAttribute("data-dir"), 10);
+        var left = S.campaign.budget - campaignSpent();
+        if (dir > 0 && left <= 0) return;
+        S.campaign.alloc[r] = Math.max(0, (S.campaign.alloc[r] || 0) + dir);
+        render();
       });
     });
     // tabs
@@ -765,12 +844,17 @@
         if (g.pendingDilemma) { toast("Settle the decision on your desk first."); return; }
         var res = E.simulateTurn(g);
         if (g.gameOver) { render(); return; }
-        if (res.electionDue) { runElection(); return; }
+        if (res.electionDue) { startCampaign(); go("campaign"); return; }
         render();
         if (g.leadershipChallenge === "survived") toast("You survived a leadership challenge — for now.");
         else if (!g.pendingDilemma) toast("Quarter ended — " + g.year + " Q" + g.quarter);
         break;
       }
+      case "confirmpledges":
+        if (S.pledgeSel.length === 3) { g.pledges = S.pledgeSel.slice(); g.choosePledges = false; go("govern"); }
+        break;
+      case "pollingday": runElection(E.campaignAdj(g.party, S.campaign.alloc)); break;
+      case "resetcamp": startCampaign(); render(); break;
       case "closepolicy": S.policyDetail = null; render(); break;
       case "continuesave": if (loadGame()) go("govern"); break;
       case "discardsave": clearSave(); render(); break;
@@ -784,8 +868,10 @@
         else toast("Scenario saved to the URL — copy from the address bar");
         break;
       }
-      case "callelection": runElection(); break;
-      case "continueterm": go("govern"); break;
+      case "callelection": startCampaign(); go("campaign"); break;
+      case "continueterm":
+        if (g.choosePledges) { S.pledgeSel = []; go("pledges"); } else go("govern");
+        break;
       case "seegameover": go("govern"); break;
       case "quitgovern": if (confirm("Resign and leave Number 10? Your saved game will be deleted.")) { clearSave(); S.govern = null; go("home"); } break;
     }
@@ -863,9 +949,10 @@
     return null;
   }
 
-  function runElection() {
-    var result = E.runGeneralElection(S.govern);
+  function runElection(regionAdj) {
+    var result = E.runGeneralElection(S.govern, regionAdj);
     E.applyElectionResult(S.govern, result);
+    S.campaign = null;
     go("election");
   }
 
