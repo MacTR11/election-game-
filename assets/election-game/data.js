@@ -412,7 +412,31 @@
     { id: "greenleader", name: "Global Climate Leader", type: "good",
       desc: "Britain is praised as a world leader on the environment.",
       cond: function (s) { return s.stats.environment > 0.72; },
-      effect: { groups: { environment: 0.05, young: 0.04 } } }
+      effect: { groups: { environment: 0.05, young: 0.04 } } },
+    { id: "wagesqueeze", name: "Falling Living Standards", type: "bad",
+      desc: "Wages aren't keeping pace with prices and households feel poorer.",
+      cond: function (s) { return s.macro.inflation > 4 && s.macro.realGrowth < 1; },
+      effect: { groups: { workingclass: -0.05, middleclass: -0.04, young: -0.03 } } },
+    { id: "fullemployment", name: "Jobs Boom", type: "good",
+      desc: "Unemployment is near record lows and pay is rising.",
+      cond: function (s) { return s.macro.unemployment < 3.6; },
+      effect: { groups: { workingclass: 0.04, privatesector: 0.04, young: 0.03 } } },
+    { id: "schoolscrisis", name: "Crumbling Schools", type: "bad",
+      desc: "Reports of unsafe classrooms and teacher shortages make headlines.",
+      cond: function (s) { return s.stats.education < 0.3; },
+      effect: { stats: { education: -0.02 }, groups: { parents: -0.06, publicsector: -0.04 } } },
+    { id: "approvalslump", name: "Mid-Term Blues", type: "bad",
+      desc: "The honeymoon is long over and the press has turned on the government.",
+      cond: function (s) { return s.turn > 6 && s.approval < 0.43; },
+      effect: { groups: { middleclass: -0.02, young: -0.02 } } },
+    { id: "intlcrisis", name: "International Crisis", type: "bad",
+      desc: "A flare-up overseas tests the government and unsettles markets.",
+      cond: function (s) { return s.macro.realGrowth < 0.5 && s.stats.environment < 0.5; },
+      effect: { macro: { inflation: 0.1 }, groups: { patriots: -0.03, capitalists: -0.03 } } },
+    { id: "techboom", name: "Tech & Investment Boom", type: "good",
+      desc: "Britain is attracting record investment in tech and clean energy.",
+      cond: function (s) { return s.macro.realGrowth > 2.2 && s.stats.environment > 0.55; },
+      effect: { groups: { capitalists: 0.05, privatesector: 0.04, young: 0.03 } } }
   ];
 
   // ---------------------------------------------------------------------------
@@ -623,9 +647,9 @@
       cond: function (s) { return s.stats.crime > 0.5 || s.groups.poor < 0.4; },
       options: [
         { label: "Crackdown & fast-track courts", result: "Order restored hard; civil-liberties groups object.",
-          effects: { policy: { police: 6, civil: 2 }, stats: { crime: -0.06 }, groups: { patriots: 0.08, liberals: -0.08 } } },
+          effects: { policy: { police: 0.12, civil: 0.18 }, stats: { crime: -0.06 }, groups: { patriots: 0.08, liberals: -0.08 } } },
         { label: "Address the root causes", result: "Long-term and humane; the right calls you soft.",
-          effects: { policy: { localgov: 8, welfare: 20 }, groups: { poor: 0.06, patriots: -0.06 } } }
+          effects: { policy: { localgov: 0.12, welfare: 0.10 }, groups: { poor: 0.06, patriots: -0.06 } } }
       ] },
     { id: "steel", title: "The Last Steelworks Faces Closure",
       desc: "Britain's remaining primary steel plant will shut without state help, taking thousands of jobs.",
@@ -655,9 +679,50 @@
       desc: "Record rainfall devastates towns and farmland. The clean-up bill is enormous and climate questions loom.",
       options: [
         { label: "Big resilience & green investment", result: "Praised for leadership; it's expensive.",
-          effects: { policy: { netzero: 8, infra: 10 }, macro: { deficit: 5 }, groups: { environment: 0.10, patriots: 0.03 } } },
+          effects: { policy: { netzero: 0.18, infra: 0.18 }, macro: { deficit: 5 }, groups: { environment: 0.10, patriots: 0.03 } } },
         { label: "Emergency repairs only", result: "Cheaper now; you look short-termist when the next flood hits.",
           effects: { stats: { environment: -0.04 }, groups: { environment: -0.06 } } }
+      ] },
+    { id: "cyber", title: "Major Cyber-Attack",
+      desc: "A hostile state cripples hospital and council IT systems for days. Questions mount over preparedness.",
+      options: [
+        { label: "Invest heavily in cyber-defence", result: "Reassuring and necessary; another bill for the Exchequer.",
+          effects: { policy: { defence: 0.10, civil: 0.15 }, groups: { patriots: 0.05, capitalists: 0.03 } } },
+        { label: "Play it down", result: "You avoid a panic, but look complacent when the next breach lands.",
+          effects: { all: -0.02, groups: { liberals: -0.02 } } }
+      ] },
+    { id: "royal", title: "A National Royal Occasion", cond: function (s) { return true; },
+      desc: "A jubilee-style national celebration is proposed. It would lift the mood — at a cost.",
+      options: [
+        { label: "Fund a grand celebration", result: "A feel-good national moment; republicans grumble at the spend.",
+          effects: { macro: { deficit: 2 }, all: 0.03, groups: { patriots: 0.06, socialists: -0.03 } } },
+        { label: "Keep it modest", result: "Prudent, if a little joyless.",
+          effects: { groups: { patriots: -0.02 } } }
+      ] },
+    { id: "sport", title: "Home Nations Triumph",
+      desc: "A British team wins a major tournament — the country is euphoric and looking to the government to mark it.",
+      options: [
+        { label: "Bask in the glory (bank holiday)", result: "A popular feel-good moment; business grumbles at the lost day.",
+          effects: { all: 0.04, groups: { capitalists: -0.03, workingclass: 0.04 } } },
+        { label: "Congratulate and move on", result: "A missed open goal, some say.",
+          effects: { all: 0.01 } }
+      ] },
+    { id: "tradedeal", title: "A Major Trade Deal",
+      desc: "Negotiators land a big trade deal — but it means opening up sensitive sectors like farming.",
+      options: [
+        { label: "Sign it", result: "A growth boost and a diplomatic win; farmers feel betrayed.",
+          effects: { macro: { realGrowth: 0.3 }, groups: { capitalists: 0.06, selfemployed: -0.06, patriots: -0.03 } } },
+        { label: "Protect domestic sectors", result: "Safe at home; critics call you a protectionist.",
+          effects: { groups: { selfemployed: 0.05, capitalists: -0.04 } } }
+      ] },
+    { id: "carehome", title: "Social Care Collapse",
+      desc: "A big care provider goes bust, leaving thousands of vulnerable people at risk.",
+      cond: function (s) { return s.stats.nhs < 0.45; },
+      options: [
+        { label: "Step in and fund care", result: "The right thing to do; it's a major new commitment.",
+          effects: { policy: { socialcare: 0.25 }, groups: { pensioners: 0.10, parents: 0.05 } } },
+        { label: "Find a private buyer", result: "Cheaper for the Treasury; continuity of care is shaky.",
+          effects: { groups: { pensioners: -0.06, capitalists: 0.03 } } }
       ] }
   ];
 

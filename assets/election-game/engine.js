@@ -68,15 +68,17 @@
 
   // Constituency-level projection across all 650 real seats. Applies uniform
   // national swing (vs 2024) to each seat's real baseline shares and takes the
-  // winner seat by seat — the classic swingometer, at full granularity.
-  function projectSeatsConstituency(shares) {
+  // winner seat by seat. regionAdj optionally adds campaign boosts to a party's
+  // share within specific regions (e.g. { lon: { lab: 4 } }).
+  function projectSeatsConstituency(shares, regionAdj) {
     var C = window.UKGAME.CONSTITUENCIES;
     var ns = normShares(shares), sw = swingFrom(ns);
     var totals = {}, seatWinners = {}, regionTally = {}, i, p;
     for (i = 0; i < C.length; i++) {
       var seat = C[i], s = seat.s, best = null, bestv = -Infinity;
+      var adj = regionAdj && regionAdj[seat.reg];
       for (p in s) {
-        var v = s[p] + (sw[p] || 0); if (v < 0) v = 0;
+        var v = s[p] + (sw[p] || 0) + (adj && adj[p] ? adj[p] : 0); if (v < 0) v = 0;
         if (v > bestv) { bestv = v; best = p; }
       }
       totals[best] = (totals[best] || 0) + 1;
@@ -101,11 +103,20 @@
 
   // Public entry point: use the full 650-seat model when the data is loaded,
   // otherwise fall back to the lighter regional model.
-  function projectSeats(shares) {
+  function projectSeats(shares, regionAdj) {
     if (window.UKGAME.CONSTITUENCIES && window.UKGAME.CONSTITUENCIES.length) {
-      return projectSeatsConstituency(shares);
+      return projectSeatsConstituency(shares, regionAdj);
     }
     return projectSeatsRegional(shares);
+  }
+
+  // Campaign spending → vote-share boost for a party in a region (diminishing
+  // returns), and the per-region adjustment map the seat model consumes.
+  function campaignBoost(points) { return 7 * (1 - Math.exp(-Math.max(0, points) / 3.5)); }
+  function campaignAdj(party, allocByRegion) {
+    var adj = {};
+    for (var r in allocByRegion) if (allocByRegion[r] > 0) { adj[r] = {}; adj[r][party] = campaignBoost(allocByRegion[r]); }
+    return adj;
   }
 
   // Regional fallback model: allocate each region's seats from its 2024 vote
@@ -504,7 +515,6 @@
 
     // politics
     state.approval = computeApproval(state);
-    state.capital = Math.min(state.maxCapital, state.capital + 3);
     state.pressure += 1; // demographic & cost pressure keeps building
 
     // party morale: discontent builds while approval is poor and decays when it
@@ -519,14 +529,20 @@
       else { state.leadershipChallenge = "survived"; state.discontent = 0; state.unity = clamp01(state.unity + 0.15); }
     }
 
+    // political capital regenerates faster for a popular, united government
+    state.capital = Math.min(state.maxCapital, state.capital + capitalRegen(state));
+
     state.turn += 1;
     state.quarter += 1;
     if (state.quarter > 4) { state.quarter = 1; state.year += 1; }
     recordHistory(state);
 
     var electionDue = state.turn >= TERM_QUARTERS;
-    // a decision lands on the desk most quarters (never on an election quarter)
-    if (!electionDue && !state.gameOver && Math.random() < 0.7) state.pendingDilemma = pickDilemma(state);
+    // PMQs every third quarter; otherwise a decision lands on the desk most weeks
+    if (!electionDue && !state.gameOver) {
+      if (state.turn % 3 === 0) state.pendingDilemma = buildPMQ(state);
+      else if (Math.random() < 0.72) state.pendingDilemma = pickDilemma(state);
+    }
     return { electionDue: electionDue };
   }
 
@@ -546,11 +562,46 @@
     return avail[Math.floor(Math.random() * avail.length)];
   }
 
+  // Prime Minister's Questions — a recurring set-piece. The opposition attacks
+  // your weakest area; you choose how to handle the dispatch box. Built as a
+  // dilemma object so it reuses the same modal + resolution path.
+  function buildPMQ(state) {
+    var mn = macroNorm(state.macro);
+    var themes = [
+      { bad: 1 - state.stats.nhs, line: "Waiting lists are at record highs — the NHS is in crisis on the Prime Minister's watch!" },
+      { bad: clamp01(0.5 - mn.gdp + 0.2), line: "Growth is flatlining, living standards are falling — when will the PM admit their plan has failed?" },
+      { bad: clamp01((state.macro.inflation - 2) / 6), line: "Prices are still soaring while this out-of-touch government dithers!" },
+      { bad: state.stats.crime, line: "Crime is rising and people no longer feel safe on their own streets!" },
+      { bad: state.stats.immigration, line: "The government has completely lost control of our borders!" },
+      { bad: clamp01((state.macro.debtPct - 90) / 40), line: "They have maxed out the nation's credit card and our children will pay!" },
+      { bad: 1 - state.stats.housing, line: "A whole generation is locked out of a home — where is the action?" }
+    ];
+    themes.sort(function (a, b) { return b.bad - a.bad; });
+    var s = themes[0].bad;
+    return {
+      id: "pmq-" + state.turn, title: "Prime Minister's Questions",
+      desc: "The Leader of the Opposition rises: “" + themes[0].line + "” The House is roaring. How do you respond?",
+      options: [
+        { label: "Defend your record at the dispatch box",
+          result: s < 0.45 ? "You list your achievements and the benches cheer." : "Your defence rings hollow against the evidence.",
+          effects: { all: 0.06 - s * 0.13, unity: 0.05 } },
+        { label: "Turn your fire on the Opposition",
+          result: "A combative, partisan performance that fires up your own side.",
+          effects: { unity: 0.09, all: -0.008 } },
+        { label: "Acknowledge concerns and promise action",
+          result: "Statesmanlike, but your backbenchers wince at the concession.",
+          effects: { all: 0.03, unity: -0.06 } }
+      ]
+    };
+  }
+
   // Apply a chosen dilemma option's effects and clear it.
   function resolveDilemma(state, optionIndex) {
     var d = state.pendingDilemma; if (!d) return;
     var opt = d.options[optionIndex], e = opt.effects || {}, id;
-    if (e.policy) for (id in e.policy) if (state.policies[id] != null) state.policies[id] = clamp01(state.policies[id] + e.policy[id]);
+    if (e.unity != null) state.unity = clamp01(state.unity + e.unity);
+    // dilemma policy nudges are fractions of a lever's range, applied in real units
+    if (e.policy) for (id in e.policy) { var pol = polById(id); if (pol) state.policies[id] = clamp(state.policies[id] + e.policy[id] * (pol.max - pol.min), pol.min, pol.max); }
     if (e.macro) for (id in e.macro) if (state.macro[id] != null) state.macro[id] += e.macro[id];
     if (e.stats) for (id in e.stats) if (state.stats[id] != null) state.stats[id] = clamp01(state.stats[id] + e.stats[id]);
     if (e.groups) for (id in e.groups) if (state.groups[id] != null) state.groups[id] = clamp01(state.groups[id] + e.groups[id]);
@@ -569,10 +620,23 @@
     return Math.max(1, Math.round(frac * 14));
   }
 
+  // Political capital regenerated each quarter: a popular, united government
+  // gets more done; an unpopular, divided one is paralysed.
+  function capitalRegen(state) {
+    var r = 2 + Math.round(clamp01(state.approval) * 3);
+    if (state.unity > 0.6) r += 1;
+    if (state.unity < 0.35) r -= 1;
+    return Math.max(1, r);
+  }
+  // Capital headroom reflects your mandate — a big majority lets you spend more.
+  function maxCapitalFor(majority) {
+    return 8 + Math.max(0, Math.min(5, Math.floor((majority || 0) / 70)));
+  }
+
   // Convert governing approval into a national vote share for the player's
   // party, then redistribute the rest across the other parties (the main rival
   // soaks up most of the change), and project the Commons.
-  function runGeneralElection(state) {
+  function runGeneralElection(state, regionAdj) {
     var base = D.BASELINE[state.party] || 10;
     var pledgeBonus = (pledgesKept(state) - 1.5) * 1.6; // trust dividend / penalty
     var playerShare = clamp(base + (state.approval - 0.46) * 70 + pledgeBonus, 4, 58);
@@ -596,7 +660,7 @@
     var sum = 0; for (p in shares) sum += shares[p];
     for (p in shares) shares[p] = shares[p] / sum * 100;
 
-    var result = projectSeats(shares);
+    var result = projectSeats(shares, regionAdj);
     result.shares = shares;
     result.playerParty = state.party;
     result.playerSeats = result.totals[state.party] || 0;
@@ -618,10 +682,11 @@
     if (result.won) {
       state.termsWon += 1;
       state.turn = 0;
+      state.maxCapital = maxCapitalFor(result.playerMajority); // mandate sets headroom
       state.capital = state.maxCapital;
       state.unity = clamp01(state.unity + 0.15);
       state.discontent = 0;
-      state.pledges = pickPledges();   // a fresh manifesto for the new term
+      state.choosePledges = true;       // UI prompts a fresh manifesto for the new term
       // a fresh mandate buoys the groups a little
       for (var id in state.groups) state.groups[id] = clamp01(state.groups[id] + 0.04);
     } else {
@@ -653,6 +718,10 @@
     runGeneralElection: runGeneralElection,
     applyElectionResult: applyElectionResult,
     changeCost: changeCost,
+    capitalRegen: capitalRegen,
+    maxCapitalFor: maxCapitalFor,
+    campaignBoost: campaignBoost,
+    campaignAdj: campaignAdj,
     sharesFromPreset: sharesFromPreset,
     swingFrom: swingFrom,
     TERM_QUARTERS: TERM_QUARTERS,
