@@ -1177,6 +1177,34 @@
     localBias: { lab: 1.02, con: 1.05, ld: 1.18, green: 1.10, reform: 0.85, oth: 1.25, snp: 1.0, pc: 1.0 }
   };
 
+  // ---------------------------------------------------------------------------
+  // SCENARIOS — alternative opening positions, applied on top of the settled
+  // 2024 baseline. macro fields are absolute overrides; stats/groups are deltas.
+  // ---------------------------------------------------------------------------
+  var SCENARIOS = [
+    { id: "steady", name: "Steady Hand", blurb: "The real July 2024 inheritance — tough but stable. The default way to play." },
+    { id: "recession", name: "Inherit a Recession", blurb: "The economy is shrinking and unemployment is climbing as you take office.",
+      macro: { realGrowth: -1.2, unemployment: 6.3, inflation: 2.0 }, pressure: 2,
+      groups: { workingclass: -0.06, privatesector: -0.06, capitalists: -0.05 } },
+    { id: "costliving", name: "Cost-of-Living Crisis", blurb: "Inflation is rampant and household budgets are at breaking point.",
+      macro: { inflation: 7.5, realGrowth: 0.4 },
+      groups: { poor: -0.12, workingclass: -0.10, renters: -0.07, pensioners: -0.05 } },
+    { id: "debt", name: "Markets on the Brink", blurb: "Debt is dangerously high and the gilt markets watch your every move.",
+      macro: { debt: 3050, realGrowth: 0.6, inflation: 3.4 },
+      groups: { capitalists: -0.06, wealthy: -0.05 } },
+    { id: "populist", name: "Populist Surge", blurb: "An insurgent right is riding high; the mood is volatile and anti-establishment.",
+      stats: { immigration: 0.12 }, groups: { patriots: -0.12, workingclass: -0.07, liberals: -0.04 } }
+  ];
+
+  // DIFFICULTY — antiInc: anti-incumbency points at an election; regen: capital
+  // regeneration multiplier; pressure: how fast the country decays; mood: a
+  // starting shift to every group's contentment.
+  var DIFFICULTY = {
+    easy:   { id: "easy",   name: "Easy",   antiInc: 1.5, regen: 1.3, pressure: 0.7,  mood: 0.05 },
+    normal: { id: "normal", name: "Normal", antiInc: 3.0, regen: 1.0, pressure: 1.0,  mood: 0.0 },
+    hard:   { id: "hard",   name: "Hard",   antiInc: 4.5, regen: 0.8, pressure: 1.35, mood: -0.05 }
+  };
+
   window.UKGAME.DATA = {
     PARTIES: PARTIES,
     REGIONS: REGIONS,
@@ -1191,6 +1219,8 @@
     PRESETS: PRESETS,
     BASELINE: BASELINE,
     LOCAL: LOCAL,
+    SCENARIOS: SCENARIOS,
+    DIFFICULTY: DIFFICULTY,
     // ordered list of the main GB parties for charts/legends
     MAIN_PARTIES: ["lab", "con", "reform", "ld", "green", "snp", "pc", "oth"]
   };

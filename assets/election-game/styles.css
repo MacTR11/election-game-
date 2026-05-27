@@ -190,6 +190,12 @@ a { color: var(--commons-l); }
 .pol-cost { color: var(--ink-dim); }
 .pol-cost.ok { color: var(--good); }
 .pol-cost.over { color: var(--bad); }
+.opt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 8px; }
+.opt-card { text-align: left; background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; color: var(--ink); display: flex; flex-direction: column; gap: 3px; transition: border-color .15s, background .15s; }
+.opt-card b { font-size: 13.5px; }
+.opt-card span { font-size: 11.5px; color: var(--ink-dim); line-height: 1.35; }
+.opt-card:hover { border-color: var(--commons-l); }
+.opt-card.on { border-color: var(--gold); background: rgba(201, 162, 39, .12); }
 
 /* economy charts */
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }

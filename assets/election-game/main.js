@@ -17,6 +17,8 @@
     govern: null,
     governTab: "policies",
     setupRole: "government",
+    scenario: "steady",
+    difficulty: "normal",
     policyCat: "Taxation",
     policyDetail: null,
     pledgeSel: [],
@@ -69,6 +71,7 @@
         stats: g.stats, groups: g.groups, macro: g.macro, pressure: g.pressure,
         unity: g.unity, discontent: g.discontent, pledges: g.pledges, history: g.history,
         dilemmaHistory: g.dilemmaHistory, termsWon: g.termsWon, approval: g.approval,
+        difficulty: g.difficulty, scenarioId: g.scenarioId,
         oppShare: g.oppShare, govApproval: g.govApproval, energy: g.energy, maxEnergy: g.maxEnergy,
         momentum: g.momentum, oppHistory: g.oppHistory,
         pendingDilemma: g.pendingDilemma ? g.pendingDilemma.id : null,
@@ -91,6 +94,8 @@
       if (s.groups) g.groups = s.groups;
       if (s.macro) g.macro = s.macro;
       if (s.pledges) g.pledges = s.pledges;
+      if (s.difficulty) g.difficulty = s.difficulty;
+      if (s.scenarioId) g.scenarioId = s.scenarioId;
       g.dilemmaHistory = s.dilemmaHistory || [];
       g.history = s.history && s.history.length ? s.history : g.history;
       if (opp) { g.oppHistory = s.oppHistory && s.oppHistory.length ? s.oppHistory : g.oppHistory; }
@@ -289,8 +294,26 @@
     var blurb = opp
       ? "You start out of power. Attack the government, win over voters and campaign to take office at the next election."
       : "You take charge as Prime Minister and set the country's policies from day one.";
+    var setupOpts = "";
+    if (!opp) {
+      var scenCards = D.SCENARIOS.map(function (sc) {
+        return '<button class="opt-card' + (S.scenario === sc.id ? " on" : "") + '" data-scenario="' + sc.id + '">' +
+          '<b>' + U.esc(sc.name) + '</b><span>' + U.esc(sc.blurb) + '</span></button>';
+      }).join("");
+      var diffCards = Object.keys(D.DIFFICULTY).map(function (k) {
+        var d = D.DIFFICULTY[k];
+        var desc = k === "easy" ? "Forgiving economy, generous capital, gentle voters."
+          : k === "normal" ? "A fair challenge — the intended balance."
+          : "Brutal decay, scarce capital and an unforgiving electorate.";
+        return '<button class="opt-card' + (S.difficulty === k ? " on" : "") + '" data-difficulty="' + k + '">' +
+          '<b>' + U.esc(d.name) + '</b><span>' + desc + '</span></button>';
+      }).join("");
+      setupOpts = '<div class="panel" style="margin-top:14px"><h3>Starting Scenario</h3>' +
+        '<div class="opt-grid">' + scenCards + '</div>' +
+        '<h3 style="margin-top:16px">Difficulty</h3><div class="opt-grid">' + diffCards + '</div></div>';
+    }
     return '<h2 class="section-title">Choose Your Role</h2>' +
-      '<p class="subtitle">' + blurb + '</p>' + resume + roleToggle +
+      '<p class="subtitle">' + blurb + '</p>' + resume + roleToggle + setupOpts +
       '<div class="modes" style="margin-top:14px">' + cards + '</div>';
   }
 
@@ -786,6 +809,12 @@
     app.querySelectorAll("[data-setuprole]").forEach(function (el) {
       el.addEventListener("click", function () { S.setupRole = el.getAttribute("data-setuprole"); render(); });
     });
+    app.querySelectorAll("[data-scenario]").forEach(function (el) {
+      el.addEventListener("click", function () { S.scenario = el.getAttribute("data-scenario"); render(); });
+    });
+    app.querySelectorAll("[data-difficulty]").forEach(function (el) {
+      el.addEventListener("click", function () { S.difficulty = el.getAttribute("data-difficulty"); render(); });
+    });
     app.querySelectorAll("[data-party]").forEach(function (el) {
       el.addEventListener("click", function () {
         var party = el.getAttribute("data-party");
@@ -793,7 +822,7 @@
           S.govern = E.newOppositionState(party);
           go("opposition");
         } else {
-          S.govern = E.newGovernState(party);
+          S.govern = E.newGovernState(party, { scenario: S.scenario, difficulty: S.difficulty });
           S.governTab = "policies";
           S.pledgeSel = S.govern.pledges.slice(); // pre-seed with sensible defaults
           go("pledges");

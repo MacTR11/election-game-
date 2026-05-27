@@ -283,7 +283,8 @@
     return _polById[id];
   }
 
-  function newGovernState(party) {
+  function newGovernState(party, opts) {
+    opts = opts || {};
     var F = D.FISCAL;
     var s = { party: party, turn: 0, year: 2024, month: 9,
               capital: 8, maxCapital: 8,
@@ -303,6 +304,19 @@
     for (i = 0; i < D.GROUPS.length; i++) s.groups[D.GROUPS[i].id] = D.GROUPS[i].base;
     // settle so the starting policies are reflected in the stats and the books
     computeTargets(s, true);
+    // apply the chosen scenario (absolute macro overrides + stat/group deltas)
+    var scen = null, list = D.SCENARIOS || [];
+    for (i = 0; i < list.length; i++) if (list[i].id === opts.scenario) scen = list[i];
+    s.scenarioId = scen ? scen.id : "steady";
+    if (scen) {
+      if (scen.macro) for (var mk in scen.macro) s.macro[mk] = scen.macro[mk];
+      if (scen.stats) for (var sk in scen.stats) if (s.stats[sk] != null) s.stats[sk] = clamp01(s.stats[sk] + scen.stats[sk]);
+      if (scen.groups) for (var gk in scen.groups) if (s.groups[gk] != null) s.groups[gk] = clamp01(s.groups[gk] + scen.groups[gk]);
+      if (scen.pressure) s.pressure = scen.pressure;
+    }
+    // apply difficulty (mechanical params + a starting mood shift)
+    s.difficulty = (D.DIFFICULTY && D.DIFFICULTY[opts.difficulty]) || (D.DIFFICULTY && D.DIFFICULTY.normal) || null;
+    if (s.difficulty && s.difficulty.mood) for (var di in s.groups) s.groups[di] = clamp01(s.groups[di] + s.difficulty.mood);
     computeFiscal(s);
     s.approval = computeApproval(s);
     recordHistory(s);
@@ -515,7 +529,7 @@
 
     // politics
     state.approval = computeApproval(state);
-    state.pressure += 1 / 3; // demographic & cost pressure keeps building (per month)
+    state.pressure += (1 / 3) * (state.difficulty ? state.difficulty.pressure : 1); // cost pressure builds monthly
 
     // party morale: discontent builds while approval is poor and decays when it
     // recovers. A sustained slump triggers a leadership challenge — survive it
@@ -666,6 +680,7 @@
     var r = 1 + clamp01(state.approval) * 1.4;
     if (state.unity > 0.6) r += 0.4;
     if (state.unity < 0.35) r -= 0.4;
+    if (state.difficulty) r *= state.difficulty.regen;
     return Math.max(1, Math.round(r));
   }
   // Capital headroom reflects your mandate — a big majority lets you spend more.
@@ -682,7 +697,8 @@
     // "time for a change": every government faces an anti-incumbency drag that
     // deepens the longer it has held power. Approval now has to clear ~50% to
     // hold your 2024 vote, so a flat record loses ground.
-    var antiIncumbency = 3 + 3 * (state.termsWon || 0);
+    var antiBase = state.difficulty ? state.difficulty.antiInc : 3;
+    var antiIncumbency = antiBase + 3 * (state.termsWon || 0);
     var playerShare = clamp(base + (state.approval - 0.50) * 95 + pledgeBonus - antiIncumbency, 4, 58);
     var delta = playerShare - base;
 
