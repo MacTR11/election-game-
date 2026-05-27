@@ -54,6 +54,8 @@
     var sign = bn < 0 ? "−" : "";
     return sign + "£" + Math.abs(bn).toLocaleString() + "bn";
   }
+  var MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function dateLabel(g) { return (MONTHS[g.month] || "") + " " + g.year; }
 
   // -------------------------------------------------------- save / load
   var SAVE_KEY = "uknumber10_save_v3";
@@ -62,7 +64,7 @@
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         role: g.role || "government", incumbent: g.incumbent,
-        party: g.party, turn: g.turn, year: g.year, quarter: g.quarter,
+        party: g.party, turn: g.turn, year: g.year, month: g.month,
         capital: g.capital, maxCapital: g.maxCapital, policies: g.policies,
         stats: g.stats, groups: g.groups, macro: g.macro, pressure: g.pressure,
         unity: g.unity, discontent: g.discontent, pledges: g.pledges, history: g.history,
@@ -81,7 +83,7 @@
       var s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (!s) return false;
       var opp = s.role === "opposition";
       var g = opp ? E.newOppositionState(s.party) : E.newGovernState(s.party);
-      ["turn", "year", "quarter", "capital", "maxCapital", "pressure", "unity", "discontent", "termsWon", "approval",
+      ["turn", "year", "month", "capital", "maxCapital", "pressure", "unity", "discontent", "termsWon", "approval",
        "oppShare", "govApproval", "energy", "maxEnergy", "momentum", "incumbent"]
         .forEach(function (k) { if (s[k] != null) g[k] = s[k]; });
       if (s.policies) g.policies = s.policies;
@@ -350,10 +352,10 @@
     var party = D.PARTIES[g.party], inc = D.PARTIES[g.incumbent];
     var govShare = E.govShareFrom(g);
     var live = E.runOppositionElection(g);
-    var termPct = Math.min(100, g.turn / E.TERM_QUARTERS * 100);
+    var termPct = Math.min(100, g.turn / E.TERM_TURNS * 100);
     var head = '<div class="headline">' +
       '<span class="sw" style="width:34px;height:34px;border-radius:8px;background:' + party.color + '"></span>' +
-      '<div><div class="lab2">' + party.name + ' · Leader of the Opposition</div><div class="big">' + g.year + ' · Q' + g.quarter + '</div></div>' +
+      '<div><div class="lab2">' + party.name + ' · Leader of the Opposition</div><div class="big">' + dateLabel(g) + '</div></div>' +
       '<div class="spacer"></div>' +
       '<div style="text-align:right"><div class="lab2">Your poll share</div><div class="big" style="color:' + party.color + '">' + g.oppShare.toFixed(1) + '%</div></div></div>';
     var kpis = '<div class="kpis">' +
@@ -390,10 +392,10 @@
     var dots = ""; for (var i = 0; i < g.maxEnergy; i++) dots += '<i class="' + (i < g.energy ? "on" : "") + '"></i>';
     var sidebar = '<div class="panel"><h3>The Parliament</h3>' +
       '<div class="statbar" style="margin-bottom:6px"><i style="width:' + termPct + '%;background:' + party.color + '"></i></div>' +
-      '<div class="muted" style="font-size:12px">Quarter ' + g.turn + ' of ' + E.TERM_QUARTERS + ' until the election you must win.</div>' +
+      '<div class="muted" style="font-size:12px">Month ' + g.turn + ' of ' + E.TERM_TURNS + ' until the election you must win.</div>' +
       '<div style="margin:14px 0 4px"><div class="lab2">Campaign energy · <b style="color:var(--gold)">' + g.energy + ' / ' + g.maxEnergy + '</b></div><div class="capital-dots">' + dots + '</div></div>' +
-      '<div class="muted" style="font-size:11.5px;margin-bottom:14px">Spent on attacks, positioning and the ground game. Regenerates each quarter.</div>' +
-      '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center;margin-bottom:8px">End Quarter ▶</button>' +
+      '<div class="muted" style="font-size:11.5px;margin-bottom:14px">Spent on attacks, positioning and the ground game. Regenerates each month.</div>' +
+      '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center;margin-bottom:8px">End Month ▶</button>' +
       '<button class="btn" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Force an Election</button>' +
       '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Stand down</button>' +
       '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
@@ -410,12 +412,12 @@
     var party = D.PARTIES[g.party];
     var live = E.runGeneralElection(g);
     var approvalPct = (g.approval * 100).toFixed(1);
-    var termPct = Math.min(100, g.turn / E.TERM_QUARTERS * 100);
+    var termPct = Math.min(100, g.turn / E.TERM_TURNS * 100);
 
     var head = '<div class="headline">' +
       '<span class="sw" style="width:34px;height:34px;border-radius:8px;background:' + party.color + '"></span>' +
       '<div><div class="lab2">' + party.name + ' Government · Term ' + (g.termsWon + 1) + '</div>' +
-      '<div class="big">' + g.year + ' · Q' + g.quarter + '</div></div>' +
+      '<div class="big">' + dateLabel(g) + '</div></div>' +
       '<div class="spacer"></div>' +
       '<div style="text-align:right"><div class="lab2">Approval</div><div class="big ' +
       (g.approval > 0.5 ? "outcome-maj" : g.approval < 0.4 ? "outcome-hung" : "") + '">' + approvalPct + '%</div></div></div>';
@@ -446,13 +448,13 @@
     var regen = E.capitalRegen(g);
     var sidebar = '<div class="panel"><h3>The Term</h3>' +
       '<div class="statbar" style="margin-bottom:6px"><i style="width:' + termPct + '%;background:var(--commons-l)"></i></div>' +
-      '<div class="muted" style="font-size:12px">Quarter ' + g.turn + ' of ' + E.TERM_QUARTERS + ' before the next scheduled election.</div>' +
+      '<div class="muted" style="font-size:12px">Month ' + g.turn + ' of ' + E.TERM_TURNS + ' before the next scheduled election.</div>' +
       '<div style="margin:14px 0 4px"><div class="lab2">Party unity · ' + Math.round(g.unity * 100) + '%</div>' +
       '<div class="statbar"><i style="width:' + (g.unity * 100) + '%;background:' + unityCol + '"></i></div>' + unityWarn + '</div>' +
       '<div style="margin:14px 0 4px"><div class="lab2">Political capital · <b style="color:var(--gold)">' + g.capital + ' / ' + g.maxCapital + '</b> <span class="faint">(+' + regen + '/qtr)</span></div>' +
       '<div class="capital-dots">' + dots + '</div></div>' +
       '<div class="muted" style="font-size:11.5px;margin-bottom:14px">Spent to change policy (further moves cost more). You regenerate <b>+' + regen + '/quarter</b> — more when you\'re popular and united; your election mandate sets the cap.</div>' +
-      '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center;margin-bottom:8px">End Quarter ▶</button>' +
+      '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center;margin-bottom:8px">End Month ▶</button>' +
       '<button class="btn" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Call General Election</button>' +
       '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Resign</button>' +
       '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
@@ -475,7 +477,7 @@
         '<span>' + U.esc(o.result) + '</span></button>';
     }).join("");
     return '<div class="modal-overlay"><div class="modal">' +
-      '<div class="modal-tag">Decision on your desk · ' + g.year + ' Q' + g.quarter + '</div>' +
+      '<div class="modal-tag">Decision on your desk · ' + dateLabel(g) + '</div>' +
       '<h2>' + U.esc(d.title) + '</h2><p class="muted">' + U.esc(d.desc) + '</p>' +
       '<div class="dilemma-opts">' + opts + '</div></div></div>';
   }
@@ -593,7 +595,7 @@
     }).join("");
     var chartPanel = '<div class="panel" style="margin-bottom:16px"><h3>The Economy over time</h3>' +
       '<div class="chart-grid">' + cards + '</div>' +
-      '<p class="notice">Each chart tracks a headline figure quarter by quarter. Shaded bands show a healthy range. Watch how your policies move them.</p></div>';
+      '<p class="notice">Each chart tracks a headline figure month by month. Shaded bands show a healthy range. Watch how your policies move them.</p></div>';
 
     function fLines(obj) {
       return Object.keys(obj).sort(function (a, b) { return obj[b] - obj[a]; }).map(function (k) {
@@ -851,14 +853,14 @@
         if (g.role === "opposition") {
           var ro = E.simulateOppositionTurn(g);
           if (ro.electionDue) { startCampaign(); go("campaign"); return; }
-          render(); toast("Quarter ended — " + g.year + " Q" + g.quarter); break;
+          render(); toast("Month ended — " + dateLabel(g)); break;
         }
         var res = E.simulateTurn(g);
         if (g.gameOver) { render(); return; }
         if (res.electionDue) { startCampaign(); go("campaign"); return; }
         render();
         if (g.leadershipChallenge === "survived") toast("You survived a leadership challenge — for now.");
-        else if (!g.pendingDilemma) toast("Quarter ended — " + g.year + " Q" + g.quarter);
+        else if (!g.pendingDilemma) toast("Month ended — " + dateLabel(g));
         break;
       }
       case "confirmpledges":

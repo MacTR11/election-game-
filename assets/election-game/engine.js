@@ -263,7 +263,7 @@
   // ---------------------------------------------------------------------------
   // GOVERNING SIMULATION (Democracy-style)
   // ---------------------------------------------------------------------------
-  var TERM_QUARTERS = 20; // 5-year fixed term
+  var TERM_TURNS = 60; // 5-year term, one turn per month
 
   function pickPledges() {
     var pool = D.PLEDGES.slice(), out = [];
@@ -285,7 +285,7 @@
 
   function newGovernState(party) {
     var F = D.FISCAL;
-    var s = { party: party, turn: 0, year: 2024, quarter: 3,
+    var s = { party: party, turn: 0, year: 2024, month: 9,
               capital: 8, maxCapital: 8,
               policies: {}, stats: {}, groups: {}, activeEvents: [], fiscalLines: { r: {}, s: {} },
               macro: { gdp: F.gdp, realGrowth: F.realGrowth, inflation: F.inflation,
@@ -312,7 +312,7 @@
   // Snapshot the headline numbers each quarter so the UI can chart trends.
   function recordHistory(s) {
     s.history.push({
-      label: s.year + " Q" + s.quarter, approval: s.approval,
+      label: s.year + "-" + s.month, approval: s.approval,
       growth: s.macro.realGrowth, inflation: s.macro.inflation,
       unemployment: s.macro.unemployment, deficit: s.macro.deficit, debtPct: s.macro.debtPct
     });
@@ -467,14 +467,14 @@
     var growthTarget = 1.1 + 7 * gdpPush - 0.6 * Math.max(0, (m.debtPct - 100) / 10);
     var inflTarget = 2.0 + 6 * inflPush + 0.35 * (m.realGrowth - 1.4);
     var unempTarget = 4.2 - 0.7 * (m.realGrowth - 1.4) + 9 * unempPush;
-    var K = 0.4;
+    var K = 0.15; // monthly easing toward targets
     m.realGrowth += (growthTarget - m.realGrowth) * K;
     m.inflation = Math.max(0, m.inflation + (inflTarget - m.inflation) * K);
     m.unemployment = Math.max(2.5, m.unemployment + (unempTarget - m.unemployment) * K);
-    // nominal GDP grows by (real growth + inflation) per year, applied quarterly
-    m.gdp = m.gdp * (1 + (m.realGrowth + m.inflation) / 100 / 4);
-    // the debt absorbs a quarter of the annual deficit
-    m.debt = Math.max(0, m.debt + m.deficit / 4);
+    // nominal GDP grows by (real growth + inflation) per year, applied monthly
+    m.gdp = m.gdp * (1 + (m.realGrowth + m.inflation) / 100 / 12);
+    // the debt absorbs one month of the annual deficit
+    m.debt = Math.max(0, m.debt + m.deficit / 12);
   }
 
   // Weighted approval across all voter groups (by group size).
@@ -490,7 +490,7 @@
 
   // Advance one quarter.
   function simulateTurn(state) {
-    var targets = computeTargets(state, false), id, INERTIA = 0.5;
+    var targets = computeTargets(state, false), id, INERTIA = 0.2;
     for (id in targets.stats)
       state.stats[id] += (targets.stats[id] - state.stats[id]) * INERTIA;
     for (id in targets.groups)
@@ -515,7 +515,7 @@
 
     // politics
     state.approval = computeApproval(state);
-    state.pressure += 1; // demographic & cost pressure keeps building
+    state.pressure += 1 / 3; // demographic & cost pressure keeps building (per month)
 
     // party morale: discontent builds while approval is poor and decays when it
     // recovers. A sustained slump triggers a leadership challenge — survive it
@@ -533,15 +533,15 @@
     state.capital = Math.min(state.maxCapital, state.capital + capitalRegen(state));
 
     state.turn += 1;
-    state.quarter += 1;
-    if (state.quarter > 4) { state.quarter = 1; state.year += 1; }
+    state.month += 1;
+    if (state.month > 12) { state.month = 1; state.year += 1; }
     recordHistory(state);
 
-    var electionDue = state.turn >= TERM_QUARTERS;
-    // PMQs every third quarter; otherwise a decision lands on the desk most weeks
+    var electionDue = state.turn >= TERM_TURNS;
+    // PMQs roughly every 6 months; otherwise a decision often lands on the desk
     if (!electionDue && !state.gameOver) {
-      if (state.turn % 3 === 0) state.pendingDilemma = buildPMQ(state);
-      else if (Math.random() < 0.72) state.pendingDilemma = pickDilemma(state);
+      if (state.turn % 6 === 0) state.pendingDilemma = buildPMQ(state);
+      else if (Math.random() < 0.34) state.pendingDilemma = pickDilemma(state);
     }
     return { electionDue: electionDue };
   }
@@ -620,13 +620,13 @@
     return Math.max(1, Math.round(frac * 14));
   }
 
-  // Political capital regenerated each quarter: a popular, united government
-  // gets more done; an unpopular, divided one is paralysed.
+  // Political capital regenerated each month: a popular, united government gets
+  // more done; an unpopular, divided one is paralysed.
   function capitalRegen(state) {
-    var r = 2 + Math.round(clamp01(state.approval) * 3);
-    if (state.unity > 0.6) r += 1;
-    if (state.unity < 0.35) r -= 1;
-    return Math.max(1, r);
+    var r = 1 + clamp01(state.approval) * 1.4;
+    if (state.unity > 0.6) r += 0.4;
+    if (state.unity < 0.35) r -= 0.4;
+    return Math.max(1, Math.round(r));
   }
   // Capital headroom reflects your mandate — a big majority lets you spend more.
   function maxCapitalFor(majority) {
@@ -706,7 +706,7 @@
     immigration: "immigration", crime: "crime", sleaze: "sleaze & competence"
   };
   function recordOppHistory(g) {
-    g.oppHistory.push({ label: g.year + " Q" + g.quarter, opp: g.oppShare, govApp: g.govApproval * 100 });
+    g.oppHistory.push({ label: g.year + "-" + g.month, opp: g.oppShare, govApp: g.govApproval * 100 });
     if (g.oppHistory.length > 60) g.oppHistory.shift();
   }
   function oppWeaknesses(g) {
@@ -770,19 +770,19 @@
       if (ev.effect.macro) for (id in ev.effect.macro) if (g.macro[id] != null) g.macro[id] += ev.effect.macro[id];
     }
     g.activeEvents = firing;
-    g.pressure += 1;
-    g.unity = clamp01(g.unity - 0.01); // governing erodes the incumbent over time
+    g.pressure += 1 / 3;
+    g.unity = clamp01(g.unity - 0.004); // governing slowly erodes the incumbent
     g.govApproval = computeApproval(g);
     g.weak = oppWeaknesses(g);
     // an unpopular government lifts the opposition; your momentum adds on top
     var target = (D.BASELINE[g.party] || 12) + (0.5 - g.govApproval) * 42 + g.momentum;
-    g.oppShare += (clamp(target, 3, 60) - g.oppShare) * 0.4;
+    g.oppShare += (clamp(target, 3, 60) - g.oppShare) * 0.18;
     g.oppShare = clamp(g.oppShare, 3, 60);
-    g.momentum *= 0.55;
-    g.energy = Math.min(g.maxEnergy, g.energy + 4);
-    g.turn += 1; g.quarter += 1; if (g.quarter > 4) { g.quarter = 1; g.year += 1; }
+    g.momentum *= 0.7;
+    g.energy = Math.min(g.maxEnergy, g.energy + 2);
+    g.turn += 1; g.month += 1; if (g.month > 12) { g.month = 1; g.year += 1; }
     recordOppHistory(g);
-    return { electionDue: g.turn >= TERM_QUARTERS };
+    return { electionDue: g.turn >= TERM_TURNS };
   }
   function govShareFrom(g) { return clamp((D.BASELINE[g.incumbent] || 30) + (g.govApproval - 0.46) * 70, 4, 58); }
   function runOppositionElection(g, regionAdj) {
@@ -836,7 +836,7 @@
     campaignAdj: campaignAdj,
     sharesFromPreset: sharesFromPreset,
     swingFrom: swingFrom,
-    TERM_QUARTERS: TERM_QUARTERS,
+    TERM_TURNS: TERM_TURNS,
     EFFICIENCY: EFFICIENCY,
     EXP: EXP,
     _allocate: allocate
