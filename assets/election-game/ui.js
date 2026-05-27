@@ -33,38 +33,40 @@
     });
     var n = seatList.length || 1;
 
-    var rows = Math.max(7, Math.round(Math.sqrt(n) / 1.45));
-    var rInner = rows * 1.7, rowGap = 1.0;
-    var radii = [], sumR = 0, i;
-    for (i = 0; i < rows; i++) { radii.push(rInner + i * (rInner / rows + rowGap)); sumR += radii[i]; }
+    // Pick a row count so seats pack roughly evenly (arc spacing ≈ row spacing),
+    // with inner radius ~45% of the outer radius (a natural-looking arch).
+    var i, f = 0.45, outerR = 100, innerR = f * outerR;
+    var K = 2 * n * (1 - f) / (Math.PI * (1 + f));
+    var rows = Math.max(8, Math.round((1 + Math.sqrt(1 + 4 * K)) / 2));
+    var rowStep = rows > 1 ? (outerR - innerR) / (rows - 1) : 0;
+    var radii = [], sumR = 0;
+    for (i = 0; i < rows; i++) { radii.push(innerR + i * rowStep); sumR += radii[i]; }
 
-    // seats per row proportional to radius, fixed to total n
+    // seats per row proportional to radius, fixed to exactly n
     var perRow = [], assigned = 0;
     for (i = 0; i < rows; i++) { perRow.push(Math.max(1, Math.round(n * radii[i] / sumR))); assigned += perRow[i]; }
-    while (assigned > n) { // trim from busiest rows
-      var mi = 0; for (i = 1; i < rows; i++) if (perRow[i] > perRow[mi]) mi = i;
-      perRow[mi]--; assigned--;
-    }
-    while (assigned < n) {
-      var ma = rows - 1; perRow[ma]++; assigned++;
-    }
+    var gi = rows - 1;
+    while (assigned > n) { if (perRow[gi] > 1) { perRow[gi]--; assigned--; } gi = gi > 0 ? gi - 1 : rows - 1; }
+    gi = rows - 1;
+    while (assigned < n) { perRow[gi]++; assigned++; gi = gi > 0 ? gi - 1 : rows - 1; }
 
-    // build seat slots with angle + radius, then sort left->right by x
-    var slots = [];
+    // place seats; track the tightest spacing so dots never overlap
+    var slots = [], minSpace = rowStep || 6;
     for (i = 0; i < rows; i++) {
       var k = perRow[i], R = radii[i];
+      if (k > 1) minSpace = Math.min(minSpace, R * Math.PI / (k - 1));
       for (var j = 0; j < k; j++) {
         var t = k === 1 ? 0.5 : j / (k - 1);
         var ang = Math.PI * (1 - t); // pi (left) -> 0 (right)
-        slots.push({ x: R * Math.cos(ang), y: -R * Math.sin(ang), R: R, ang: ang });
+        slots.push({ x: R * Math.cos(ang), y: -R * Math.sin(ang) });
       }
     }
     slots.sort(function (a, b) { return a.x - b.x || a.y - b.y; });
 
-    var maxR = radii[rows - 1] + 2;
-    var W = maxR * 2, H = maxR + 4;
-    var dot = Math.max(1.6, maxR / 26);
-    var svg = ['<svg class="hemicycle" viewBox="' + (-maxR) + ' ' + (-H) + ' ' + W + ' ' + (H + 4) + '" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Seat hemicycle">'];
+    var dot = Math.max(1, 0.42 * Math.min(rowStep || minSpace, minSpace));
+    var pad = dot + 2;
+    var svg = ['<svg class="hemicycle" viewBox="' + (-outerR - pad) + ' ' + (-outerR - pad) + ' ' +
+      (2 * (outerR + pad)) + ' ' + (outerR + pad + pad) + '" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Seat hemicycle">'];
     for (i = 0; i < slots.length; i++) {
       var party = seatList[i] || "oth";
       svg.push('<circle cx="' + slots[i].x.toFixed(2) + '" cy="' + slots[i].y.toFixed(2) +
