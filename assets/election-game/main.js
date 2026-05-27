@@ -131,6 +131,7 @@
       case "campaign":    html = viewCampaign(); break;
       case "opposition":  html = viewOpposition(); break;
       case "govern":      html = viewGovern(); break;
+      case "midterm":     html = viewMidterm(); break;
       case "election":    html = viewElectionNight(); break;
       default:            html = viewHome();
     }
@@ -704,6 +705,54 @@
       '<button class="btn" data-go="home">Main Menu</button></div></div>';
   }
 
+  // ----------------------------------------------------- mid-term elections
+  function viewMidterm() {
+    var g = S.govern, r = g.lastMidterm;
+    if (!r) return viewGovern();
+    var party = D.PARTIES[g.party];
+    if (r.kind === "local") {
+      var V = {
+        gains:    { h: "Local Elections: A Strong Night", t: "swept to gains across the country",
+                    c: "Your activists are jubilant. The result steadies the party and lifts your authority — unity rises and you bank political capital." },
+        steady:   { h: "Local Elections: Holding Steady", t: "broadly held its ground",
+                    c: "A solid-enough night. No breakthrough, but no rout — the party is reassured for now." },
+        losses:   { h: "Local Elections: Losing Ground", t: "lost councillors and councils",
+                    c: "A disappointing set of results. Nervous backbenchers are starting to mutter about the direction of travel." },
+        drubbing: { h: "Local Elections: A Hammering", t: "suffered heavy losses",
+                    c: "A brutal night on the doorstep. The backbenches are in open revolt, your authority is dented and the whips are working overtime." }
+      }[r.verdict];
+      var councilLines = Object.keys(r.councils)
+        .filter(function (k) { return k !== "noOverallControl" && r.councils[k] > 0; })
+        .sort(function (a, b) { return r.councils[b] - r.councils[a]; })
+        .slice(0, 5)
+        .map(function (k) { return '<span class="pill" style="background:' + U.pcolor(k) + '22;color:' + U.pcolor(k) + '">' + U.pname(k) + ' ' + r.councils[k] + '</span>'; })
+        .join(" ") + ' <span class="pill" style="background:#9aa0a622;color:#9aa0a6">No overall control ' + (r.councils.noOverallControl || 0) + '</span>';
+      return '<h2 class="section-title">' + V.h + '</h2>' +
+        '<p class="subtitle">' + party.name + ' has <b style="color:' + party.color + '">' + V.t + '</b>, winning <b>' + r.mySeats + '</b> of around ' + D.LOCAL.totalSeats.toLocaleString() + ' council seats up for election.</p>' +
+        '<div class="panel"><h3>Council seats won</h3>' + U.seatBar(r.councilSeats) + U.legend(r.councilSeats) +
+        '<div style="margin-top:12px"><div class="lab2" style="margin-bottom:6px">Councils controlled</div>' + councilLines + '</div></div>' +
+        '<div class="panel" style="margin-top:16px"><h3>The verdict in Westminster</h3><p>' + V.c + '</p>' +
+        '<div class="kpis" style="margin-top:8px">' +
+          kpi("Party unity", Math.round(g.unity * 100) + "%", g.unity > 0.55 ? "var(--good)" : g.unity > 0.4 ? "var(--warn)" : "var(--bad)") +
+          kpi("Approval", (g.approval * 100).toFixed(1) + "%", g.approval > 0.5 ? "var(--good)" : g.approval < 0.4 ? "var(--bad)" : "var(--warn)") +
+        '</div></div>' +
+        '<div class="row" style="margin-top:16px;justify-content:center"><button class="btn primary" data-act="continuemid">Back to Number 10 ▶</button></div>';
+    }
+    // by-election
+    var won = r.held;
+    var rankRows = r.ranked.map(function (x, i) {
+      return '<div class="stat-row" style="grid-template-columns:1fr auto"><div class="name" style="color:' + U.pcolor(x.party) + '">' +
+        (i === 0 ? "🏆 " : "") + U.pname(x.party) + '</div><div class="v">' + x.share.toFixed(1) + '%</div></div>';
+    }).join("");
+    return '<h2 class="section-title">By-Election: ' + U.esc(r.seat.n) + '</h2>' +
+      '<p class="subtitle">A seat ' + party.name + ' held falls vacant and goes to the voters.</p>' +
+      '<div class="panel"><h3>' + (won ? party.name + " HOLDS the seat" : U.pname(r.winner) + " GAINS the seat from " + party.name) + '</h3>' + rankRows + '</div>' +
+      '<div class="panel" style="margin-top:16px"><h3>The verdict in Westminster</h3><p>' +
+      (won ? "A hold — a quiet sigh of relief in the whips' office, and a small boost to party morale."
+           : "An embarrassing loss. The result emboldens your opponents and unsettles your own benches.") + '</p></div>' +
+      '<div class="row" style="margin-top:16px;justify-content:center"><button class="btn primary" data-act="continuemid">Back to Number 10 ▶</button></div>';
+  }
+
   // --------------------------------------------------------- election night
   function viewElectionNight() {
     var g = S.govern, r = g.lastElection, won = r.won, gv = r.government;
@@ -888,6 +937,10 @@
         var res = E.simulateTurn(g);
         if (g.gameOver) { render(); return; }
         if (res.electionDue) { startCampaign(); go("campaign"); return; }
+        if (res.midterm) {
+          if (res.midterm === "local") E.runLocalElections(g); else E.runByElection(g);
+          go("midterm"); return;
+        }
         render();
         if (g.leadershipChallenge === "survived") toast("You survived a leadership challenge — for now.");
         else if (!g.pendingDilemma) toast("Month ended — " + dateLabel(g));
@@ -928,6 +981,7 @@
       case "continueterm":
         if (g.choosePledges) { S.pledgeSel = []; go("pledges"); } else go("govern");
         break;
+      case "continuemid": g.lastMidterm = null; g.pendingMidterm = null; go("govern"); break;
       case "seegameover": go("govern"); break;
       case "quitgovern": if (confirm("Resign and leave Number 10? Your saved game will be deleted.")) { clearSave(); S.govern = null; go("home"); } break;
     }

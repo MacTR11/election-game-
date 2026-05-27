@@ -538,12 +538,14 @@
     recordHistory(state);
 
     var electionDue = state.turn >= TERM_TURNS;
-    // PMQs roughly every 6 months; otherwise a decision often lands on the desk
+    // Mid-term tests take priority; otherwise PMQs (~every 6 months) or a decision.
     if (!electionDue && !state.gameOver) {
-      if (state.turn % 6 === 0) state.pendingDilemma = buildPMQ(state);
+      if (state.month === 5 && state.turn >= 7) state.pendingMidterm = "local";
+      else if (state.turn > 4 && Math.random() < 0.05) state.pendingMidterm = "by";
+      else if (state.turn % 6 === 0) state.pendingDilemma = buildPMQ(state);
       else if (Math.random() < 0.34) state.pendingDilemma = pickDilemma(state);
     }
-    return { electionDue: electionDue };
+    return { electionDue: electionDue, midterm: state.pendingMidterm || null };
   }
 
   // Choose a dilemma, strongly preferring ones the player has never seen, and
@@ -739,6 +741,52 @@
   }
 
   // =====================================================================
+  // MID-TERM ELECTORAL TESTS — local elections (each May) and by-elections
+  // act as referendums on the government between general elections. They use
+  // the same national-swing model as a general election and feed back into
+  // party unity, political capital and backbench discontent.
+  // =====================================================================
+  function runLocalElections(state) {
+    var shares = runGeneralElection(state).shares;
+    var res = localElection(shares);
+    var a = state.approval, verdict, dU, dCap, dGrp;
+    if (a >= 0.5)       { verdict = "gains";    dU = 0.06;  dCap = 1;  dGrp = 0.02; }
+    else if (a >= 0.43) { verdict = "steady";   dU = 0.0;   dCap = 0;  dGrp = 0.0; }
+    else if (a >= 0.36) { verdict = "losses";   dU = -0.05; dCap = 0;  dGrp = -0.02; }
+    else                { verdict = "drubbing"; dU = -0.10; dCap = -1; dGrp = -0.04; }
+    state.unity = clamp01(state.unity + dU);
+    if (dCap) state.capital = clamp(state.capital + dCap, 0, state.maxCapital);
+    if (verdict === "drubbing") state.discontent += 0.12;
+    if (dGrp) for (var id in state.groups) state.groups[id] = clamp01(state.groups[id] + dGrp);
+    state.approval = computeApproval(state);
+    var result = { kind: "local", councilSeats: res.seats, councils: res.councils,
+                   party: state.party, mySeats: res.seats[state.party] || 0, verdict: verdict };
+    state.lastMidterm = result;
+    state.pendingMidterm = null;
+    return result;
+  }
+
+  function runByElection(state) {
+    var C = window.UKGAME.CONSTITUENCIES || [];
+    var held = C.filter(function (s) { return s.w === state.party; });
+    var pool = held.length ? held : C;
+    var seat = pool[Math.floor(Math.random() * pool.length)] || null;
+    if (!seat) { state.pendingMidterm = null; return null; }
+    var shares = runGeneralElection(state).shares;
+    var r = byElection(seat, shares);
+    var holdSeat = r.winner === state.party;
+    state.unity = clamp01(state.unity + (holdSeat ? 0.03 : -0.05));
+    if (!holdSeat) state.discontent += 0.06;
+    state.approval = computeApproval(state);
+    var result = { kind: "by", seat: { c: seat.c, n: seat.n, reg: seat.reg },
+                   winner: r.winner, ranked: r.ranked.slice(0, 3), held: holdSeat,
+                   previousWinner: state.party };
+    state.lastMidterm = result;
+    state.pendingMidterm = null;
+    return result;
+  }
+
+  // =====================================================================
   // OPPOSITION MODE — you don't run the country; you fight to win power.
   // The incumbent government runs at its defaults and drifts mid-term; you
   // build your party's poll share by attacking, positioning and campaigning.
@@ -871,6 +919,8 @@
     computeTargets: computeTargets,
     runGeneralElection: runGeneralElection,
     applyElectionResult: applyElectionResult,
+    runLocalElections: runLocalElections,
+    runByElection: runByElection,
     changeCost: changeCost,
     capitalRegen: capitalRegen,
     maxCapitalFor: maxCapitalFor,
