@@ -117,8 +117,6 @@
     switch (S.screen) {
       case "home":        html = viewHome(); break;
       case "simulator":   html = viewSimulator(); break;
-      case "byelection":  html = viewByElection(); break;
-      case "local":       html = viewLocal(); break;
       case "govern-setup":html = viewGovernSetup(); break;
       case "pledges":     html = viewPledgeSelect(); break;
       case "campaign":    html = viewCampaign(); break;
@@ -137,11 +135,7 @@
       { s: "govern-setup", ico: "🏛", h: "Govern the Country", tag: "Flagship mode",
         p: "Take charge as PM. Set 28 policies in real terms — actual tax rates, £bn budgets, the triple lock, net migration — on the real UK 2024–25 public finances. Balance the books, run real GDP/inflation/debt, weather decision dilemmas and keep your party and the voters onside." },
       { s: "simulator", ico: "🗳", h: "General Election Simulator", tag: "Swingometer + map",
-        p: "Dial in national vote shares and project all 650 real constituencies seat-by-seat, with a full UK hex map, swing chart and Commons hemicycle. Baseline reproduces the actual July 2024 result." },
-      { s: "byelection", ico: "📍", h: "By-Elections", tag: "Any of 650 seats",
-        p: "Pick any real constituency and see how it falls under your national swing — holds, gains and majorities, mapped." },
-      { s: "local", ico: "🏘", h: "Local Elections", tag: "Council night",
-        p: "Translate the national mood into thousands of council seats and the number of authorities each party controls." }
+        p: "Dial in national vote shares — or load the latest polls — and project all 650 real constituencies seat-by-seat, with a full UK map, swing chart, battlegrounds and the Commons hemicycle. Click any seat for detail." }
     ];
     return '<div class="hero"><div class="brand" style="justify-content:center"><div class="door">10</div></div>' +
       '<h1>Number <span class="n10">10</span></h1>' +
@@ -161,25 +155,17 @@
         '</div><input type="range" min="0" max="55" step="0.1" value="' + v + '" data-share="' + p + '">' +
         '<input class="share-input" data-shareinput="' + p + '" value="' + v.toFixed(1) + '"></div>';
     }).join("");
-    var pollOpts = allPolls().map(function (e) {
-      return '<option value="poll:' + e.id + '">' + U.esc(e.label + (e.date ? " (" + e.date + ")" : "")) + '</option>';
-    }).join("");
-    var presetOpts = Object.keys(D.PRESETS).map(function (k) {
-      return '<option value="preset:' + k + '">' + U.esc(D.PRESETS[k].name) + '</option>';
-    }).join("");
     var sum = SHARE_PARTIES.reduce(function (a, p) { return a + (S.shares[p] || 0); }, 0);
+    var src = S.lastPollSource ? '<p class="notice" style="color:var(--commons-l)">Loaded: ' + U.esc(S.lastPollSource) + '</p>' : "";
     return '<div class="panel"><h3>National Vote Share (GB %)</h3>' +
-      '<div class="row" style="margin-bottom:8px"><select class="sel" id="preset" style="flex:1">' +
-        '<option value="">Load polls or a scenario…</option>' +
-        '<optgroup label="Polls (real)">' + pollOpts + '</optgroup>' +
-        '<optgroup label="Scenarios (illustrative)">' + presetOpts + '</optgroup></select></div>' +
       '<div class="row" style="margin-bottom:10px">' +
-        '<button class="btn sm" data-act="fetchpolls" id="fetchbtn">↻ Latest polls</button>' +
+        '<button class="btn sm" data-act="fetchpolls" id="fetchbtn">↻ Load latest polls</button>' +
+        '<button class="btn sm" data-act="reset2024">2024 result</button>' +
         '<button class="btn sm" data-act="normalise">Normalise 100%</button>' +
         '<button class="btn sm" data-act="share">🔗 Share</button>' +
         '<span class="spacer"></span><span class="muted" id="sharesum">Total: ' + sum.toFixed(1) + '%</span></div>' +
-      rows +
-      '<p class="notice">Loads the real 2024 result by default. <b>↻ Latest polls</b> pulls the current polling average live from Wikipedia’s aggregation of BPC pollsters (YouGov, Opinium, More in Common, Survation…); if that can’t be reached it keeps the saved data. Shares are normalised before projection; swing is measured vs 2024.</p></div>';
+      rows + src +
+      '<p class="notice"><b>Load latest polls</b> fetches the current poll-of-polls live, in your browser, from Wikipedia’s article <i>“Opinion polling for the next United Kingdom general election”</i> — which aggregates the British Polling Council member firms (YouGov, Opinium, More in Common, Survation, Techne, JL Partners, BMG, Find Out Now…). If it can’t be reached it keeps your current figures. Shares are normalised before projection; swing is measured versus the 2024 result.</p></div>';
   }
 
   // --------------------------------------------------------- simulator view
@@ -203,7 +189,10 @@
         U.legend(r.totals, { shares: shares }) + mapView(r.seatWinners) + '</div>' +
       seatDetailPanel(shares) +
       battlegroundPanel(bg) +
-      regionTable(r);
+      regionTable(r) +
+      '<div class="panel" style="margin-top:16px"><h3>How seats are modelled</h3>' +
+      '<p class="muted" style="font-size:13px;margin:0 0 8px">Every one of the 650 constituencies carries its <b>real July 2024 result</b> (actual Conservative / Labour / Reform vote shares and the real winning party; the remaining parties are region-calibrated to the published regional results). To project an outcome the model takes your national vote shares, works out each party’s <b>swing versus 2024</b>, applies that swing uniformly to every seat, then awards each seat to the highest share — first-past-the-post, aggregated across all 650. At zero swing it reproduces the exact 2024 Commons (Lab 411, Con 121, LD 72, SNP 9, Reform 5…).</p>' +
+      '<p class="muted" style="font-size:13px;margin:0">This is the classic <b>uniform national swing</b> swingometer. It’s an estimate, not a forecast: in reality swing varies by region and demographic, and tactical voting, incumbency and local candidates aren’t captured. Professional models (Electoral Calculus, YouGov MRP) layer regional/demographic transition models on much more data. Boundary data: mySociety; 2024 results: House of Commons Library / published constituency results.</p></div>';
   }
   function governmentPanel(g) {
     if (!g) return "";
@@ -258,70 +247,11 @@
     return out;
   }
 
-  // -------------------------------------------------------- by-election view
+  // helper: find a constituency object by ONS code (used by seat-detail clicks)
   function seatByCode(code) {
     var C = window.UKGAME.CONSTITUENCIES;
     for (var i = 0; i < C.length; i++) if (C[i].c === code) return C[i];
     return C[0];
-  }
-  function viewByElection() {
-    var C = window.UKGAME.CONSTITUENCIES;
-    var cur = seatByCode(S.byseat);
-    var opts = C.slice().sort(function (a, b) { return a.n < b.n ? -1 : 1; })
-      .map(function (s) { return '<option value="' + U.esc(s.n) + '" data-code="' + s.c + '">'; }).join("");
-    return '<h2 class="section-title">By-Election</h2>' +
-      '<p class="subtitle">Any of the 650 seats, fought under your national swing versus the real 2024 result.</p>' +
-      '<div class="split">' + shareControls() +
-      '<div><div class="panel" style="margin-bottom:16px"><h3>Constituency</h3>' +
-      '<input class="seat-search" id="byseat-input" list="seatlist" placeholder="Type a constituency…" value="' + U.esc(cur.n) + '">' +
-      '<datalist id="seatlist">' + opts + '</datalist></div>' +
-      '<div id="bye-results"></div></div></div>';
-  }
-  function byeResults() {
-    var seat = seatByCode(S.byseat);
-    var r = E.byElection(seat, normShares(pickShares()));
-    var bars = r.ranked.map(function (row) {
-      return '<div class="stat-row"><div class="name" style="color:' + U.pcolor(row.party) + '">' + U.pname(row.party) +
-        '</div><div class="statbar"><i style="width:' + Math.min(100, row.share) + '%;background:' + U.pcolor(row.party) + '"></i></div>' +
-        '<div class="v">' + row.share.toFixed(1) + '%</div></div>';
-    }).join("");
-    var verdict = r.gain
-      ? '<span class="pill" style="background:var(--good);color:#06210f">' + U.pshort(r.winner) + ' GAIN from ' + U.pshort(r.previousWinner) + '</span>'
-      : '<span class="pill" style="background:var(--panel-2);color:var(--ink)">' + U.pshort(r.winner) + ' HOLD</span>';
-    return '<div class="panel" style="margin-bottom:16px"><h3>Result — ' + U.esc(seat.n) + '</h3>' +
-      '<div class="row" style="margin-bottom:12px;align-items:center"><div class="big" style="font-size:24px;font-weight:900;color:' + U.pcolor(r.winner) + '">' +
-      U.pname(r.winner) + '</div>' + verdict + '<span class="spacer"></span><span class="muted">' +
-      '2024: ' + U.pshort(seat.w) + ' · maj ' + r.margin.toFixed(1) + ' pts</span></div>' + bars + '</div>' +
-      '<div class="panel"><h3>Where it sits</h3>' + mapView(null, { highlight: seat.c }) + '</div>';
-  }
-
-  // ------------------------------------------------------------- local view
-  function viewLocal() {
-    return '<h2 class="section-title">Local Elections</h2>' +
-      '<p class="subtitle">The national mood, projected onto council chambers across the country.</p>' +
-      '<div class="split">' + shareControls() +
-      '<div id="local-results"></div></div>';
-  }
-  function localResults() {
-    var shares = normShares(pickShares());
-    var r = E.localElection(shares);
-    var ge = E.projectSeats(shares);
-    var seatRows = U.orderedParties(r.seats).slice().sort(function (a, b) { return r.seats[b] - r.seats[a]; })
-      .map(function (p) {
-        return '<div class="stat-row"><div class="name" style="color:' + U.pcolor(p) + '">' + U.pname(p) +
-          '</div><div class="statbar"><i style="width:' + Math.min(100, r.seats[p] / D.LOCAL.totalSeats * 100 * 3) + '%;background:' + U.pcolor(p) + '"></i></div>' +
-          '<div class="v">' + r.seats[p].toLocaleString() + '</div></div>';
-      }).join("");
-    var councilRows = Object.keys(r.councils).filter(function (k) { return k !== "noOverallControl" && r.councils[k] > 0; })
-      .sort(function (a, b) { return r.councils[b] - r.councils[a]; })
-      .map(function (p) { return '<tr><td style="color:' + U.pcolor(p) + '">' + U.pname(p) + '</td><td class="num">' + r.councils[p] + '</td></tr>'; }).join("");
-    return '<div class="panel" style="margin-bottom:16px"><h3>Council Seats (≈' + D.LOCAL.totalSeats.toLocaleString() + ' up)</h3>' + seatRows + '</div>' +
-      '<div class="panel"><h3>Councils Controlled (of ' + D.LOCAL.councils + ')</h3>' +
-      '<table class="tbl"><thead><tr><th>Party</th><th class="num">Councils</th></tr></thead><tbody>' + councilRows +
-      '<tr><td class="muted">No Overall Control</td><td class="num muted">' + r.councils.noOverallControl + '</td></tr></tbody></table></div>' +
-      '<div class="panel" style="margin-top:16px"><h3>Leading Party by Area (national mood)</h3>' +
-      mapView(ge.seatWinners) +
-      '<p class="notice">Illustrative: the constituency map shaded by which party leads under the same national vote. Local results vary with turnout, candidates and local factors.</p></div>';
   }
 
   // --------------------------------------------------------- govern: setup
@@ -754,18 +684,13 @@
 
     bindShareControls();
     bindPolicySliders();
-    bindByElection();
 
-    // first paint of live results panels
+    // first paint of the live simulator results panel
     if (S.screen === "simulator") { var sr = $("#sim-results"); if (sr) sr.innerHTML = simResults(); }
-    if (S.screen === "byelection") { var br = $("#bye-results"); if (br) br.innerHTML = byeResults(); }
-    if (S.screen === "local") { var lr = $("#local-results"); if (lr) lr.innerHTML = localResults(); }
   }
 
   function refreshShareResults() {
     if (S.screen === "simulator") $("#sim-results").innerHTML = simResults();
-    else if (S.screen === "byelection") $("#bye-results").innerHTML = byeResults();
-    else if (S.screen === "local") $("#local-results").innerHTML = localResults();
     var sum = SHARE_PARTIES.reduce(function (a, p) { return a + (S.shares[p] || 0); }, 0);
     var el = $("#sharesum"); if (el) el.textContent = "Total: " + sum.toFixed(1) + "%";
   }
@@ -787,26 +712,6 @@
         var range = app.querySelector('[data-share="' + p + '"]'); if (range) range.value = v;
         refreshShareResults();
       });
-    });
-    var preset = $("#preset");
-    if (preset) preset.addEventListener("change", function () {
-      var v = preset.value; if (!v) return;
-      var src = null;
-      if (v.indexOf("poll:") === 0) { var e = pollById(v.slice(5)); src = e && e.shares; }
-      else if (v.indexOf("preset:") === 0) src = E.sharesFromPreset(v.slice(7));
-      if (!src) return;
-      SHARE_PARTIES.forEach(function (p) { S.shares[p] = src[p] || 0; });
-      render(); // redraw sliders to new values
-    });
-  }
-
-  function bindByElection() {
-    var inp = $("#byseat-input");
-    if (!inp) return;
-    inp.addEventListener("change", function () {
-      var name = inp.value.trim().toLowerCase(), C = window.UKGAME.CONSTITUENCIES;
-      for (var i = 0; i < C.length; i++) if (C[i].n.toLowerCase() === name) { S.byseat = C[i].c; break; }
-      $("#bye-results").innerHTML = byeResults();
     });
   }
 
@@ -840,6 +745,11 @@
     switch (act) {
       case "normalise":
         S.shares = normShares(pickShares()); render(); break;
+      case "reset2024": {
+        var b2 = E.sharesFromPreset("ge2024");
+        SHARE_PARTIES.forEach(function (p) { S.shares[p] = b2[p] || 0; });
+        S.lastPollSource = "2024 General Election result"; render(); break;
+      }
       case "endturn": {
         if (g.pendingDilemma) { toast("Settle the decision on your desk first."); return; }
         var res = E.simulateTurn(g);
@@ -893,15 +803,13 @@
       if (!html) throw new Error("no content");
       var poll = parseWikiPoll(html);
       if (!poll) throw new Error("no poll parsed");
-      // de-dupe and add to the session list, then load it
-      S.livePolls = S.livePolls.filter(function (e) { return e.id !== poll.id; });
-      S.livePolls.unshift(poll);
       SHARE_PARTIES.forEach(function (p) { S.shares[p] = poll.shares[p] || 0; });
+      S.lastPollSource = (poll.pollster || "Latest poll") + (poll.date ? ", " + poll.date : "") + " (via Wikipedia)";
       render();
-      toast("Loaded: " + poll.label);
+      toast("Loaded latest: " + poll.label);
     }).catch(function () {
-      if (btn) { btn.textContent = "↻ Latest polls"; btn.disabled = false; }
-      toast("Couldn’t reach live polls — using saved data.");
+      if (btn) { btn.textContent = "↻ Load latest polls"; btn.disabled = false; }
+      toast("Couldn’t reach live polls — keeping your current figures.");
     });
   }
 
@@ -987,9 +895,8 @@
       }
       var seat = e.target.closest("[data-seat]");
       if (seat) {
-        var code = seat.getAttribute("data-seat");
-        if (S.screen === "byelection") { S.byseat = code; $("#bye-results").innerHTML = byeResults(); }
-        else { S.selectedSeat = code; if (S.screen === "simulator") $("#sim-results").innerHTML = simResults(); }
+        S.selectedSeat = seat.getAttribute("data-seat");
+        if (S.screen === "simulator") $("#sim-results").innerHTML = simResults();
       }
     });
     document.querySelectorAll(".nav-btn").forEach(function (b) {
