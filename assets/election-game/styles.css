@@ -196,6 +196,18 @@ a { color: var(--commons-l); }
 .opt-card span { font-size: 11.5px; color: var(--ink-dim); line-height: 1.35; }
 .opt-card:hover { border-color: var(--commons-l); }
 .opt-card.on { border-color: var(--gold); background: rgba(201, 162, 39, .12); }
+.min-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.min-card { background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; }
+.min-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.min-name { font-weight: 800; font-size: 15px; margin-top: 2px; }
+.min-meta { margin: 7px 0 4px; font-size: 13px; }
+.min-trait { font-size: 11.5px; color: var(--ink-dim); }
+.stars { color: var(--gold); letter-spacing: 1px; }
+.appoint-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.appoint-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; text-align: left;
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; color: var(--ink); transition: border-color .15s; }
+.appoint-row:hover { border-color: var(--gold); }
+.appoint-row:disabled { opacity: .5; cursor: not-allowed; }
 
 /* economy charts */
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }

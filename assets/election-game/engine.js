@@ -283,6 +283,72 @@
     return _polById[id];
   }
 
+  // =====================================================================
+  // THE CABINET — each post is held by a minister with a competence rating.
+  // Competent ministers lift their department; weak ones drag it. The player
+  // can reshuffle from a pool of backbenchers, spending capital and risking
+  // party unity (sacking a loyal big beast bruises morale).
+  // =====================================================================
+  var CABINET_POSTS = [
+    { id: "chancellor", title: "Chancellor of the Exchequer", area: "the economy & the books" },
+    { id: "health",     title: "Health Secretary",            area: "the NHS" },
+    { id: "home",       title: "Home Secretary",              area: "crime & migration" },
+    { id: "education",  title: "Education Secretary",          area: "schools & skills" },
+    { id: "foreign",    title: "Foreign Secretary",           area: "trade & Britain's standing" },
+    { id: "chair",      title: "Party Chair & Chief Whip",    area: "party discipline" }
+  ];
+  var MIN_FIRST = ["Margaret", "James", "Priya", "David", "Sarah", "Tom", "Rachel", "Daniel", "Helen", "Marcus",
+    "Ayesha", "George", "Fiona", "Raj", "Claire", "Stephen", "Nadia", "Paul", "Louise", "Ben", "Yvette", "Oliver", "Diane", "Wesley"];
+  var MIN_LAST = ["Hartley", "Okafor", "Sinclair", "Mbeki", "Whitfield", "Greenwood", "Ashworth", "Patel", "Caldwell",
+    "Donnelly", "Fairbairn", "Hughes", "Lockhart", "Bashir", "Pennington", "Crawford", "Rashid", "Thornton", "Beaumont", "Ellison", "Marsh", "Quinn", "Stroud", "Vance"];
+  var MIN_TRAITS = ["Safe pair of hands", "Rising star", "Big beast", "Loyal foot-soldier", "Gaffe-prone", "Media darling", "Backroom operator", "Ideological firebrand"];
+  function makeMinister(used) {
+    var name;
+    do { name = MIN_FIRST[Math.floor(Math.random() * MIN_FIRST.length)] + " " + MIN_LAST[Math.floor(Math.random() * MIN_LAST.length)]; }
+    while (used[name]);
+    used[name] = 1;
+    var c = 2 + Math.floor(Math.random() * 4); // 2..5
+    if ((c === 2 || c === 5) && Math.random() < 0.4) c = 3 + Math.floor(Math.random() * 2); // bias to the middle
+    return { name: name, competence: c, trait: MIN_TRAITS[Math.floor(Math.random() * MIN_TRAITS.length)],
+             loyalty: Math.round((0.3 + Math.random() * 0.6) * 100) / 100 };
+  }
+  function generateCabinet() {
+    var used = {}, cab = {}, pool = [], i;
+    for (i = 0; i < CABINET_POSTS.length; i++) cab[CABINET_POSTS[i].id] = makeMinister(used);
+    for (i = 0; i < 6; i++) pool.push(makeMinister(used));
+    return { cabinet: cab, talentPool: pool };
+  }
+  // Per-turn modifiers from the current cabinet (competence 3 = neutral).
+  function cabinetBonus(state) {
+    var cab = state.cabinet, b = { nhs: 0, education: 0, crime: 0, immigration: 0, growth: 0, unity: 0, capital: 0 };
+    if (!cab) return b;
+    function c(id) { return cab[id] ? cab[id].competence - 3 : 0; }
+    b.growth = c("chancellor") * 0.03 + c("foreign") * 0.012;
+    b.capital = c("chancellor") * 0.3;
+    b.nhs = c("health") * 0.03;
+    b.education = c("education") * 0.03;
+    b.crime = -c("home") * 0.03;
+    b.immigration = -c("home") * 0.015;
+    b.unity = c("chair") * 0.03;
+    return b;
+  }
+  function reshuffleCabinet(state, post, poolIndex) {
+    if (!state.cabinet || !state.talentPool) return false;
+    var cand = state.talentPool[poolIndex];
+    if (!cand || !state.cabinet[post]) return false;
+    var cost = 2;
+    if (state.capital < cost) return false;
+    var outgoing = state.cabinet[post];
+    state.capital -= cost;
+    state.cabinet[post] = cand;
+    state.talentPool.splice(poolIndex, 1);
+    state.talentPool.push(outgoing);
+    var unityHit = outgoing.loyalty * 0.06;
+    var upgrade = Math.max(0, (cand.competence - outgoing.competence) * 0.02);
+    state.unity = clamp01(state.unity - unityHit + upgrade);
+    return true;
+  }
+
   function newGovernState(party, opts) {
     opts = opts || {};
     var F = D.FISCAL;
@@ -302,6 +368,7 @@
     for (i = 0; i < D.POLICIES.length; i++) s.policies[D.POLICIES[i].id] = D.POLICIES[i].def;
     for (i = 0; i < D.STATS.length; i++) s.stats[D.STATS[i].id] = D.STATS[i].base;
     for (i = 0; i < D.GROUPS.length; i++) s.groups[D.GROUPS[i].id] = D.GROUPS[i].base;
+    var cab = generateCabinet(); s.cabinet = cab.cabinet; s.talentPool = cab.talentPool;
     // settle so the starting policies are reflected in the stats and the books
     computeTargets(s, true);
     // apply the chosen scenario (absolute macro overrides + stat/group deltas)
@@ -381,6 +448,12 @@
     if (targetStats.education != null) targetStats.education -= 0.008 * pr;
     if (targetStats.crime     != null) targetStats.crime     += 0.008 * pr;
     if (targetStats.immigration != null) targetStats.immigration += 0.006 * pr;
+    // the cabinet's competence shifts where each department's stat settles
+    var cab = cabinetBonus(state);
+    if (targetStats.nhs != null)         targetStats.nhs += cab.nhs;
+    if (targetStats.education != null)   targetStats.education += cab.education;
+    if (targetStats.crime != null)       targetStats.crime += cab.crime;
+    if (targetStats.immigration != null) targetStats.immigration += cab.immigration;
     for (var k in targetStats) targetStats[k] = clamp01(targetStats[k]);
 
     // ---- groups: base + policy + how the country is doing ----
@@ -478,7 +551,7 @@
   function evolveMacro(state) {
     var contrib = policyContributions(state), m = state.macro;
     var gdpPush = contrib.stats.gdp || 0, inflPush = contrib.stats.inflation || 0, unempPush = contrib.stats.unemployment || 0;
-    var growthTarget = 1.1 + 7 * gdpPush - 0.6 * Math.max(0, (m.debtPct - 100) / 10);
+    var growthTarget = 1.1 + 7 * gdpPush - 0.6 * Math.max(0, (m.debtPct - 100) / 10) + cabinetBonus(state).growth;
     var inflTarget = 2.0 + 6 * inflPush + 0.35 * (m.realGrowth - 1.4);
     var unempTarget = 4.2 - 0.7 * (m.realGrowth - 1.4) + 9 * unempPush;
     var K = 0.15; // monthly easing toward targets
@@ -536,7 +609,7 @@
     // if you're not heading for certain defeat, otherwise your own MPs oust you.
     if (state.approval < 0.42) state.discontent += (0.42 - state.approval) * 1.7;
     else state.discontent = Math.max(0, state.discontent * 0.5);
-    state.unity = clamp01(0.62 + (state.approval - 0.45) * 1.4 - 0.5 * state.discontent);
+    state.unity = clamp01(0.62 + (state.approval - 0.45) * 1.4 - 0.5 * state.discontent + cabinetBonus(state).unity);
     state.leadershipChallenge = null;
     if (state.turn > 3 && state.discontent > 0.45) {
       if (state.approval < 0.40) { state.gameOver = true; state.oustedBy = "party"; }
@@ -680,6 +753,7 @@
     var r = 1 + clamp01(state.approval) * 1.4;
     if (state.unity > 0.6) r += 0.4;
     if (state.unity < 0.35) r -= 0.4;
+    r += cabinetBonus(state).capital;
     if (state.difficulty) r *= state.difficulty.regen;
     return Math.max(1, Math.round(r));
   }
@@ -937,6 +1011,9 @@
     applyElectionResult: applyElectionResult,
     runLocalElections: runLocalElections,
     runByElection: runByElection,
+    reshuffleCabinet: reshuffleCabinet,
+    cabinetBonus: cabinetBonus,
+    CABINET_POSTS: CABINET_POSTS,
     changeCost: changeCost,
     capitalRegen: capitalRegen,
     maxCapitalFor: maxCapitalFor,

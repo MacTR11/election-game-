@@ -21,6 +21,7 @@
     difficulty: "normal",
     policyCat: "Taxation",
     policyDetail: null,
+    reshufflePost: null,
     pledgeSel: [],
     campaign: null,
     byseat: null,
@@ -72,6 +73,7 @@
         unity: g.unity, discontent: g.discontent, pledges: g.pledges, history: g.history,
         dilemmaHistory: g.dilemmaHistory, termsWon: g.termsWon, approval: g.approval,
         difficulty: g.difficulty, scenarioId: g.scenarioId,
+        cabinet: g.cabinet, talentPool: g.talentPool,
         oppShare: g.oppShare, govApproval: g.govApproval, energy: g.energy, maxEnergy: g.maxEnergy,
         momentum: g.momentum, oppHistory: g.oppHistory,
         pendingDilemma: g.pendingDilemma ? g.pendingDilemma.id : null,
@@ -96,6 +98,8 @@
       if (s.pledges) g.pledges = s.pledges;
       if (s.difficulty) g.difficulty = s.difficulty;
       if (s.scenarioId) g.scenarioId = s.scenarioId;
+      if (s.cabinet) g.cabinet = s.cabinet;
+      if (s.talentPool) g.talentPool = s.talentPool;
       g.dilemmaHistory = s.dilemmaHistory || [];
       g.history = s.history && s.history.length ? s.history : g.history;
       if (opp) { g.oppHistory = s.oppHistory && s.oppHistory.length ? s.oppHistory : g.oppHistory; }
@@ -456,13 +460,14 @@
       kpi("Seats today", live.playerSeats + "<small>/650</small>", live.won ? "var(--good)" : "var(--bad)") +
       '</div>';
 
-    var tabs = '<div class="tabs">' + [["policies", "Policies"], ["economy", "Economy"], ["voters", "Voters"], ["briefing", "Briefing"]]
+    var tabs = '<div class="tabs">' + [["policies", "Policies"], ["economy", "Economy"], ["voters", "Voters"], ["cabinet", "Cabinet"], ["briefing", "Briefing"]]
       .map(function (t) { return '<div class="tab' + (S.governTab === t[0] ? " active" : "") + '" data-tab="' + t[0] + '">' + t[1] + '</div>'; }).join("") + '</div>';
 
     var body;
     if (S.governTab === "policies") body = tabPolicies();
     else if (S.governTab === "economy") body = tabEconomy();
     else if (S.governTab === "voters") body = tabVoters();
+    else if (S.governTab === "cabinet") body = tabCabinet();
     else body = tabBriefing(live);
 
     var dots = "";
@@ -490,7 +495,7 @@
         '<br><span class="faint">A long-serving government faces a growing "time for a change" mood — keep approval high to overcome it.</span>' +
       '</div></div></div>';
 
-    return head + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal();
+    return head + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal();
   }
   function trend(cur, prev, goodHigh) {
     if (prev == null) return "";
@@ -675,6 +680,50 @@
       '<p class="notice">Groups overlap (a renter can also be a young environmentalist), so sizes do not sum to 100%. Approval is the size-weighted average of every group.</p></div>';
   }
 
+  function stars(c) { return '<span class="stars">' + "★".repeat(c) + '<span class="faint">' + "★".repeat(5 - c) + '</span></span>'; }
+  function ministerPerf(c) {
+    return c >= 5 ? { t: "Excelling", col: "var(--good)" } : c === 4 ? { t: "Performing well", col: "var(--good)" }
+      : c === 3 ? { t: "Competent", col: "var(--warn)" } : c === 2 ? { t: "Struggling", col: "var(--bad)" }
+      : { t: "A liability", col: "var(--bad)" };
+  }
+  function tabCabinet() {
+    var g = S.govern;
+    if (!g.cabinet) return '<div class="panel"><p class="muted">No cabinet formed.</p></div>';
+    var cards = E.CABINET_POSTS.map(function (post) {
+      var m = g.cabinet[post.id]; if (!m) return "";
+      var perf = ministerPerf(m.competence);
+      return '<div class="min-card">' +
+        '<div class="min-top"><div><div class="lab2">' + U.esc(post.title) + '</div>' +
+        '<div class="min-name">' + U.esc(m.name) + '</div></div>' +
+        '<button class="btn sm" data-reshuffle="' + post.id + '"' + (g.capital < 2 ? " disabled" : "") + '>Reshuffle</button></div>' +
+        '<div class="min-meta">' + stars(m.competence) + ' <span style="color:' + perf.col + '">' + perf.t + '</span></div>' +
+        '<div class="min-trait">“' + U.esc(m.trait) + '” · oversees ' + post.area + '</div></div>';
+    }).join("");
+    return '<div class="panel"><h3>Your Cabinet</h3>' +
+      '<p class="notice" style="margin-top:0">Competent ministers lift their department over time; weak ones drag it. The Chancellor also shapes growth and your capital, the Chief Whip your party unity. Reshuffles cost <b>2</b> capital and can unsettle the party.</p>' +
+      '<div class="min-grid">' + cards + '</div></div>';
+  }
+  function cabinetReshuffleModal() {
+    var g = S.govern, post = S.reshufflePost; if (!post || !g.cabinet) return "";
+    var meta = E.CABINET_POSTS.filter(function (p) { return p.id === post; })[0];
+    var current = g.cabinet[post];
+    var rows = (g.talentPool || []).map(function (m, i) {
+      var perf = ministerPerf(m.competence);
+      var better = m.competence > current.competence;
+      return '<button class="appoint-row" data-appoint="' + post + ':' + i + '"' + (g.capital < 2 ? " disabled" : "") + '>' +
+        '<div><div class="min-name">' + U.esc(m.name) + (better ? ' <span class="pill" style="background:var(--good)22;color:var(--good)">upgrade</span>' : "") + '</div>' +
+        '<div class="min-trait">“' + U.esc(m.trait) + '”</div></div>' +
+        '<div style="text-align:right">' + stars(m.competence) + '<div class="faint" style="font-size:11px;color:' + perf.col + '">' + perf.t + '</div></div></button>';
+    }).join("");
+    return '<div class="modal-overlay"><div class="modal">' +
+      '<div class="modal-tag">Reshuffle · ' + U.esc(meta.title) + '</div>' +
+      '<h2>Appoint a new ' + U.esc(meta.title) + '</h2>' +
+      '<p class="muted">Sacking <b>' + U.esc(current.name) + '</b> and promoting from the back benches costs <b>2</b> political capital. Sacking a loyal minister will bruise party unity.</p>' +
+      '<div class="appoint-list">' + rows + '</div>' +
+      '<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" data-act="closereshuffle">Cancel</button></div>' +
+      '</div></div>';
+  }
+
   function tabBriefing(live) {
     var g = S.govern;
     var events = g.activeEvents.length
@@ -837,6 +886,18 @@
         else toast("Not enough campaign energy.");
       });
     });
+    // cabinet reshuffle: open picker / appoint a minister
+    app.querySelectorAll("[data-reshuffle]").forEach(function (el) {
+      el.addEventListener("click", function () { S.reshufflePost = el.getAttribute("data-reshuffle"); render(); });
+    });
+    app.querySelectorAll("[data-appoint]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        var parts = el.getAttribute("data-appoint").split(":");
+        if (E.reshuffleCabinet(S.govern, parts[0], parseInt(parts[1], 10))) {
+          S.reshufflePost = null; render(); toast("Cabinet reshuffled.");
+        } else toast("Not enough political capital.");
+      });
+    });
     // manifesto pledge chips (max 3)
     app.querySelectorAll("[data-pledge]").forEach(function (el) {
       el.addEventListener("click", function () {
@@ -994,6 +1055,7 @@
         g.year = g.year; go("opposition"); break;
       case "resetcamp": startCampaign(); render(); break;
       case "closepolicy": S.policyDetail = null; render(); break;
+      case "closereshuffle": S.reshufflePost = null; render(); break;
       case "continuesave": if (loadGame()) go(S.loadedRole === "opposition" ? "opposition" : "govern"); break;
       case "discardsave": clearSave(); render(); break;
       case "restart": clearSave(); S.govern = null; go("govern-setup"); break;
