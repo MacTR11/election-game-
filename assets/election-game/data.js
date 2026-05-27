@@ -360,6 +360,85 @@
       effects: {
         stats: { crime: -0.16, equality: -0.06 },
         groups: { patriots: 0.25, pensioners: 0.12, liberals: -0.40, young: -0.15, minorities: -0.15 }
+      } },
+
+    // ---- EXPANSION: additional levers (more distinct choices) ----
+    { id: "wealthtax", name: "Wealth Tax", cat: "Taxation", icon: "💎",
+      unit: "%", min: 0, max: 3, def: 0, step: 0.1, low: "None", high: "Heavy",
+      fiscal: { type: "r", line: "Wealth tax", mode: "derived", base: 0, swing: 28 },
+      effects: {
+        stats: { equality: 0.22, gdp: -0.12 },
+        groups: { wealthy: -0.60, capitalists: -0.42, socialists: 0.32, poor: 0.10, workingclass: 0.06, selfemployed: -0.10 }
+      } },
+    { id: "banklevy", name: "Bank & Windfall Levy", cat: "Taxation", icon: "🏦",
+      unit: "/10", min: 0, max: 10, def: 3, step: 1, low: "Light touch", high: "Aggressive",
+      fiscal: { type: "r", line: "Bank & windfall levy", mode: "derived", base: 5, swing: 16 },
+      effects: {
+        stats: { gdp: -0.08, equality: 0.12 },
+        groups: { capitalists: -0.50, wealthy: -0.22, socialists: 0.28, poor: 0.06, unions: 0.08 }
+      } },
+    { id: "sintax", name: "Alcohol & Tobacco Duty", cat: "Taxation", icon: "🍺",
+      unit: "/10", min: 0, max: 10, def: 5, step: 1, low: "Cut", high: "Hike",
+      fiscal: { type: "r", line: "Alcohol & tobacco duty", mode: "derived", base: 22, swing: 14 },
+      effects: {
+        stats: { nhs: 0.10, inflation: 0.06 },
+        groups: { workingclass: -0.18, poor: -0.12, religious: 0.10, selfemployed: -0.10, capitalists: -0.06 }
+      } },
+    { id: "stampduty", name: "Stamp Duty (property)", cat: "Taxation", icon: "🏠",
+      unit: "%", min: 0, max: 10, def: 3, step: 0.5, low: "Cut", high: "Raise",
+      fiscal: { type: "r", line: "Stamp duty", mode: "derived", base: 14, swing: 14 },
+      effects: {
+        stats: { housing: -0.08, equality: 0.06 },
+        groups: { homeowners: -0.28, capitalists: -0.12, selfemployed: -0.06, socialists: 0.10, young: -0.05 }
+      } },
+    { id: "sugartax", name: "Sugar & Junk Food Levy", cat: "Taxation", icon: "🥤",
+      unit: "/10", min: 0, max: 10, def: 2, step: 1, low: "None", high: "Strong",
+      fiscal: { type: "r", line: "Sugar & food levy", mode: "derived", base: 1, swing: 4 },
+      effects: {
+        stats: { nhs: 0.10 },
+        groups: { parents: 0.10, capitalists: -0.08, poor: -0.06, religious: 0.04 }
+      } },
+    { id: "mentalhealth", name: "Mental Health Services", cat: "Public Services", icon: "🧠",
+      unit: "£bn", min: 0, max: 30, def: 12, step: 1, low: "Neglected", high: "Parity of esteem",
+      fiscal: { type: "s", line: "Mental health", mode: "direct" },
+      effects: {
+        stats: { nhs: 0.20, equality: 0.10 },
+        groups: { young: 0.18, parents: 0.12, publicsector: 0.10, poor: 0.08 }
+      } },
+    { id: "prisons", name: "Prisons & Courts", cat: "Public Services", icon: "⛓",
+      unit: "£bn", min: 4, max: 35, def: 13, step: 1, low: "Overcrowded", high: "Expand capacity",
+      fiscal: { type: "s", line: "Prisons & courts", mode: "direct" },
+      effects: {
+        stats: { crime: -0.30, equality: -0.03 },
+        groups: { patriots: 0.20, pensioners: 0.10, homeowners: 0.08, liberals: -0.10 }
+      } },
+    { id: "arts", name: "Arts, Culture & Sport", cat: "Public Services", icon: "🎭",
+      unit: "£bn", min: 0, max: 25, def: 6, step: 1, low: "Slashed", high: "Flourishing",
+      fiscal: { type: "s", line: "Arts, culture & sport", mode: "direct" },
+      effects: {
+        stats: { education: 0.06, equality: 0.05 },
+        groups: { young: 0.10, liberals: 0.10, students: 0.08, patriots: 0.04, capitalists: -0.04 }
+      } },
+    { id: "science", name: "Science & R&D", cat: "Economy", icon: "🔬",
+      unit: "£bn", min: 5, max: 60, def: 20, step: 1, low: "Cut", high: "Moonshot",
+      fiscal: { type: "s", line: "Science & R&D", mode: "direct" },
+      effects: {
+        stats: { gdp: 0.22, education: 0.06 },
+        groups: { capitalists: 0.14, privatesector: 0.12, young: 0.08, environment: 0.04 }
+      } },
+    { id: "skills", name: "Skills & Apprenticeships", cat: "Economy", icon: "🛠",
+      unit: "£bn", min: 0, max: 30, def: 8, step: 1, low: "Minimal", high: "Mass reskilling",
+      fiscal: { type: "s", line: "Skills & training", mode: "direct" },
+      effects: {
+        stats: { unemployment: -0.16, gdp: 0.10, education: 0.08 },
+        groups: { young: 0.12, workingclass: 0.10, unions: 0.08, privatesector: 0.06 }
+      } },
+    { id: "border", name: "Border & Asylum Enforcement", cat: "Society", icon: "🛃",
+      unit: "£bn", min: 1, max: 20, def: 5, step: 1, low: "Minimal", high: "Fortress Britain",
+      fiscal: { type: "s", line: "Border & asylum", mode: "direct" },
+      effects: {
+        stats: { immigration: -0.20, crime: -0.04 },
+        groups: { patriots: 0.30, workingclass: 0.10, liberals: -0.18, minorities: -0.12, capitalists: -0.04 }
       } }
   ];
 
@@ -436,7 +515,65 @@
     { id: "techboom", name: "Tech & Investment Boom", type: "good",
       desc: "Britain is attracting record investment in tech and clean energy.",
       cond: function (s) { return s.macro.realGrowth > 2.2 && s.stats.environment > 0.55; },
-      effect: { groups: { capitalists: 0.05, privatesector: 0.04, young: 0.03 } } }
+      effect: { groups: { capitalists: 0.05, privatesector: 0.04, young: 0.03 } } },
+
+    // ---- EXPANSION: more situations, good and bad ----
+    { id: "honeymoon", name: "Honeymoon Period", type: "good",
+      desc: "A fresh mandate buys you goodwill — the public is willing to give you a chance.",
+      cond: function (s) { return s.turn <= 4 && s.termsWon === 0; },
+      effect: { groups: { middleclass: 0.03, young: 0.03, privatesector: 0.02 } } },
+    { id: "pensionerpoverty", name: "Pensioner Poverty Alarm", type: "bad",
+      desc: "Charities warn that more pensioners are choosing between heating and eating.",
+      cond: function (s) { return s.groups.pensioners < 0.36; },
+      effect: { groups: { pensioners: -0.04, religious: -0.02 } } },
+    { id: "braindrain", name: "Capital & Talent Flight", type: "bad",
+      desc: "Entrepreneurs and high earners are quietly relocating abroad, taking investment with them.",
+      cond: function (s) { return s.groups.capitalists < 0.33 || s.groups.wealthy < 0.32; },
+      effect: { macro: { realGrowth: -0.15 }, groups: { capitalists: -0.04, privatesector: -0.03 } } },
+    { id: "greenbacklash", name: "Net Zero Backlash", type: "bad",
+      desc: "Drivers and small firms revolt against the cost of green policies on their bills.",
+      cond: function (s) { return s.groups.motorists < 0.37; },
+      effect: { groups: { motorists: -0.04, selfemployed: -0.03, patriots: -0.03 } } },
+    { id: "buildingboom", name: "Housebuilding Boom", type: "good",
+      desc: "Cranes are back on the skyline and first-time buyers can see a way in at last.",
+      cond: function (s) { return s.stats.housing > 0.6; },
+      effect: { groups: { renters: 0.05, young: 0.04, privatesector: 0.03 } } },
+    { id: "migrationcalm", name: "Borders Under Control", type: "good",
+      desc: "Crossings are down and the migration numbers have steadied. The issue cools.",
+      cond: function (s) { return s.stats.immigration < 0.45; },
+      effect: { groups: { patriots: 0.04, workingclass: 0.03 } } },
+    { id: "nhsturnaround", name: "NHS Turnaround", type: "good",
+      desc: "Waiting lists are tumbling and satisfaction with the health service is climbing.",
+      cond: function (s) { return s.stats.nhs > 0.6; },
+      effect: { groups: { pensioners: 0.05, parents: 0.04, publicsector: 0.03 } } },
+    { id: "inequalitysurge", name: "Inequality Flashpoint", type: "bad",
+      desc: "A widening gap between rich and poor fuels resentment and a sense of unfairness.",
+      cond: function (s) { return s.stats.equality < 0.34; },
+      effect: { groups: { poor: -0.05, socialists: -0.05, unions: -0.03 } } },
+    { id: "populistsurge", name: "Populist Surge", type: "bad",
+      desc: "With trust in government low, an insurgent populist message is cutting through.",
+      cond: function (s) { return s.turn > 8 && s.approval < 0.4 && s.stats.immigration > 0.6; },
+      effect: { groups: { patriots: -0.05, workingclass: -0.04 } } },
+    { id: "climatedisaster", name: "Climate in Crisis", type: "bad",
+      desc: "A run of extreme weather and degraded nature leaves the public anxious and angry.",
+      cond: function (s) { return s.stats.environment < 0.3; },
+      effect: { stats: { environment: -0.02 }, groups: { environment: -0.06, young: -0.03 } } },
+    { id: "socialcohesion", name: "A More United Country", type: "good",
+      desc: "Falling crime and a fairer settlement leave communities feeling more at ease.",
+      cond: function (s) { return s.stats.equality > 0.6 && s.stats.crime < 0.34; },
+      effect: { groups: { workingclass: 0.03, minorities: 0.03, religious: 0.02 } } },
+    { id: "investmentsurge", name: "Confidence Returns", type: "good",
+      desc: "Business confidence is the highest in years and firms are hiring and investing.",
+      cond: function (s) { return s.groups.capitalists > 0.62 && s.macro.realGrowth > 1.6; },
+      effect: { macro: { unemployment: -0.2 }, groups: { privatesector: 0.04, selfemployed: 0.03 } } },
+    { id: "manufacturingdecline", name: "Industrial Heartlands Hurting", type: "bad",
+      desc: "Plant closures and weak orders are hollowing out manufacturing towns.",
+      cond: function (s) { return s.macro.unemployment > 5.5; },
+      effect: { groups: { workingclass: -0.05, unions: -0.04, privatesector: -0.03 } } },
+    { id: "fiscalheadroom", name: "Fiscal Headroom", type: "good",
+      desc: "The Chancellor finds real headroom in the public finances for the first time in years.",
+      cond: function (s) { return s.macro.deficit < 55; },
+      effect: { groups: { capitalists: 0.04, middleclass: 0.03, wealthy: 0.03 } } }
   ];
 
   // ---------------------------------------------------------------------------
@@ -723,6 +860,274 @@
           effects: { policy: { socialcare: 0.25 }, groups: { pensioners: 0.10, parents: 0.05 } } },
         { label: "Find a private buyer", result: "Cheaper for the Treasury; continuity of care is shaky.",
           effects: { groups: { pensioners: -0.06, capitalists: 0.03 } } }
+      ] },
+
+    // ---- EXPANSION: a much wider deck of decisions (many gated by context) ----
+    { id: "dentistry", title: "NHS Dental Deserts",
+      desc: "Whole towns have no NHS dentist taking patients. People are pulling their own teeth — the story is everywhere.",
+      cond: function (s) { return s.stats.nhs < 0.5; },
+      options: [
+        { label: "Emergency dentistry contract", result: "New funding lures dentists back to the NHS; the Treasury winces.",
+          effects: { policy: { nhs: 0.05 }, stats: { nhs: 0.04 }, groups: { parents: 0.06, poor: 0.06, pensioners: 0.05 } } },
+        { label: "Leave it to the market", result: "Private practices fill the gap; the poorest simply go without.",
+          effects: { stats: { equality: -0.04 }, groups: { poor: -0.07, parents: -0.04 } } }
+      ] },
+    { id: "unibankrupt", title: "A University Is Going Bust",
+      desc: "A large university warns it cannot make payroll. A collapse would strand thousands of students and gut a city's economy.",
+      options: [
+        { label: "Bail it out", result: "Jobs and courses saved; rivals ask where their cheque is.",
+          effects: { macro: { deficit: 3 }, groups: { students: 0.08, young: 0.05, publicsector: 0.04 }, capital: -1 } },
+        { label: "Let it merge or fold", result: "A market in higher education, you say. Campus towns are appalled.",
+          effects: { stats: { education: -0.05 }, groups: { students: -0.10, young: -0.06 } } },
+        { label: "Lift the cap on tuition fees", result: "You shore up finances by loading more debt on graduates.",
+          effects: { policy: { tuition: 0.12 }, groups: { students: -0.12, young: -0.08, capitalists: 0.04 } } }
+      ] },
+    { id: "assisteddying", title: "Assisted Dying Bill",
+      desc: "A backbench bill on assisted dying reaches the floor. It is a free vote, but the country wants to know where you stand.",
+      options: [
+        { label: "Back the reform", result: "Liberals and campaigners are moved; faith groups are dismayed.",
+          effects: { groups: { liberals: 0.10, young: 0.04, religious: -0.12 } } },
+        { label: "Oppose it", result: "Religious and disability groups are reassured; reformers call you timid.",
+          effects: { groups: { religious: 0.10, liberals: -0.08 } } },
+        { label: "Stay neutral, let the House decide", result: "Prime-ministerial detachment — or a dodge, depending who you ask.",
+          effects: { all: -0.01 } }
+      ] },
+    { id: "smokingban", title: "A Smoke-Free Generation",
+      desc: "A bill would ban tobacco sales to anyone born after a certain year for life. Liberty campaigners and the trade are furious.",
+      options: [
+        { label: "Push the ban through", result: "A landmark public-health win; libertarians cry nanny state.",
+          effects: { stats: { nhs: 0.04 }, groups: { parents: 0.06, religious: 0.05, liberals: -0.06, capitalists: -0.05 } } },
+        { label: "Drop it as illiberal", result: "You spare the corner shop and your right flank; doctors despair.",
+          effects: { groups: { liberals: 0.04, selfemployed: 0.05, publicsector: -0.04 } } }
+      ] },
+    { id: "lords", title: "Abolish the House of Lords?",
+      desc: "Reformers want the unelected second chamber replaced with an elected senate. Traditionalists warn of constitutional vandalism.",
+      options: [
+        { label: "Legislate for an elected chamber", result: "A radical democratic shake-up that will eat years of parliamentary time.",
+          effects: { groups: { liberals: 0.08, young: 0.05, patriots: -0.06 }, capital: -2 } },
+        { label: "Keep the Lords, tweak the edges", result: "You pick easier fights; reformers shrug.",
+          effects: { groups: { liberals: -0.03 } } }
+      ] },
+    { id: "votingage", title: "Votes at 16",
+      desc: "Your manifesto flirted with lowering the voting age to 16. The bill is ready — and so is the backlash.",
+      options: [
+        { label: "Lower the voting age", result: "Young people are enfranchised; opponents smell partisan advantage.",
+          effects: { groups: { young: 0.12, students: 0.08, patriots: -0.05, pensioners: -0.04 } } },
+        { label: "Keep it at 18", result: "No change — campaigners accuse you of fearing the youth vote.",
+          effects: { groups: { young: -0.05 } } }
+      ] },
+    { id: "airport", title: "Airport Expansion",
+      desc: "Plans for a new runway promise jobs and growth — and a wall of legal challenges from climate groups and residents.",
+      options: [
+        { label: "Approve expansion", result: "Business cheers the capacity; the green movement is incandescent.",
+          effects: { macro: { realGrowth: 0.2 }, stats: { environment: -0.06 }, groups: { capitalists: 0.08, privatesector: 0.06, environment: -0.14, young: -0.05 } } },
+        { label: "Block it on climate grounds", result: "Greens are delighted; aviation and unions warn of lost investment.",
+          effects: { groups: { environment: 0.10, capitalists: -0.06, unions: -0.04 } } }
+      ] },
+    { id: "nuclear", title: "Green-Light a Nuclear Plant",
+      desc: "A huge new nuclear station would secure baseload power for decades — at a vast upfront cost and with a foreign partner.",
+      options: [
+        { label: "Approve it", result: "Energy security and skilled jobs; the bill and the partner raise eyebrows.",
+          effects: { policy: { netzero: 0.10 }, macro: { deficit: 5 }, stats: { environment: 0.05 }, groups: { unions: 0.06, capitalists: 0.05, environment: 0.04 } } },
+        { label: "Back renewables instead", result: "Cheaper and greener to some; others fear the lights going out on a still, cold night.",
+          effects: { policy: { netzero: 0.08 }, groups: { environment: 0.08, capitalists: -0.04 } } }
+      ] },
+    { id: "northsea", title: "North Sea Drilling Licences",
+      desc: "New oil and gas licences would mean tax revenue and jobs now — and a torched climate reputation.",
+      options: [
+        { label: "Issue the licences", result: "The Exchequer and the north-east coast benefit; you own the emissions.",
+          effects: { macro: { deficit: -3 }, stats: { environment: -0.08 }, groups: { workingclass: 0.05, capitalists: 0.06, patriots: 0.05, environment: -0.16, young: -0.06 } } },
+        { label: "Keep them in the ground", result: "Climate credibility intact; the right calls it economic self-harm.",
+          effects: { stats: { environment: 0.06 }, groups: { environment: 0.10, workingclass: -0.04, patriots: -0.05 } } }
+      ] },
+    { id: "travelchaos", title: "Border Force Strike Threatens Summer",
+      desc: "Border Force staff vote to strike over the school holidays. Airports warn of queues snaking out of the terminals.",
+      cond: function (s) { return s.groups.publicsector < 0.46; },
+      options: [
+        { label: "Improve the pay offer", result: "Holidays saved; another department's pay anchor is blown.",
+          effects: { groups: { publicsector: 0.06, unions: 0.05 }, capital: -1 } },
+        { label: "Draft in the military", result: "Queues ease, just; unions accuse you of strike-breaking.",
+          effects: { policy: { defence: 0.04 }, groups: { unions: -0.06, patriots: 0.04 } } }
+      ] },
+    { id: "poundrun", title: "A Run on the Pound",
+      desc: "Sterling tumbles on the markets after a jittery week. The Governor wants to know the government has a grip.",
+      cond: function (s) { return s.macro.debtPct > 100 || s.macro.deficit > 170; },
+      options: [
+        { label: "Announce a credible savings plan", result: "Markets steady; the cuts will be felt across Whitehall.",
+          effects: { policy: { welfare: -0.04 }, macro: { deficit: -6 }, groups: { poor: -0.05, publicsector: -0.05, capitalists: 0.05 } } },
+        { label: "Tough it out and blame speculators", result: "Defiant — but the pound keeps sliding and import prices bite.",
+          effects: { macro: { inflation: 0.3, realGrowth: -0.2 }, groups: { capitalists: -0.06, middleclass: -0.04 } } }
+      ] },
+    { id: "downgrade", title: "Credit Rating on Watch",
+      desc: "A ratings agency puts the UK on negative watch, citing the debt trajectory. A downgrade would push up borrowing costs.",
+      cond: function (s) { return s.macro.debtPct > 105; },
+      options: [
+        { label: "Pencil in tax rises", result: "Fiscal credibility restored at a cost to households.",
+          effects: { policy: { incometax: 0.04 }, macro: { deficit: -5 }, all: -0.02 } },
+        { label: "Reject 'austerity 2.0'", result: "Your base is relieved; the agency pulls the trigger and gilts sell off.",
+          effects: { macro: { realGrowth: -0.2 }, groups: { capitalists: -0.06, wealthy: -0.05 } } }
+      ] },
+    { id: "payreview", title: "Pay Review Body Recommends 6%",
+      desc: "The independent pay body recommends a 6% rise for millions of public-sector workers — well above what the Treasury budgeted.",
+      options: [
+        { label: "Accept it in full", result: "Workers and unions are delighted; the deficit takes the strain.",
+          effects: { macro: { deficit: 7 }, groups: { publicsector: 0.10, unions: 0.08, capitalists: -0.05 } } },
+        { label: "Phase it / partly fund it", result: "A classic fudge — nobody is thrilled, nobody walks out.",
+          effects: { macro: { deficit: 3 }, groups: { publicsector: 0.02 } } },
+        { label: "Reject it", result: "The books are protected; a winter of discontent looms.",
+          effects: { groups: { publicsector: -0.10, unions: -0.10 } } }
+      ] },
+    { id: "rwanda", title: "An Offshore Asylum Scheme",
+      desc: "Officials present a plan to process asylum claims in a third country. Backers call it a deterrent; critics call it unlawful and cruel.",
+      cond: function (s) { return s.stats.immigration > 0.55; },
+      options: [
+        { label: "Press ahead", result: "Reform-leaning voters cheer; the courts and the UN are on a collision course with you.",
+          effects: { policy: { immigration: 0.10 }, macro: { deficit: 2 }, groups: { patriots: 0.10, liberals: -0.12, minorities: -0.08 } } },
+        { label: "Scrap it for a faster returns deal", result: "Pragmatic and cheaper; the right says you've gone soft.",
+          effects: { stats: { immigration: -0.04 }, groups: { liberals: 0.05, patriots: -0.06 } } }
+      ] },
+    { id: "studentcap", title: "Cap on International Students?",
+      desc: "Net migration figures are dominated by foreign students. Capping them would cut the numbers — and a vital income stream for universities.",
+      cond: function (s) { return s.stats.immigration > 0.5; },
+      options: [
+        { label: "Cap student visas", result: "Migration falls on paper; universities warn of a black hole.",
+          effects: { policy: { immigration: -0.08 }, stats: { immigration: -0.05, education: -0.04 }, groups: { patriots: 0.08, students: -0.06, capitalists: -0.05 } } },
+        { label: "Protect the student route", result: "Universities and growth are spared; the tabloids howl at the numbers.",
+          effects: { groups: { patriots: -0.06, capitalists: 0.04, students: 0.05 } } }
+      ] },
+    { id: "grooming", title: "Calls for a National Inquiry",
+      desc: "Fresh revelations spark demands for a full statutory inquiry into historic grooming-gang failures. It will be explosive whatever you do.",
+      options: [
+        { label: "Order a full statutory inquiry", result: "Survivors are heard; the process will run for years and unearth uncomfortable truths.",
+          effects: { groups: { patriots: 0.06, workingclass: 0.05, minorities: -0.04 }, capital: -1 } },
+        { label: "Point to existing reviews", result: "You avoid a circus; campaigners accuse you of a cover-up.",
+          effects: { groups: { patriots: -0.08, workingclass: -0.05 } } }
+      ] },
+    { id: "protestlaw", title: "Protesters Blockade the Motorways",
+      desc: "Climate activists keep gluing themselves to the M25. Commuters are livid; civil-liberties groups defend the right to protest.",
+      cond: function (s) { return s.stats.environment > 0.5 || s.stats.crime > 0.45; },
+      options: [
+        { label: "Tough new protest laws", result: "Drivers cheer the crackdown; lawyers warn of a chilling effect.",
+          effects: { policy: { civil: 0.16, police: 0.06 }, stats: { crime: -0.03 }, groups: { motorists: 0.08, patriots: 0.06, liberals: -0.12, young: -0.06 } } },
+        { label: "Defend the right to protest", result: "Liberals approve; the phone-ins savage you as weak.",
+          effects: { groups: { liberals: 0.08, motorists: -0.08, patriots: -0.05 } } }
+      ] },
+    { id: "gendreform", title: "Gender Recognition Reform",
+      desc: "A bill to simplify legal gender recognition has split the country — and your own party — down the middle.",
+      options: [
+        { label: "Back the reform", result: "Younger liberal voters rally to you; others recoil.",
+          effects: { groups: { young: 0.06, liberals: 0.10, religious: -0.08, patriots: -0.06 }, unity: -0.04 } },
+        { label: "Block it, protect single-sex spaces", result: "You reassure one camp and enrage the other in equal measure.",
+          effects: { groups: { religious: 0.06, patriots: 0.05, liberals: -0.10, young: -0.05 }, unity: -0.04 } }
+      ] },
+    { id: "bbc", title: "Abolish the Licence Fee?",
+      desc: "The BBC charter is up for renewal. The right wants the licence fee scrapped; others warn it would gut public broadcasting.",
+      options: [
+        { label: "Freeze and reform the fee", result: "A middle path that irritates the BBC and its critics alike.",
+          effects: { groups: { patriots: 0.04, liberals: -0.03 } } },
+        { label: "Scrap it for subscription", result: "Your right flank is thrilled; the cultural establishment is up in arms.",
+          effects: { groups: { patriots: 0.08, capitalists: 0.04, liberals: -0.08, pensioners: -0.05 } } },
+        { label: "Guarantee its funding", result: "Defenders of public broadcasting cheer; the right fumes.",
+          effects: { macro: { deficit: 1 }, groups: { liberals: 0.06, patriots: -0.06 } } }
+      ] },
+    { id: "triplelock", title: "The Triple Lock Bites",
+      desc: "A spike in earnings means the pension triple lock will cost billions more than forecast. The Treasury wants it suspended for a year.",
+      cond: function (s) { return s.macro.deficit > 130; },
+      options: [
+        { label: "Honour the triple lock", result: "Pensioners are protected; the fiscal hawks despair.",
+          effects: { policy: { pension: 0.06 }, macro: { deficit: 4 }, groups: { pensioners: 0.10, wealthy: -0.03 } } },
+        { label: "Suspend it for a year", result: "You bank the saving and break a totemic promise.",
+          effects: { macro: { deficit: -5 }, groups: { pensioners: -0.14, workingclass: -0.04 } } }
+      ] },
+    { id: "pip", title: "Disability Benefits Overhaul",
+      desc: "Spending on health-related benefits is soaring. Reformers want tougher assessments; charities warn of pushing the sick into poverty.",
+      options: [
+        { label: "Tighten the assessments", result: "Big savings on paper; a backlash from disabled people and your own backbenches.",
+          effects: { policy: { welfare: -0.06 }, macro: { deficit: -6 }, groups: { poor: -0.10, socialists: -0.06 }, unity: -0.05 } },
+        { label: "Invest in back-to-work support", result: "Kinder and slower; the savings are years away.",
+          effects: { policy: { welfare: 0.03 }, macro: { deficit: 2 }, groups: { poor: 0.06, unions: 0.04 } } }
+      ] },
+    { id: "gig", title: "Gig-Economy Workers' Rights",
+      desc: "A court ruling forces a decision on whether app drivers and couriers are workers with full rights or self-employed contractors.",
+      options: [
+        { label: "Grant full employment rights", result: "Workers gain sick pay and the minimum wage; the platforms threaten to pull back.",
+          effects: { policy: { businessreg: 0.10 }, stats: { equality: 0.05 }, groups: { workingclass: 0.08, young: 0.06, unions: 0.08, capitalists: -0.08, selfemployed: -0.05 } } },
+        { label: "Preserve 'flexibility'", result: "Business breathes out; campaigners call it a charter for exploitation.",
+          effects: { groups: { capitalists: 0.06, selfemployed: 0.05, unions: -0.08, workingclass: -0.05 } } }
+      ] },
+    { id: "horizon", title: "A Wrongful-Conviction Scandal",
+      desc: "Hundreds were prosecuted on faulty computer evidence. The country demands swift justice and compensation for the victims.",
+      options: [
+        { label: "Exonerate all and pay up fast", result: "The right thing, universally applauded; the bill lands on the taxpayer.",
+          effects: { macro: { deficit: 3 }, all: 0.03, groups: { selfemployed: 0.06 }, capital: -1 } },
+        { label: "Let the courts grind on case by case", result: "Legally tidy; victims die waiting and the public seethes.",
+          effects: { all: -0.03 } }
+      ] },
+    { id: "renters", title: "Ban No-Fault Evictions?",
+      desc: "Campaigners demand an end to Section 21 evictions. Landlords warn they'll sell up and shrink the rental market.",
+      cond: function (s) { return s.stats.housing < 0.5; },
+      options: [
+        { label: "Ban no-fault evictions", result: "Renters gain security; some landlords head for the exit.",
+          effects: { policy: { businessreg: 0.06 }, stats: { housing: -0.03 }, groups: { renters: 0.12, young: 0.06, homeowners: -0.06, capitalists: -0.05 } } },
+        { label: "Side with landlords", result: "Supply is protected, sort of; a generation of renters feels abandoned.",
+          effects: { groups: { renters: -0.10, young: -0.06, homeowners: 0.05 } } }
+      ] },
+    { id: "mansion", title: "A Council Tax Revaluation",
+      desc: "Bands are still based on 1991 values. A revaluation would be fairer — and create millions of furious losers in higher-value homes.",
+      options: [
+        { label: "Revalue and add higher bands", result: "Progressive and overdue; the shires and the tabloids declare war.",
+          effects: { policy: { counciltax: 0.10 }, stats: { equality: 0.06 }, macro: { deficit: -3 }, groups: { wealthy: -0.12, homeowners: -0.10, poor: 0.06, socialists: 0.06 } } },
+        { label: "Leave the bands frozen", result: "No new enemies today; the system stays absurd.",
+          effects: { groups: { homeowners: 0.03 } } }
+      ] },
+    { id: "obesity", title: "Weight-Loss Jabs on the NHS",
+      desc: "New weight-loss drugs could transform public health — or bankrupt the prescriptions budget if offered to everyone.",
+      cond: function (s) { return s.stats.nhs > 0.35; },
+      options: [
+        { label: "Roll them out widely", result: "A bold bet on prevention; a huge bill upfront.",
+          effects: { policy: { nhs: 0.04 }, macro: { deficit: 3 }, stats: { nhs: 0.03 }, groups: { poor: 0.05, parents: 0.04 } } },
+        { label: "Restrict to the most severe", result: "Affordable and clinically cautious; campaigners want more.",
+          effects: { groups: { poor: -0.02 } } }
+      ] },
+    { id: "fishing", title: "A Fishing Rights Row",
+      desc: "Talks on coastal waters access turn ugly. Fishing communities want them out; exporters want the wider deal that depends on a compromise.",
+      options: [
+        { label: "Protect the fishing fleet", result: "Coastal towns cheer; a bigger trade prize slips away.",
+          effects: { groups: { patriots: 0.06, selfemployed: 0.05, capitalists: -0.04 } } },
+        { label: "Trade access for market deal", result: "Exporters win; the harbours feel betrayed all over again.",
+          effects: { macro: { realGrowth: 0.2 }, groups: { capitalists: 0.06, patriots: -0.08, selfemployed: -0.05 } } }
+      ] },
+    { id: "aidappeal", title: "A Famine Appeal",
+      desc: "A catastrophic famine unfolds abroad. The cameras are there, and the world is looking to Britain to lead the response.",
+      options: [
+        { label: "Lead a major aid package", result: "A humanitarian and diplomatic win; the right asks why charity isn't at home.",
+          effects: { policy: { foreignaid: 0.15 }, groups: { liberals: 0.08, religious: 0.06, patriots: -0.06, reformvoters: -0.05 } } },
+        { label: "Offer only token help", result: "Money stays at home; Britain's standing takes a knock.",
+          effects: { groups: { liberals: -0.06, patriots: 0.04 } } }
+      ] },
+    { id: "procurement", title: "Defence Procurement Fiasco",
+      desc: "A flagship military programme is years late and billions over budget. Heads, and contracts, could roll.",
+      options: [
+        { label: "Cancel and start over", result: "Decisive and costly; capability gaps worry the brass.",
+          effects: { macro: { deficit: 2 }, groups: { patriots: -0.04, capitalists: -0.05 } } },
+        { label: "Pour in more money to save it", result: "Sunk-cost diplomacy keeps allies and jobs onside.",
+          effects: { policy: { defence: 0.08 }, macro: { deficit: 3 }, groups: { patriots: 0.05, unions: 0.04 } } }
+      ] },
+    { id: "watercap", title: "Cap Soaring Water Bills",
+      desc: "After years of leaks and dividends, water firms want to hike bills to pay for upgrades. Customers are at the end of their tether.",
+      options: [
+        { label: "Cap bills and force investment", result: "Households relieved; investors flee a capped, leaky sector.",
+          effects: { policy: { businessreg: 0.10 }, stats: { environment: 0.04 }, groups: { workingclass: 0.06, environment: 0.06, capitalists: -0.08 } } },
+        { label: "Allow the rises for investment", result: "The pipes get fixed eventually; bill-payers fund it now.",
+          effects: { stats: { environment: 0.05 }, groups: { workingclass: -0.06, pensioners: -0.05 } } }
+      ] },
+    { id: "earlyrelease", title: "AI in the Public Sector",
+      desc: "Officials propose deploying AI across the civil service to cut costs — and, quietly, tens of thousands of jobs.",
+      options: [
+        { label: "Go all-in on automation", result: "Productivity and savings surge; the unions declare war.",
+          effects: { macro: { deficit: -4, realGrowth: 0.2 }, groups: { capitalists: 0.06, publicsector: -0.10, unions: -0.08 } } },
+        { label: "Adopt it slowly with safeguards", result: "Jobs protected for now; the savings are modest.",
+          effects: { groups: { publicsector: 0.04, unions: 0.03 } } }
       ] }
   ];
 

@@ -568,29 +568,67 @@
   function buildPMQ(state) {
     var mn = macroNorm(state.macro);
     var themes = [
-      { bad: 1 - state.stats.nhs, line: "Waiting lists are at record highs — the NHS is in crisis on the Prime Minister's watch!" },
-      { bad: clamp01(0.5 - mn.gdp + 0.2), line: "Growth is flatlining, living standards are falling — when will the PM admit their plan has failed?" },
-      { bad: clamp01((state.macro.inflation - 2) / 6), line: "Prices are still soaring while this out-of-touch government dithers!" },
-      { bad: state.stats.crime, line: "Crime is rising and people no longer feel safe on their own streets!" },
-      { bad: state.stats.immigration, line: "The government has completely lost control of our borders!" },
-      { bad: clamp01((state.macro.debtPct - 90) / 40), line: "They have maxed out the nation's credit card and our children will pay!" },
-      { bad: 1 - state.stats.housing, line: "A whole generation is locked out of a home — where is the action?" }
+      { bad: 1 - state.stats.nhs, lines: [
+          "Waiting lists are at record highs — the NHS is in crisis on the Prime Minister's watch!",
+          "People are waiting days on trolleys in corridors — is the Prime Minister proud of that?" ],
+        action: { label: "Announce emergency NHS funding", policy: { nhs: 0.04 }, group: "publicsector",
+          result: "You pledge an emergency cash injection for the health service. The Chancellor blanches." } },
+      { bad: clamp01(0.5 - mn.gdp + 0.2), lines: [
+          "Growth is flatlining and living standards are falling — when will the PM admit the plan has failed?",
+          "Britain is bottom of the G7 for growth — where is the ambition?" ],
+        action: { label: "Unveil a growth & investment plan", policy: { infra: 0.05 }, group: "privatesector",
+          result: "You set out a new plan for investment and infrastructure. Business cautiously welcomes it." } },
+      { bad: clamp01((state.macro.inflation - 2) / 6), lines: [
+          "Prices are still soaring while this out-of-touch government dithers!",
+          "Families can't afford the weekly shop — when will the PM act?" ],
+        action: { label: "Announce cost-of-living support", policy: { welfare: 0.04 }, group: "poor",
+          result: "You promise targeted help with bills. Households are relieved; the deficit hawks grumble." } },
+      { bad: state.stats.crime, lines: [
+          "Crime is rising and people no longer feel safe on their own streets!",
+          "Town centres have become no-go zones — the PM has lost control of law and order!" ],
+        action: { label: "Promise more police on the streets", policy: { police: 0.05 }, group: "patriots",
+          result: "You announce thousands more officers. The right cheers; the bill is real." } },
+      { bad: state.stats.immigration, lines: [
+          "The government has completely lost control of our borders!",
+          "Record numbers are crossing the Channel — the PM's promises are worthless!" ],
+        action: { label: "Pledge a crackdown on the crossings", policy: { border: 0.06 }, group: "patriots",
+          result: "You vow to smash the smuggling gangs. Reform voters nod; lawyers and liberals bristle." } },
+      { bad: clamp01((state.macro.debtPct - 90) / 40), lines: [
+          "They have maxed out the nation's credit card and our children will pay!",
+          "The markets have lost confidence in this government's grip on the books!" ],
+        action: { label: "Set out a path to balance the books", macro: { deficit: -3 }, group: "capitalists", all: -0.015,
+          result: "You promise fiscal discipline. The markets steady; voters brace for the squeeze." } },
+      { bad: 1 - state.stats.housing, lines: [
+          "A whole generation is locked out of a home — where is the action?",
+          "Rents are unpayable and nothing gets built — when will the PM act?" ],
+        action: { label: "Commit to a housebuilding blitz", policy: { housing: 0.05 }, group: "renters",
+          result: "You promise to get Britain building. Renters cheer; the NIMBY shires seethe." } }
     ];
     themes.sort(function (a, b) { return b.bad - a.bad; });
-    var s = themes[0].bad;
+    var th = themes[0], s = th.bad, v = state.turn;
+    var line = th.lines[v % th.lines.length];
+    var intros = ["The House is roaring.", "The benches opposite are baying.", "The Speaker struggles for order.", "The press gallery leans in."];
+    var defendTxt = s < 0.45
+      ? ["You list your achievements and your benches roar approval.", "A confident, fluent defence — the cameras catch you smiling."][v % 2]
+      : ["Your defence rings hollow against the evidence.", "You bluster, and the Opposition smell blood."][v % 2];
+    var attackTxt = ["A combative, partisan performance that fires up your own side.",
+      "You pin the blame on the last lot. Red meat for the base, eye-rolls elsewhere.",
+      "You go for the jugular. The clip will do numbers online tonight."][v % 3];
+    var action = th.action;
+    var actEffects = { unity: -0.03, capital: -1 };
+    if (action.policy) actEffects.policy = action.policy;
+    if (action.macro) actEffects.macro = action.macro;
+    if (action.all != null) actEffects.all = action.all;
+    if (action.group) { actEffects.groups = {}; actEffects.groups[action.group] = 0.08; }
     return {
       id: "pmq-" + state.turn, title: "Prime Minister's Questions",
-      desc: "The Leader of the Opposition rises: “" + themes[0].line + "” The House is roaring. How do you respond?",
+      desc: "The Leader of the Opposition rises: “" + line + "” " + intros[v % intros.length] + " How do you respond?",
       options: [
-        { label: "Defend your record at the dispatch box",
-          result: s < 0.45 ? "You list your achievements and the benches cheer." : "Your defence rings hollow against the evidence.",
+        { label: "Defend your record at the dispatch box", result: defendTxt,
           effects: { all: 0.06 - s * 0.13, unity: 0.05 } },
-        { label: "Turn your fire on the Opposition",
-          result: "A combative, partisan performance that fires up your own side.",
+        { label: "Turn your fire on the Opposition", result: attackTxt,
           effects: { unity: 0.09, all: -0.008 } },
-        { label: "Acknowledge concerns and promise action",
-          result: "Statesmanlike, but your backbenchers wince at the concession.",
-          effects: { all: 0.03, unity: -0.06 } }
+        { label: action.label, result: action.result, effects: actEffects }
       ]
     };
   }
