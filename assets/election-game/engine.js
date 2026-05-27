@@ -639,7 +639,11 @@
   function runGeneralElection(state, regionAdj) {
     var base = D.BASELINE[state.party] || 10;
     var pledgeBonus = (pledgesKept(state) - 1.5) * 1.6; // trust dividend / penalty
-    var playerShare = clamp(base + (state.approval - 0.46) * 70 + pledgeBonus, 4, 58);
+    // "time for a change": every government faces an anti-incumbency drag that
+    // deepens the longer it has held power. Approval now has to clear ~50% to
+    // hold your 2024 vote, so a flat record loses ground.
+    var antiIncumbency = 3 + 3 * (state.termsWon || 0);
+    var playerShare = clamp(base + (state.approval - 0.50) * 95 + pledgeBonus - antiIncumbency, 4, 58);
     var delta = playerShare - base;
 
     // distribute -delta across the others in proportion to their baseline,

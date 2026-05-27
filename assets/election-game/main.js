@@ -451,14 +451,20 @@
       '<div class="muted" style="font-size:12px">Month ' + g.turn + ' of ' + E.TERM_TURNS + ' before the next scheduled election.</div>' +
       '<div style="margin:14px 0 4px"><div class="lab2">Party unity · ' + Math.round(g.unity * 100) + '%</div>' +
       '<div class="statbar"><i style="width:' + (g.unity * 100) + '%;background:' + unityCol + '"></i></div>' + unityWarn + '</div>' +
-      '<div style="margin:14px 0 4px"><div class="lab2">Political capital · <b style="color:var(--gold)">' + g.capital + ' / ' + g.maxCapital + '</b> <span class="faint">(+' + regen + '/qtr)</span></div>' +
+      '<div style="margin:14px 0 4px"><div class="lab2">Political capital · <b style="color:var(--gold)">' + g.capital + ' / ' + g.maxCapital + '</b> <span class="faint">(+' + regen + '/mo)</span></div>' +
       '<div class="capital-dots">' + dots + '</div></div>' +
-      '<div class="muted" style="font-size:11.5px;margin-bottom:14px">Spent to change policy (further moves cost more). You regenerate <b>+' + regen + '/quarter</b> — more when you\'re popular and united; your election mandate sets the cap.</div>' +
+      '<div class="muted" style="font-size:11.5px;margin-bottom:14px">Spent to change policy (further moves cost more). You regenerate <b>+' + regen + '/month</b> — more when you\'re popular and united; your election mandate sets the cap.</div>' +
       '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center;margin-bottom:8px">End Month ▶</button>' +
       '<button class="btn" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Call General Election</button>' +
       '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Resign</button>' +
       '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
-      U.seatBar(live.totals) + U.legend(live.totals) + '</div></div>';
+      U.seatBar(live.totals) + U.legend(live.totals) +
+      '<div class="muted" style="font-size:12px;margin-top:8px">' +
+        (live.won
+          ? 'You hold power with <b style="color:var(--good)">' + live.playerSeats + '</b> seats.'
+          : 'You lose power — <b style="color:var(--bad)">' + (U.pname(live.winner) || "the opposition") + '</b> would form the next government.') +
+        '<br><span class="faint">A long-serving government faces a growing "time for a change" mood — keep approval high to overcome it.</span>' +
+      '</div></div></div>';
 
     return head + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal();
   }
@@ -541,6 +547,12 @@
     var g = S.govern, id = S.policyDetail; if (!id) return "";
     var pol = D.POLICIES.filter(function (p) { return p.id === id; })[0]; if (!pol) return "";
     var v = g.policies[id], imp = deficitImpact(pol, v);
+    // how far this lever can move with the capital you have right now
+    var range = pol.max - pol.min;
+    var maxDelta = (g.capital + 0.49) / 14 * range; // inverse of changeCost
+    var affLo = Math.max(pol.min, v - maxDelta), affHi = Math.min(pol.max, v + maxDelta);
+    var pct = function (x) { return (x - pol.min) / range * 100; };
+    var bandL = pct(affLo), bandW = pct(affHi) - bandL, nowPct = pct(v);
     var impLine = !pol.fiscal ? '<span class="faint">no direct budget cost</span>'
       : '<b style="color:' + (imp > 0 ? "var(--bad)" : "var(--good)") + '">' + (imp > 0 ? "+£" + Math.round(imp) + "bn to the deficit" : "−£" + Math.abs(Math.round(imp)) + "bn (saves money)") + '</b>';
     // economic effects of raising this lever
@@ -568,6 +580,8 @@
         '<span class="faint">' + U.esc(pol.low) + '</span><span class="pdval pv" style="font-size:22px;font-weight:800">' + fmtPolicyVal(pol, v) + '</span>' +
         '<span class="faint">' + U.esc(pol.high) + '</span></div>' +
       '<input type="range" style="width:100%" min="' + pol.min + '" max="' + pol.max + '" step="' + (pol.step || 1) + '" value="' + v + '" data-policy="' + pol.id + '">' +
+      '<div class="afford-track"><i class="afford-fill" style="left:' + bandL + '%;width:' + bandW + '%"></i><i class="afford-now" style="left:' + nowPct + '%"></i></div>' +
+      '<div class="pol-cost" data-pol-cost style="margin-top:4px;font-size:12px">Drag within the lit band — you have <b>' + g.capital + '</b> political capital to spend.</div>' +
       '<div style="margin-top:6px">Budget impact: ' + impLine + '</div></div>' +
       '<div class="viz2" style="margin-top:14px">' +
         '<div><div class="lab2" style="margin-bottom:6px">Raising this affects</div>' + econ + '</div>' +
@@ -817,19 +831,35 @@
     app.querySelectorAll("[data-policy]").forEach(function (range) {
       var id = range.getAttribute("data-policy");
       var pol = D.POLICIES.filter(function (p) { return p.id === id; })[0];
-      // live label update while dragging (no full re-render, keeps focus)
-      range.addEventListener("input", function () {
+      var oldVal = S.govern.policies[id];
+      var min = pol.min, span = pol.max - pol.min;
+      var costEl = range.parentNode.querySelector("[data-pol-cost]");
+      var nowEl = range.parentNode.querySelector(".afford-now");
+      // live label, cost and affordability feedback while dragging (no re-render)
+      function reflect() {
+        var g = S.govern, newVal = parseFloat(range.value);
         var cell = range.parentNode.querySelector(".pv");
-        if (cell) cell.textContent = fmtPolicyVal(pol, parseFloat(range.value));
-      });
-      range.addEventListener("change", function () {
-        var g = S.govern, newVal = parseFloat(range.value), oldVal = g.policies[id];
+        if (cell) cell.textContent = fmtPolicyVal(pol, newVal);
+        if (nowEl) nowEl.style.left = (newVal - min) / span * 100 + "%";
+        if (!costEl) return;
         var cost = E.changeCost(pol, oldVal, newVal);
-        if (cost > g.capital) {
-          range.value = oldVal;
-          toast("Not enough political capital (need " + cost + ").");
-          return;
+        if (newVal === oldVal) {
+          costEl.className = "pol-cost";
+          costEl.innerHTML = "Drag within the lit band — you have <b>" + g.capital + "</b> political capital to spend.";
+        } else if (cost <= g.capital) {
+          costEl.className = "pol-cost ok";
+          costEl.innerHTML = "This change costs <b>" + cost + "</b> of your <b>" + g.capital + "</b> political capital.";
+        } else {
+          costEl.className = "pol-cost over";
+          costEl.innerHTML = "Too big a move: it would cost <b>" + cost + "</b> but you only have <b>" + g.capital + "</b>. Stay within the lit band.";
         }
+      }
+      range.addEventListener("input", reflect);
+      range.addEventListener("change", function () {
+        var g = S.govern, newVal = parseFloat(range.value);
+        var cost = E.changeCost(pol, oldVal, newVal);
+        if (cost > g.capital) { range.value = oldVal; reflect(); return; }
+        if (newVal === oldVal) return;
         g.capital -= cost;
         g.policies[id] = newVal;
         render();

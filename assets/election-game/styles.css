@@ -184,6 +184,12 @@ a { color: var(--commons-l); }
 .pol-go { color: var(--ink-faint); font-size: 18px; }
 .pol-detail-set { background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
 .eff-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 3px 0; border-bottom: 1px solid var(--border); }
+.afford-track { position: relative; height: 6px; margin: 2px 0 2px; border-radius: 4px; background: #2c3850; overflow: hidden; }
+.afford-track .afford-fill { position: absolute; top: 0; height: 100%; background: linear-gradient(90deg, rgba(46,204,113,.35), rgba(46,204,113,.7)); border-radius: 4px; }
+.afford-track .afford-now { position: absolute; top: -2px; width: 2px; height: 10px; margin-left: -1px; background: var(--gold); border-radius: 2px; }
+.pol-cost { color: var(--ink-dim); }
+.pol-cost.ok { color: var(--good); }
+.pol-cost.over { color: var(--bad); }
 
 /* economy charts */
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
