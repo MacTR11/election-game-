@@ -307,19 +307,17 @@
     };
   }
 
-  // Sum all policy contributions for each stat and group.
+  // Normalised deviation of a policy from its default, d ∈ roughly [-1, 1].
+  function polD(pol, real) { return (real - pol.def) / (pol.max - pol.min); }
+
+  // Sum all policy contributions for each stat and group (k · d per effect, so
+  // there is no effect at the default setting).
   function policyContributions(state) {
-    var stats = {}, groups = {}, i, id, fn;
+    var stats = {}, groups = {}, i, id;
     for (i = 0; i < D.POLICIES.length; i++) {
-      var pol = D.POLICIES[i], v = state.policies[pol.id];
-      if (pol.effects.stats) for (id in pol.effects.stats) {
-        fn = pol.effects.stats[id];
-        stats[id] = (stats[id] || 0) + (typeof fn === "function" ? fn(v) : fn);
-      }
-      if (pol.effects.groups) for (id in pol.effects.groups) {
-        fn = pol.effects.groups[id];
-        groups[id] = (groups[id] || 0) + (typeof fn === "function" ? fn(v) : fn);
-      }
+      var pol = D.POLICIES[i], d = polD(pol, state.policies[pol.id]);
+      if (pol.effects.stats) for (id in pol.effects.stats) stats[id] = (stats[id] || 0) + pol.effects.stats[id] * d;
+      if (pol.effects.groups) for (id in pol.effects.groups) groups[id] = (groups[id] || 0) + pol.effects.groups[id] * d;
     }
     return { stats: stats, groups: groups };
   }
@@ -342,22 +340,25 @@
     // demographic & cost pressure: services decay over time unless invested in,
     // so doing nothing steadily makes the country worse (as in real life).
     var pr = state.pressure || 0;
-    if (targetStats.nhs       != null) targetStats.nhs       -= 0.011 * pr;
-    if (targetStats.housing   != null) targetStats.housing   -= 0.009 * pr;
-    if (targetStats.education != null) targetStats.education -= 0.006 * pr;
-    if (targetStats.crime     != null) targetStats.crime     += 0.006 * pr;
-    if (targetStats.immigration != null) targetStats.immigration += 0.005 * pr;
+    if (targetStats.nhs       != null) targetStats.nhs       -= 0.013 * pr;
+    if (targetStats.housing   != null) targetStats.housing   -= 0.011 * pr;
+    if (targetStats.education != null) targetStats.education -= 0.008 * pr;
+    if (targetStats.crime     != null) targetStats.crime     += 0.008 * pr;
+    if (targetStats.immigration != null) targetStats.immigration += 0.006 * pr;
     for (var k in targetStats) targetStats[k] = clamp01(targetStats[k]);
 
     // ---- groups: base + policy + how the country is doing ----
+    // a single "are the public services working" index that everyone feels
+    var svc = (targetStats.nhs + targetStats.education + (1 - targetStats.crime) + targetStats.housing) / 4;
     var targetGroups = {};
     for (i = 0; i < D.GROUPS.length; i++) {
       gr = D.GROUPS[i];
       var t = gr.base + (contrib.groups[gr.id] || 0);
-      // everyone reacts to the real economy, prices and jobs
+      // everyone reacts to the real economy, prices, jobs and public services
       t += 0.32 * (mn.gdp - 0.5);
-      t -= 0.28 * (mn.inflation - 0.29);
-      t -= 0.22 * (mn.unemployment - 0.144);
+      t -= 0.30 * (mn.inflation - 0.29);
+      t -= 0.24 * (mn.unemployment - 0.144);
+      t += 0.42 * (svc - 0.46);
       targetGroups[gr.id] = clamp01(t);
     }
     // targeted stat sensitivities
@@ -382,33 +383,51 @@
   // unmapped lines (NICs, business rates, debt interest, local government, etc.)
   // are a residual fixed to the real 2024–25 totals. Receipts scale with the
   // size of the economy; debt interest scales with the debt stock.
+  function fiscalDefaultAmt(pol) { return pol.fiscal.mode === "direct" ? pol.def : pol.fiscal.base; }
+  function fiscalCurrentAmt(pol, state) {
+    if (pol.fiscal.mode === "direct") return Math.max(0, state.policies[pol.id]);
+    return Math.max(0, pol.fiscal.base + pol.fiscal.swing * polD(pol, state.policies[pol.id]));
+  }
   function computeFiscal(state) {
-    var F = D.FISCAL, M = D.FISCAL_MAP, p, fm, v, pol;
+    var F = D.FISCAL, i, pol;
     var mappedR = 0, mappedS = 0;
-    for (p in M) { if (M[p].type === "r") mappedR += M[p].base; else mappedS += M[p].base; }
+    for (i = 0; i < D.POLICIES.length; i++) {
+      pol = D.POLICIES[i]; if (!pol.fiscal) continue;
+      var da = fiscalDefaultAmt(pol);
+      if (pol.fiscal.type === "r") mappedR += da; else mappedS += da;
+    }
     var residualR = F.receiptsTotal - mappedR;
     var baseDebtInterest = F.debt * F.effectiveDebtRate;
     var residualS = F.spendingTotal - mappedS - baseDebtInterest;
 
     var lines = { r: {}, s: {} }, receipts = 0, spending = 0;
-    for (p in M) {
-      fm = M[p]; pol = polById(p); v = state.policies[p];
-      var amt = Math.max(0, fm.base + fm.swing * (v - pol.def));
-      if (fm.type === "r") { lines.r[fm.line] = amt; receipts += amt; }
-      else { lines.s[fm.line] = amt; spending += amt; }
+    for (i = 0; i < D.POLICIES.length; i++) {
+      pol = D.POLICIES[i]; if (!pol.fiscal) continue;
+      var amt = fiscalCurrentAmt(pol, state);
+      if (pol.fiscal.type === "r") { lines.r[pol.fiscal.line] = amt; receipts += amt; }
+      else { lines.s[pol.fiscal.line] = amt; spending += amt; }
     }
-    var debtInterest = state.macro.debt * F.effectiveDebtRate;
+    // debt interest carries a gilt-market premium that climbs sharply once debt
+    // runs above ~95% of GDP — high debt becomes self-reinforcingly expensive.
+    var dp = state.macro.debt / state.macro.gdp * 100;
+    var effRate = F.effectiveDebtRate + Math.max(0, (dp - 95)) * 0.0006;
+    var debtInterest = state.macro.debt * effRate;
     var gdpFactor = state.macro.gdp / F.gdp;
     // demographic/inflation cost pressure grows over time; frozen tax thresholds
     // drag a little more into tax (fiscal drag) but not enough to keep pace.
     var pr = state.pressure || 0;
-    var costPressure = pr * 4.5, fiscalDrag = pr * 2.0;
+    var costPressure = pr * 5.5, fiscalDrag = pr * 1.8;
+    // pay and benefit indexation: most spending rises with the nominal economy
+    // too, so you can't simply grow out of the deficit by standing still.
+    var programme = spending + residualS;
+    var uplift = 0.6 * (gdpFactor - 1) * programme;
     receipts = (receipts + residualR) * gdpFactor + fiscalDrag;
-    spending = spending + residualS + debtInterest + costPressure;
-    if (costPressure > 0) lines.s["Demographic & cost pressure"] = costPressure;
-    lines.s["Debt interest"] = debtInterest;
+    spending = programme + uplift + debtInterest + costPressure;
     lines.r["Other receipts (NICs, rates, duties…)"] = residualR * gdpFactor;
     lines.s["Other (local gov, services…)"] = residualS;
+    if (uplift > 0.5) lines.s["Inflation cost uplift"] = uplift;
+    if (costPressure > 0) lines.s["Demographic & cost pressure"] = costPressure;
+    lines.s["Debt interest"] = debtInterest;
 
     state.macro.receipts = Math.round(receipts);
     state.macro.spending = Math.round(spending);
@@ -423,7 +442,7 @@
   function evolveMacro(state) {
     var contrib = policyContributions(state), m = state.macro;
     var gdpPush = contrib.stats.gdp || 0, inflPush = contrib.stats.inflation || 0, unempPush = contrib.stats.unemployment || 0;
-    var growthTarget = 1.4 + 7 * gdpPush - 0.5 * Math.max(0, (m.debtPct - 100) / 10);
+    var growthTarget = 1.1 + 7 * gdpPush - 0.6 * Math.max(0, (m.debtPct - 100) / 10);
     var inflTarget = 2.0 + 6 * inflPush + 0.35 * (m.realGrowth - 1.4);
     var unempTarget = 4.2 - 0.7 * (m.realGrowth - 1.4) + 9 * unempPush;
     var K = 0.4;
@@ -499,15 +518,20 @@
     return { electionDue: electionDue };
   }
 
-  // Choose a dilemma the player hasn't seen recently and whose condition holds.
+  // Choose a dilemma, strongly preferring ones the player has never seen, and
+  // never repeating until most of the pool has been used up.
   function pickDilemma(state) {
-    var recent = state.dilemmaHistory.slice(-6);
-    var pool = D.DILEMMAS.filter(function (d) {
-      if (recent.indexOf(d.id) >= 0) return false;
-      return d.cond ? d.cond(state) : true;
-    });
+    var seen = state.dilemmaHistory || [];
+    var pool = D.DILEMMAS.filter(function (d) { return d.cond ? d.cond(state) : true; });
     if (!pool.length) return null;
-    return pool[Math.floor(Math.random() * pool.length)];
+    var unseen = pool.filter(function (d) { return seen.indexOf(d.id) < 0; });
+    var avail = unseen;
+    if (!avail.length) {
+      var recent = seen.slice(-Math.floor(pool.length * 0.6));
+      avail = pool.filter(function (d) { return recent.indexOf(d.id) < 0; });
+    }
+    if (!avail.length) avail = pool;
+    return avail[Math.floor(Math.random() * avail.length)];
   }
 
   // Apply a chosen dilemma option's effects and clear it.
@@ -526,9 +550,11 @@
     state.approval = computeApproval(state);
   }
 
-  // Cost (in political capital) of a proposed change in a policy slider.
-  function changeCost(delta) {
-    return Math.max(1, Math.round(Math.abs(delta) * 10));
+  // Cost (in political capital) of moving a policy, scaled to how far it moves
+  // across its range.
+  function changeCost(pol, oldVal, newVal) {
+    var frac = Math.abs(newVal - oldVal) / (pol.max - pol.min);
+    return Math.max(1, Math.round(frac * 14));
   }
 
   // Convert governing approval into a national vote share for the player's

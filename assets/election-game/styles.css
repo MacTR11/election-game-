@@ -136,12 +136,12 @@ a { color: var(--commons-l); }
 .outcome-maj { color: var(--good); } .outcome-hung { color: var(--warn); }
 
 /* ---- sliders ---- */
-.slider-row { display: grid; grid-template-columns: 150px 1fr 56px; gap: 12px; align-items: center; padding: 7px 0; }
+.slider-row { display: grid; grid-template-columns: 150px 1fr 94px; gap: 12px; align-items: center; padding: 7px 0; min-width: 0; }
 .slider-row .name { font-size: 13.5px; font-weight: 600; }
 .slider-row .name small { display: block; color: var(--ink-faint); font-weight: 500; font-size: 11px; }
 .slider-row input[type=range] { width: 100%; min-width: 0; accent-color: var(--commons-l); }
-.slider-row { min-width: 0; }
-.slider-row .val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+.slider-row .val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; line-height: 1.2; }
+.slider-row .val .pv { font-size: 13px; }
 .share-input { width: 56px; background: var(--bg-2); border: 1px solid var(--border); color: var(--ink); border-radius: 6px; padding: 4px 6px; text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ---- govern dashboard ---- */
@@ -260,7 +260,7 @@ tr.clickrow:hover td { background: var(--panel-2); }
   .headline { flex-wrap: wrap; gap: 10px; padding: 12px; }
   .headline .big { font-size: 22px; }
   .kpi .v { font-size: 18px; }
-  .slider-row { grid-template-columns: 110px 1fr 40px; gap: 8px; }
+  .slider-row { grid-template-columns: 96px 1fr 74px; gap: 8px; }
   .slider-row .name { font-size: 12px; }
   .vote-row { grid-template-columns: 34px 1fr 42px 50px; gap: 6px; }
   .stat-row { grid-template-columns: 96px 1fr 38px; }

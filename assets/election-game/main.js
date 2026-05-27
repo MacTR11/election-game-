@@ -51,7 +51,7 @@
   }
 
   // -------------------------------------------------------- save / load
-  var SAVE_KEY = "uknumber10_save_v1";
+  var SAVE_KEY = "uknumber10_save_v2";
   function saveGame() {
     var g = S.govern; if (!g) return;
     try {
@@ -128,7 +128,7 @@
   function viewHome() {
     var modes = [
       { s: "govern-setup", ico: "🏛", h: "Govern the Country", tag: "Flagship mode",
-        p: "Take charge as PM. Set 20+ real UK policies — tax, the NHS, the triple lock, immigration, Net Zero — balance the books, keep 22 voter groups onside and win re-election." },
+        p: "Take charge as PM. Set 28 policies in real terms — actual tax rates, £bn budgets, the triple lock, net migration — on the real UK 2024–25 public finances. Balance the books, run real GDP/inflation/debt, weather decision dilemmas and keep your party and the voters onside." },
       { s: "simulator", ico: "🗳", h: "General Election Simulator", tag: "Swingometer + map",
         p: "Dial in national vote shares and project all 650 real constituencies seat-by-seat, with a full UK hex map, swing chart and Commons hemicycle. Baseline reproduces the actual July 2024 result." },
       { s: "byelection", ico: "📍", h: "By-Elections", tag: "Any of 650 seats",
@@ -143,7 +143,7 @@
         return '<div class="mode-card" data-go="' + m.s + '"><div class="ico">' + m.ico + '</div>' +
           '<h2>' + m.h + '</h2><p>' + m.p + '</p><div class="tag">' + m.tag + ' →</div></div>';
       }).join("") + '</div>' +
-      '<p class="foot">Electoral baseline: UK General Election, 4 July 2024 (650 seats). Seat projections use a regional swing model and are estimates for entertainment, not forecasts.</p>';
+      '<p class="foot">Electoral baseline: UK General Election, 4 July 2024 (650 seats). Seat projections apply uniform national swing across all 650 constituencies and are estimates for entertainment, not forecasts.</p>';
   }
 
   // --------------------------------------------------- shared share controls
@@ -410,6 +410,30 @@
     return '<div class="kpi"><div class="k">' + k + '</div><div class="v" style="color:' + (color || "var(--ink)") + '">' + v + '</div></div>';
   }
 
+  function fmtPolicyVal(pol, v) {
+    var u = pol.unit;
+    switch (u) {
+      case "%": return (Number.isInteger(v) ? v : v.toFixed(1)) + "%";
+      case "£bn": return "£" + v + "bn";
+      case "p": return v + "p";
+      case "£": return "£" + v.toLocaleString();
+      case "£/mo": return "£" + v + "/mo";
+      case "£/hr": return "£" + v.toFixed(2);
+      case "£/yr": return "£" + v.toLocaleString();
+      case "%GDP": return v.toFixed(1) + "%";
+      case "%GNI": return v.toFixed(2) + "%";
+      case "k/yr": return v + "k";
+      case "/10": return v + "/10";
+      default: return "" + v;
+    }
+  }
+  // net effect of a policy's current setting on the annual deficit (£bn);
+  // positive = worsens the deficit, negative = improves it.
+  function deficitImpact(pol, v) {
+    if (!pol.fiscal) return 0;
+    var delta = pol.fiscal.mode === "direct" ? (v - pol.def) : pol.fiscal.swing * (v - pol.def) / (pol.max - pol.min);
+    return pol.fiscal.type === "s" ? delta : -delta;
+  }
   function tabPolicies() {
     var g = S.govern, cats = {}, order = [];
     D.POLICIES.forEach(function (p) { if (!cats[p.cat]) { cats[p.cat] = []; order.push(p.cat); } cats[p.cat].push(p); });
@@ -418,12 +442,13 @@
       html += '<div class="panel"><div class="policy-cat">' + cat + '</div>';
       cats[cat].forEach(function (pol) {
         var v = g.policies[pol.id];
-        var net = pol.budget(v) - pol.budget(pol.def);
-        var netTxt = Math.abs(net) < 1 ? "" : '<small style="color:' + (net > 0 ? "var(--bad)" : "var(--good)") + '"> ' + (net > 0 ? "+" : "−") + "£" + Math.abs(Math.round(net)) + "bn</small>";
+        var imp = deficitImpact(pol, v);
+        var impTxt = Math.abs(imp) < 0.5 ? '<small class="faint">at default</small>'
+          : '<small style="color:' + (imp > 0 ? "var(--bad)" : "var(--good)") + '">' + (imp > 0 ? "+" : "−") + "£" + Math.abs(Math.round(imp)) + "bn</small>";
         html += '<div class="slider-row"><div class="name">' + pol.icon + " " + pol.name +
           '<small>' + pol.low + " ↔ " + pol.high + '</small></div>' +
-          '<input type="range" min="0" max="1" step="0.05" value="' + v + '" data-policy="' + pol.id + '">' +
-          '<div class="val">' + Math.round(v * 100) + netTxt + '</div></div>';
+          '<input type="range" min="' + pol.min + '" max="' + pol.max + '" step="' + (pol.step || 1) + '" value="' + v + '" data-policy="' + pol.id + '">' +
+          '<div class="val"><span class="pv">' + fmtPolicyVal(pol, v) + '</span><br>' + impTxt + '</div></div>';
       });
       html += '</div>';
     });
@@ -634,9 +659,15 @@
   function bindPolicySliders() {
     app.querySelectorAll("[data-policy]").forEach(function (range) {
       var id = range.getAttribute("data-policy");
+      var pol = D.POLICIES.filter(function (p) { return p.id === id; })[0];
+      // live label update while dragging (no full re-render, keeps focus)
+      range.addEventListener("input", function () {
+        var cell = range.parentNode.querySelector(".pv");
+        if (cell) cell.textContent = fmtPolicyVal(pol, parseFloat(range.value));
+      });
       range.addEventListener("change", function () {
         var g = S.govern, newVal = parseFloat(range.value), oldVal = g.policies[id];
-        var cost = E.changeCost(newVal - oldVal);
+        var cost = E.changeCost(pol, oldVal, newVal);
         if (cost > g.capital) {
           range.value = oldVal;
           toast("Not enough political capital (need " + cost + ").");
