@@ -393,10 +393,17 @@
 
   // Snapshot the headline numbers each quarter so the UI can chart trends.
   function recordHistory(s) {
+    // snapshot every voter group's satisfaction so the UI can show trajectories
+    var gs = {}, gi;
+    for (gi in s.groups) gs[gi] = s.groups[gi];
+    // also record what the Commons would look like if an election were held now
+    var seats = 0, won = false;
+    try { var r = runGeneralElection(s); seats = r.playerSeats; won = r.won; } catch (e) { /* ignore */ }
     s.history.push({
       label: s.year + "-" + s.month, approval: s.approval,
       growth: s.macro.realGrowth, inflation: s.macro.inflation,
-      unemployment: s.macro.unemployment, deficit: s.macro.deficit, debtPct: s.macro.debtPct
+      unemployment: s.macro.unemployment, deficit: s.macro.deficit, debtPct: s.macro.debtPct,
+      groups: gs, seats: seats, won: won
     });
     if (s.history.length > 60) s.history.shift();
   }

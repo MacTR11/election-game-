@@ -209,6 +209,12 @@ a { color: var(--commons-l); }
 .appoint-row:hover { border-color: var(--gold); }
 .appoint-row:disabled { opacity: .5; cursor: not-allowed; }
 .crisis-banner { border-left: 4px solid var(--bad); }
+.mover-row { display: grid; grid-template-columns: 1.2fr 1.6fr auto; gap: 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.mover-row:last-child { border-bottom: 0; }
+.mover-name { font-size: 13px; font-weight: 700; }
+.mover-name small { color: var(--ink-dim); font-weight: 400; font-size: 11px; }
+.mover-spark .linechart { height: 38px; }
+.mover-delta { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 13px; }
 
 /* economy charts */
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }

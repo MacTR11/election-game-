@@ -627,8 +627,11 @@
   function tabEconomy() {
     var g = S.govern, m = g.macro, h = g.history;
     function ser(key) { return h.map(function (x) { return x[key]; }); }
+    var seatsSeries = ser("seats");
+    var lastSeats = seatsSeries[seatsSeries.length - 1] || 0;
     var charts = [
       { t: "Approval", v: (g.approval * 100).toFixed(1) + "%", s: ser("approval").map(function (x) { return x * 100; }), c: "#c9a227", band: [45, 60] },
+      { t: "Seats if voted today", v: lastSeats + "/650", s: seatsSeries, c: D.PARTIES[g.party].color, band: [326, 650] },
       { t: "GDP growth", v: m.realGrowth.toFixed(1) + "%", s: ser("growth"), c: "#2ecc71", band: [1.5, 3] },
       { t: "Inflation", v: m.inflation.toFixed(1) + "%", s: ser("inflation"), c: "#f5a623", band: [0, 2] },
       { t: "Unemployment", v: m.unemployment.toFixed(1) + "%", s: ser("unemployment"), c: "#12b6cf" },
@@ -679,8 +682,30 @@
       return '<div class="gcell"><div class="gn">' + gr.name + ' <span>' + gr.size + '%</span></div>' +
         '<div class="gbar"><i style="width:' + (v * 100) + '%;background:' + col + '"></i></div></div>';
     }).join("");
+    // movers since the start of the current term — needs >=2 history snapshots
+    var moversPanel = "";
+    if (g.history.length >= 2) {
+      var first = g.history[0];
+      var movers = D.GROUPS.map(function (gr) {
+        var startV = (first.groups && first.groups[gr.id] != null) ? first.groups[gr.id] : gr.base;
+        var nowV = g.groups[gr.id];
+        return { gr: gr, start: startV, now: nowV, delta: nowV - startV };
+      }).sort(function (a, b) { return Math.abs(b.delta) - Math.abs(a.delta); }).slice(0, 6);
+      var rows = movers.map(function (mv) {
+        var pct = (mv.delta * 100).toFixed(1);
+        var col = mv.delta >= 0 ? "var(--good)" : "var(--bad)";
+        var arrow = mv.delta >= 0 ? "▲" : "▼";
+        var series = g.history.map(function (h) { return (h.groups && h.groups[mv.gr.id] != null) ? h.groups[mv.gr.id] * 100 : null; }).filter(function (x) { return x != null; });
+        return '<div class="mover-row"><div class="mover-name">' + U.esc(mv.gr.name) + '<small> · since you took office</small></div>' +
+          '<div class="mover-spark">' + U.lineChart(series, { color: col, mini: true }) + '</div>' +
+          '<div class="mover-delta" style="color:' + col + '">' + arrow + ' ' + (mv.delta >= 0 ? "+" : "") + pct + ' pts</div></div>';
+      }).join("");
+      moversPanel = '<div class="panel" style="margin-top:16px"><h3>Biggest Movers Since You Took Office</h3>' + rows +
+        '<p class="notice">The voter groups whose mood has shifted most — these are the blocs your policies and decisions are reaching.</p></div>';
+    }
     return '<div class="panel"><h3>Voter Groups · contentment</h3><div class="group-grid">' + cells + '</div>' +
-      '<p class="notice">Groups overlap (a renter can also be a young environmentalist), so sizes do not sum to 100%. Approval is the size-weighted average of every group.</p></div>';
+      '<p class="notice">Groups overlap (a renter can also be a young environmentalist), so sizes do not sum to 100%. Approval is the size-weighted average of every group.</p></div>' +
+      moversPanel;
   }
 
   function stars(c) { return '<span class="stars">' + "★".repeat(c) + '<span class="faint">' + "★".repeat(5 - c) + '</span></span>'; }
