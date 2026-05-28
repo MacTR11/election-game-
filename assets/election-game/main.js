@@ -226,14 +226,10 @@
     var rows = SHARE_PARTIES.map(function (p) {
       var v = S.shares[p] != null ? S.shares[p] : 0;
       return '<div class="slider-row"><div class="name" style="color:' + U.pcolor(p) + '">' + U.pname(p) +
-        '</div><input type="range" min="0" max="55" step="0.1" value="' + v + '" data-share="' + p + '">' +
+        '</div><input type="range" min="0" max="100" step="0.1" value="' + v + '" data-share="' + p + '">' +
         '<input class="share-input" data-shareinput="' + p + '" value="' + v.toFixed(1) + '"></div>';
     }).join("");
     var sum = SHARE_PARTIES.reduce(function (a, p) { return a + (S.shares[p] || 0); }, 0);
-    var sumCol = Math.abs(sum - 100) < 0.5 ? "var(--good)" : Math.abs(sum - 100) < 5 ? "var(--warn)" : "var(--bad)";
-    var normNote = Math.abs(sum - 100) >= 0.5 && sum > 0
-      ? '<span class="sim-norm-note" style="font-size:11.5px;color:var(--ink-dim);margin-left:8px">— auto-normalised to 100% for projection</span>'
-      : "";
     var src = S.lastPollSource ? '<p class="notice" style="color:var(--commons-l);margin:8px 0 0">Loaded: ' + U.esc(S.lastPollSource) + '</p>' : "";
     // preset dropdown — quick-load any of the scenarios from data.js
     var presetOpts = '<option value="">— preset scenarios —</option>' +
@@ -242,13 +238,12 @@
       '<div class="sim-toolbar">' +
         '<button class="btn sm" data-act="fetchpolls" id="fetchbtn">↻ Latest polls</button>' +
         '<select class="sim-preset" data-presetsel>' + presetOpts + '</select>' +
-        '<button class="btn sm" data-act="normalise">Normalise 100%</button>' +
         '<button class="btn sm" data-act="share">🔗 Share</button>' +
       '</div>' +
-      '<div class="sim-total" style="color:' + sumCol + '">Total: <b>' + sum.toFixed(1) + '%</b>' + normNote + '<span id="sharesum" hidden></span></div>' +
+      '<div class="sim-total" style="color:var(--good)">Total: <b>' + sum.toFixed(1) + '%</b> <span style="font-size:11.5px;color:var(--ink-dim);font-weight:400">— auto-balanced</span><span id="sharesum" hidden></span></div>' +
       rows + src +
       '<details class="sim-help"><summary>How does this work?</summary>' +
-      '<p class="muted" style="font-size:12.5px;margin:8px 0 0"><b>Load latest polls</b> fetches the current poll-of-polls live, in your browser, from Wikipedia\'s "Opinion polling for the next United Kingdom general election" article — aggregating the British Polling Council member firms. If it can\'t be reached, your current figures stay. Shares are normalised before projection; swing is measured versus the 2024 result.</p>' +
+      '<p class="muted" style="font-size:12.5px;margin:8px 0 0"><b>Load latest polls</b> fetches the current poll-of-polls live, in your browser, from Wikipedia\'s "Opinion polling for the next United Kingdom general election" article — aggregating the British Polling Council member firms. If it can\'t be reached, your current figures stay. Shares always sum to 100%: pulling one party up shrinks the others proportionally. Swing is measured versus the 2024 result.</p>' +
       '</details>' +
       '</div>';
   }
@@ -2408,26 +2403,57 @@
   }
 
   function refreshShareResults() {
-    if (S.screen === "simulator") $("#sim-results").innerHTML = simResults();
+    if (S.screen === "simulator") {
+      $("#sim-results").innerHTML = simResults();
+      bindSeatsExplorer(); // re-wire the freshly rendered explorer
+    }
     var sum = SHARE_PARTIES.reduce(function (a, p) { return a + (S.shares[p] || 0); }, 0);
     var el = $("#sharesum"); if (el) el.textContent = "Total: " + sum.toFixed(1) + "%";
+  }
+  // Auto-normalise: when one party's share changes, scale the OTHER parties
+  // proportionally so the GB total always sums to 100%. Then push every value
+  // back into its slider + numeric input so the UI shows what the projection
+  // is actually using.
+  function setShareAndRedistribute(party, newVal) {
+    newVal = Math.max(0, Math.min(100, parseFloat(newVal) || 0));
+    var prev = SHARE_PARTIES.slice().reduce(function (o, p) { o[p] = S.shares[p] || 0; return o; }, {});
+    var others = SHARE_PARTIES.filter(function (p) { return p !== party; });
+    var target = 100 - newVal;
+    var otherTotal = others.reduce(function (a, p) { return a + (prev[p] || 0); }, 0);
+    S.shares[party] = newVal;
+    if (otherTotal > 0) {
+      var scale = target / otherTotal;
+      others.forEach(function (p) { S.shares[p] = Math.max(0, (prev[p] || 0) * scale); });
+    } else {
+      var each = others.length ? target / others.length : 0;
+      others.forEach(function (p) { S.shares[p] = Math.max(0, each); });
+    }
+    // FP correction so the visible total really is 100
+    var sum = SHARE_PARTIES.reduce(function (a, p) { return a + S.shares[p]; }, 0);
+    if (sum > 0 && Math.abs(sum - 100) > 0.001) {
+      var k = 100 / sum;
+      SHARE_PARTIES.forEach(function (p) { S.shares[p] *= k; });
+    }
+    // sync every slider + input to the redistributed values
+    SHARE_PARTIES.forEach(function (p) {
+      var v = S.shares[p];
+      var r = app.querySelector('[data-share="' + p + '"]'); if (r) r.value = v;
+      var ip = app.querySelector('[data-shareinput="' + p + '"]'); if (ip) ip.value = v.toFixed(1);
+    });
   }
 
   function bindShareControls() {
     app.querySelectorAll("[data-share]").forEach(function (range) {
       var p = range.getAttribute("data-share");
       range.addEventListener("input", function () {
-        S.shares[p] = parseFloat(range.value);
-        var inp = app.querySelector('[data-shareinput="' + p + '"]'); if (inp) inp.value = S.shares[p].toFixed(1);
+        setShareAndRedistribute(p, parseFloat(range.value));
         refreshShareResults();
       });
     });
     app.querySelectorAll("[data-shareinput]").forEach(function (inp) {
       var p = inp.getAttribute("data-shareinput");
       inp.addEventListener("change", function () {
-        var v = parseFloat(inp.value); if (isNaN(v)) v = 0; v = Math.max(0, Math.min(55, v));
-        S.shares[p] = v; inp.value = v.toFixed(1);
-        var range = app.querySelector('[data-share="' + p + '"]'); if (range) range.value = v;
+        setShareAndRedistribute(p, parseFloat(inp.value));
         refreshShareResults();
       });
     });
@@ -2437,11 +2463,19 @@
         var key = sel.value; if (!key) return;
         var preset = D.PRESETS && D.PRESETS[key]; if (!preset) return;
         SHARE_PARTIES.forEach(function (p) { S.shares[p] = preset.shares[p] != null ? preset.shares[p] : 0; });
+        // ensure the loaded preset shares sum to 100 (presets are close but
+        // not exact — auto-balance keeps the invariant)
+        S.shares = normShares(pickShares());
         S.lastPollSource = preset.name;
         render();
       });
     });
-    // Seats Explorer + Party Targets controls
+    bindSeatsExplorer();
+  }
+  // Bind handlers for the Seats Explorer + Party Targets controls. Called both
+  // on full render and after refreshSim() repaints the simulator results panel
+  // (without which the controls render but their clicks/changes do nothing).
+  function bindSeatsExplorer() {
     app.querySelectorAll("[data-seatfilter]").forEach(function (el) {
       el.addEventListener("click", function () { S.seatsFilter = el.getAttribute("data-seatfilter"); S.seatsLimit = 50; refreshSim(); });
     });
@@ -2457,6 +2491,11 @@
     app.querySelectorAll("[data-seatsearch]").forEach(function (inp) {
       inp.addEventListener("input", function () { S.seatsSearch = inp.value; S.seatsLimit = 50; refreshSim(); });
     });
+    // The "Show more" button uses data-act="seatsmore" — wire it locally too so
+    // partial refreshes don't lose its handler.
+    app.querySelectorAll("[data-act='seatsmore']").forEach(function (b) {
+      b.addEventListener("click", function () { S.seatsLimit = (S.seatsLimit || 50) + 200; refreshSim(); });
+    });
   }
   // Refresh just the simulator results region without a full re-render. The
   // seat-search input re-mounts on every keystroke (its value is sticky on
@@ -2468,6 +2507,7 @@
     var wasSearchFocused = active && active.hasAttribute && active.hasAttribute("data-seatsearch");
     var caret = wasSearchFocused ? active.selectionStart : 0;
     box.innerHTML = simResults();
+    bindSeatsExplorer(); // re-wire the freshly-rendered controls
     if (wasSearchFocused) {
       var inp = box.querySelector("[data-seatsearch]");
       if (inp) { inp.focus(); try { inp.setSelectionRange(caret, caret); } catch (e) { /* readonly inputs */ } }
@@ -2524,8 +2564,6 @@
   function action(act) {
     var g = S.govern;
     switch (act) {
-      case "normalise":
-        S.shares = normShares(pickShares()); render(); break;
       case "seatsmore":
         S.seatsLimit = (S.seatsLimit || 50) + 200; refreshSim(); break;
       case "reset2024": {
@@ -2703,6 +2741,7 @@
       var poll = parseWikiPoll(html);
       if (!poll) throw new Error("no poll parsed");
       SHARE_PARTIES.forEach(function (p) { S.shares[p] = poll.shares[p] || 0; });
+      S.shares = normShares(pickShares()); // keep the 100% invariant after load
       S.lastPollSource = (poll.pollster || "Latest poll") + (poll.date ? ", " + poll.date : "") + " (via Wikipedia)";
       render();
       toast("Loaded latest: " + poll.label);

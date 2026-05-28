@@ -189,10 +189,39 @@
   var ALLIES = {
     lab:    ["ld", "green", "snp", "pc", "sdlp", "alliance"],
     con:    ["reform", "dup", "uup"],
-    ld:     ["lab", "con", "green", "pc"],
+    ld:     ["lab", "con", "green", "pc", "snp", "alliance", "sdlp"],
     reform: ["con", "dup", "uup"],
-    snp:    ["lab", "ld", "green", "pc"]
+    snp:    ["lab", "ld", "green", "pc"],
+    green:  ["lab", "ld", "snp", "pc", "sdlp"],
+    pc:     ["lab", "ld", "green", "snp"]
   };
+  // Pairs that will not sit together in a UK government. The grand coalition
+  // (Lab + Con) is the headline exclusion; the others rule out arrangements
+  // British political reality wouldn't entertain (Greens with Reform; Reform
+  // with the SNP; etc.). Order-independent: pair[a][b] iff pair[b][a].
+  var INCOMPATIBLE = {
+    lab:    { con: true, reform: true, dup: true, uup: true },
+    con:    { lab: true, green: true, snp: true, sdlp: true, sf: true, pc: true },
+    reform: { ld: true, green: true, snp: true, sdlp: true, alliance: true, pc: true, sf: true, lab: true },
+    ld:     { reform: true, dup: true, sf: true },
+    green:  { con: true, reform: true, dup: true, uup: true },
+    snp:    { con: true, reform: true, dup: true, uup: true },
+    pc:     { con: true, reform: true, dup: true, uup: true },
+    dup:    { lab: true, ld: true, green: true, snp: true, sf: true, sdlp: true, pc: true, alliance: true },
+    sf:     { con: true, reform: true, dup: true, uup: true, ld: true },
+    sdlp:   { con: true, reform: true, dup: true, uup: true },
+    uup:    { lab: true, ld: true, green: true, snp: true, sf: true, sdlp: true, pc: true },
+    alliance: { reform: true, dup: true }
+  };
+  function pairCompatible(a, b) {
+    if (a === b) return true;
+    return !(INCOMPATIBLE[a] && INCOMPATIBLE[a][b]);
+  }
+  // True if `candidate` can sit with every member already in `members`.
+  function canJoinBloc(candidate, members) {
+    for (var i = 0; i < members.length; i++) if (!pairCompatible(candidate, members[i])) return false;
+    return true;
+  }
   function formGovernment(totals) {
     // Canonical UK Commons majority is 326 (half of 650 + 1) — this matches the
     // line drawn on the seat bar and what every newsroom reports.
@@ -207,8 +236,12 @@
       .sort(function (a, b) { return totals[b] - totals[a]; });
     for (var i = 0; i < leaders.length; i++) {
       var f = leaders[i], members = [f], seats = totals[f], allies = ALLIES[f] || [];
-      for (var j = 0; j < allies.length && seats < needed; j++)
-        if (totals[allies[j]] > 0) { members.push(allies[j]); seats += totals[allies[j]]; }
+      for (var j = 0; j < allies.length && seats < needed; j++) {
+        var ally = allies[j];
+        if (totals[ally] > 0 && canJoinBloc(ally, members)) {
+          members.push(ally); seats += totals[ally];
+        }
+      }
       if (seats >= needed)
         return { type: "coalition", formateur: f, members: members, seats: seats, needed: needed, sitting: sitting };
     }
