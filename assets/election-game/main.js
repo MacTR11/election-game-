@@ -28,6 +28,8 @@
     pendingVote: null,   // { source: 'bulk'|'single', polId, newVal, totalCost, billTitle } awaiting a Commons vote
     lastVoteResult: null, // { passed, prob, billTitle } shown to the player after a vote
     industrialChooser: false, // industrial-strategy picker open?
+    impactReport: null,       // after End Month: snapshot of what changed
+    pendingPostImpact: null,  // dilemma/midterm queued to fire AFTER the dashboard is dismissed
     // Seats Explorer (simulator)
     seatsFilter: "all",   // projected-winner filter: "all" or partyId
     seatsRegion: "all",   // region filter: "all" or region id
@@ -798,7 +800,7 @@
         '<br><span class="faint">Every figure here is a band, not a forecast — normal polling uncertainty.</span>' +
       '</div></div></div>';
 
-    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + statDetailModal() + groupDetailModal() + commonsVoteModal() + voteResultModal() + industrialChooserModal() + endTurnFab(g);
+    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + statDetailModal() + groupDetailModal() + commonsVoteModal() + voteResultModal() + industrialChooserModal() + impactReportModal() + endTurnFab(g);
   }
   function trend(cur, prev, goodHigh) {
     if (prev == null) return "";
@@ -1551,10 +1553,117 @@
     }).join("");
     return '<div style="margin:0 0 12px"><div class="lab2" style="margin-bottom:6px">Pledges · ' + kept + '/' + g.pledges.length + ' kept</div>' + rows + '</div>';
   }
+  // Snapshot the bits of state we want to diff after a turn.
+  function snapshotForImpact(g) {
+    var stats = {}, sectors = {}, k;
+    for (k in g.stats) stats[k] = g.stats[k];
+    if (g.sectors) for (k in g.sectors) sectors[k] = g.sectors[k];
+    return {
+      approval: g.approval, capital: g.capital, unity: g.unity,
+      realGrowth: g.macro.realGrowth, inflation: g.macro.inflation,
+      unemployment: g.macro.unemployment, deficit: g.macro.deficit,
+      debtPct: g.macro.debtPct, bankRate: g.macro.bankRate,
+      sectorPulse: g.macro.sectorPulse, stats: stats, sectors: sectors
+    };
+  }
+  // Compose the impact report for the dashboard. Only lines whose delta
+  // crosses a minimum threshold are included, so a quiet month stays quiet.
+  function buildImpactReport(g, b, extras) {
+    extras = extras || {};
+    var rows = [];
+    function push(label, beforeVal, afterVal, fmt, hiGood, threshold) {
+      var d = afterVal - beforeVal;
+      if (!isFinite(d) || Math.abs(d) < (threshold || 0.001)) return;
+      var col = (hiGood ? d > 0 : d < 0) ? "var(--good)" : "var(--bad)";
+      var arrow = d > 0 ? "▲" : "▼";
+      rows.push({ label: label, col: col, arrow: arrow, before: fmt(beforeVal), after: fmt(afterVal), deltaStr: (d > 0 ? "+" : "") + fmt(d).replace(/[£%/\s]+/g, "").replace("bn", "bn") });
+    }
+    // Headline figures
+    push("Approval", b.approval * 100, g.approval * 100, function (v) { return v.toFixed(0) + "%"; }, true, 0.5);
+    push("Party unity", b.unity * 100, g.unity * 100, function (v) { return v.toFixed(0) + "%"; }, true, 0.5);
+    push("Political capital", b.capital, g.capital, function (v) { return v + " ⚡"; }, true, 1);
+    // Macro
+    push("GDP growth", b.realGrowth, g.macro.realGrowth, function (v) { return v.toFixed(1) + "%"; }, true, 0.05);
+    push("Inflation", b.inflation, g.macro.inflation, function (v) { return v.toFixed(1) + "%"; }, false, 0.05);
+    push("Unemployment", b.unemployment, g.macro.unemployment, function (v) { return v.toFixed(1) + "%"; }, false, 0.05);
+    push("Deficit", b.deficit, g.macro.deficit, function (v) { return "£" + Math.round(v) + "bn"; }, false, 1);
+    push("Debt/GDP", b.debtPct, g.macro.debtPct, function (v) { return Math.round(v) + "% GDP"; }, false, 0.5);
+    if (b.bankRate != null && g.macro.bankRate != null)
+      push("Bank rate", b.bankRate, g.macro.bankRate, function (v) { return v.toFixed(2) + "%"; }, false, 0.05);
+    // Stats — only the headline ones
+    var statLabels = { nhs: "NHS", education: "Education", crime: "Crime", housing: "Housing supply",
+                       immigration: "Net migration", environment: "Environment", equality: "Equality" };
+    Object.keys(statLabels).forEach(function (sid) {
+      if (b.stats[sid] == null || g.stats[sid] == null) return;
+      var hi = !(sid === "crime" || sid === "immigration");
+      push(statLabels[sid], b.stats[sid] * 100, g.stats[sid] * 100, function (v) { return v.toFixed(0) + "/100"; }, hi, 0.5);
+    });
+    // Sectors — small absolute deltas, surfaced as ↑/↓ chips rather than rows
+    var sectorChanges = [];
+    if (b.sectors && g.sectors) {
+      (D.SECTORS || []).forEach(function (sec) {
+        var bs = b.sectors[sec.id], as = g.sectors[sec.id];
+        if (bs == null || as == null) return;
+        var d = as - bs; if (Math.abs(d) < 0.005) return;
+        sectorChanges.push({
+          id: sec.id, name: sec.name, icon: sec.icon,
+          dir: d > 0 ? "up" : "down",
+          deltaStr: (d > 0 ? "+" : "−") + (Math.abs(d) * 100).toFixed(1)
+        });
+      });
+    }
+    return {
+      rows: rows, sectorChanges: sectorChanges, dateLabel: dateLabel(g),
+      flavour: extras.flavour || null, milestone: extras.milestone || null,
+      challenge: extras.challenge || null,
+      dilemmaTitle: extras.dilemmaTitle || null,
+      midterm: extras.midterm || null
+    };
+  }
+  function impactReportModal() {
+    var r = S.impactReport; if (!r) return "";
+    var rows = r.rows.length ? r.rows.map(function (x) {
+      return '<tr><td>' + U.esc(x.label) + '</td>' +
+        '<td class="num muted">' + x.before + '</td>' +
+        '<td style="color:' + x.col + '" class="num"><span style="font-size:11px">' + x.arrow + '</span> ' + x.after + '</td></tr>';
+    }).join("") : '<tr><td colspan="3" class="muted" style="text-align:center;padding:14px">A quiet month — nothing of consequence moved on the headline numbers.</td></tr>';
+
+    var sectors = r.sectorChanges.length
+      ? '<div class="impact-sectors">' + r.sectorChanges.map(function (s) {
+          var col = s.dir === "up" ? "var(--good)" : "var(--bad)";
+          return '<span class="impact-sec-chip" style="color:' + col + '"><span class="impact-sec-ico">' + s.icon + '</span>' + U.esc(s.name) + ' <b>' + s.deltaStr + '</b></span>';
+        }).join("") + '</div>'
+      : "";
+
+    var notes = [];
+    if (r.milestone) notes.push('<div class="impact-note good">🏆 Milestone: <b>' + U.esc(r.milestone) + '</b></div>');
+    if (r.challenge) notes.push('<div class="impact-note warn">⚠ ' + U.esc(r.challenge) + '</div>');
+    if (r.flavour) notes.push('<div class="impact-note">📰 ' + U.esc(r.flavour.text) + '</div>');
+
+    var nextLabel = "Continue";
+    if (r.dilemmaTitle) nextLabel = "On to the decision: " + r.dilemmaTitle + " ▶";
+    else if (r.midterm === "local") nextLabel = "On to the local elections ▶";
+    else if (r.midterm) nextLabel = "On to the by-election ▶";
+
+    return '<div class="modal-overlay"><div class="modal impact-modal">' +
+      '<div class="modal-tag" style="color:var(--gold)">📊 End of ' + U.esc(r.dateLabel) + '</div>' +
+      '<h2>Impact dashboard</h2>' +
+      '<p class="muted" style="margin:-4px 0 10px">How the country moved this month, before the in-tray.</p>' +
+      (notes.length ? '<div class="impact-notes">' + notes.join("") + '</div>' : "") +
+      '<table class="tbl impact-table"><thead><tr><th>Headline figure</th><th class="num">Before</th><th class="num">After</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table>' +
+      (sectors ? '<div class="lab2" style="margin-top:14px">Economic sectors</div>' + sectors : "") +
+      '<div class="row" style="justify-content:flex-end;margin-top:16px;gap:8px">' +
+      '<button class="btn primary" data-act="closeimpact">' + U.esc(nextLabel) + '</button>' +
+      '</div></div></div>';
+  }
+
   function endTurnFab(g) {
-    // Don't render the FAB at all while a modal is open — it would just sit
-    // disabled and overlap the modal's controls.
-    if (g.pendingDilemma || S.policyDetail || S.reshufflePost || S.shadowReshufflePost || S.selectedSeat || S.statDetail || S.groupDetail || S.pendingVote || S.lastVoteResult || S.industrialChooser) return "";
+    // Don't render the FAB while a govern-mode modal is open. (selectedSeat
+    // is a simulator-only marker — must NOT suppress the govern FAB, otherwise
+    // clicking a seat in the simulator and navigating to govern leaves the
+    // button missing until restart.)
+    if (g.pendingDilemma || S.policyDetail || S.reshufflePost || S.statDetail || S.groupDetail || S.pendingVote || S.lastVoteResult || S.industrialChooser || S.impactReport) return "";
     var disabled = g.gameOver;
     return '<div class="fab-cluster">' +
       '<button class="fab-endturn" data-act="endturn"' + (disabled ? " disabled" : "") + ' title="End the month — ' + U.esc(dateLabel(g)) + '">' +
@@ -2585,21 +2694,40 @@
           else toast("Month ended — " + dateLabel(g));
           break;
         }
+        // Snapshot for impact dashboard BEFORE running the turn
+        var before = snapshotForImpact(g);
         var res = E.simulateTurn(g);
         if (g.gameOver) { render(); return; }
         if (res.electionDue) { go("termreview"); return; }
-        if (res.midterm) {
-          if (res.midterm === "local") E.runLocalElections(g); else E.runByElection(g);
+        // Stash any dilemma / midterm that fired this turn — the impact
+        // dashboard shows the deltas FIRST, then closes, then the dilemma
+        // modal or midterm screen takes effect.
+        var queued = { dilemma: g.pendingDilemma, midterm: res.midterm || null };
+        if (g.pendingDilemma) g.pendingDilemma = null; // hide until impact is dismissed
+        var newMiles = E.checkMilestones(g);
+        var flav = E.pickFlavour(g);
+        S.impactReport = buildImpactReport(g, before, {
+          flavour: flav,
+          milestone: newMiles[0],
+          challenge: g.leadershipChallenge === "survived" ? "You survived a leadership challenge — for now." : null,
+          dilemmaTitle: queued.dilemma ? queued.dilemma.title : null,
+          midterm: queued.midterm
+        });
+        S.pendingPostImpact = queued;
+        render(); flashKpis();
+        break;
+      }
+      case "closeimpact": {
+        var q = S.pendingPostImpact || {};
+        S.impactReport = null;
+        S.pendingPostImpact = null;
+        // Now actually re-queue the dilemma / midterm if there was one
+        if (q.midterm) {
+          if (q.midterm === "local") E.runLocalElections(g); else E.runByElection(g);
           go("midterm"); return;
         }
-        var newMiles = E.checkMilestones(g);
-        if (newMiles.length) setTimeout(function () { toast(newMiles[0] + " achieved!"); }, 250);
-        // a random atmospheric event fires ~40% of months — pure flavour
-        var flav = E.pickFlavour(g);
-        render(); flashKpis();
-        if (g.leadershipChallenge === "survived") toast("You survived a leadership challenge — for now.");
-        else if (flav) toast("📰 " + flav.text, 3200);
-        else if (!g.pendingDilemma) toast("Month ended — " + dateLabel(g));
+        if (q.dilemma) g.pendingDilemma = q.dilemma;
+        render();
         break;
       }
       case "confirmpledges":
@@ -2827,6 +2955,11 @@
       if (S.lastVoteResult) { S.lastVoteResult = null; render(); e.preventDefault(); return; }
       if (S.pendingVote) { /* don't allow Esc on the vote modal — it's a decision; the player must pick Whip/Push/Withdraw */ e.preventDefault(); return; }
       if (S.industrialChooser) { S.industrialChooser = false; render(); e.preventDefault(); return; }
+      if (S.impactReport) {
+        // Esc closes the impact dashboard, queues up any waiting dilemma/midterm
+        action("closeimpact");
+        e.preventDefault(); return;
+      }
       if (S.groupDetail) { S.groupDetail = null; render(); e.preventDefault(); return; }
       if (S.statDetail) { S.statDetail = null; render(); e.preventDefault(); return; }
       if (S.policyDetail) { S.policyDetail = null; render(); e.preventDefault(); return; }

@@ -627,6 +627,20 @@ select.sel { background: var(--bg-2); color: var(--ink); border: 1px solid var(-
 .modal .modal-tag { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); font-weight: 800; }
 .modal.commons-vote { border-top: 4px solid var(--gold); }
 
+/* Impact dashboard — shown after End Month before any pending dilemma. */
+.modal.impact-modal { max-width: 580px; border-top: 4px solid var(--commons-l); }
+.impact-notes { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.impact-note { padding: 8px 12px; background: var(--bg-2); border-left: 3px solid var(--commons-l); border-radius: 6px; font-size: 13px; }
+.impact-note.good { border-left-color: var(--good); }
+.impact-note.warn { border-left-color: var(--warn); }
+.impact-table { margin: 0; }
+.impact-table th { font-size: 11px; letter-spacing: .8px; text-transform: uppercase; color: var(--ink-dim); }
+.impact-table td { padding: 6px 10px; }
+.impact-sectors { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.impact-sec-chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px;
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 14px; font-size: 12px; font-weight: 600; }
+.impact-sec-chip .impact-sec-ico { font-size: 14px; }
+
 /* Markets dashboard cards */
 .mk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 10px; margin-top: 4px; }
 .mk-cell { background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
