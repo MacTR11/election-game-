@@ -30,9 +30,9 @@
     ld:       { id: "ld",       name: "Liberal Democrats",     short: "LD",  color: "#faa61a", econ: -0.1, soc: -0.5, playable: true },
     reform:   { id: "reform",   name: "Reform UK",             short: "RFM", color: "#12b6cf", econ:  0.5, soc:  0.8, playable: true },
     green:    { id: "green",    name: "Green Party",           short: "GRN", color: "#02a95b", econ: -0.7, soc: -0.6, playable: true },
-    restore:  { id: "restore",  name: "Restore Britain",       short: "RST", color: "#0a2c4d", econ:  0.5, soc:  0.95, playable: true },
+    restore:  { id: "restore",  name: "Restore Britain",       short: "RST", color: "#3b5d99", econ:  0.5, soc:  0.95, playable: true },
     snp:      { id: "snp",      name: "Scottish National Party",short:"SNP", color: "#fdf38e", econ: -0.4, soc: -0.3, playable: true, nation: "sct" },
-    pc:       { id: "pc",       name: "Plaid Cymru",           short: "PC",  color: "#005b54", econ: -0.5, soc: -0.3, playable: true, nation: "wal" },
+    pc:       { id: "pc",       name: "Plaid Cymru",           short: "PC",  color: "#3aa68b", econ: -0.5, soc: -0.3, playable: true, nation: "wal" },
     dup:      { id: "dup",      name: "DUP",                   short: "DUP", color: "#d46a4c", econ:  0.4, soc:  0.7, nation: "ni" },
     sf:       { id: "sf",       name: "Sinn Féin",             short: "SF",  color: "#326760", econ: -0.5, soc: -0.2, nation: "ni" },
     alliance: { id: "alliance", name: "Alliance",              short: "APNI",color: "#f6cb2f", econ:  0.0, soc: -0.4, nation: "ni" },
@@ -1181,13 +1181,17 @@
   // ---------------------------------------------------------------------------
   var PRESETS = {
     ge2024: { name: "2024 General Election (actual)",
-      shares: { lab: 33.7, con: 23.7, reform: 14.3, ld: 12.2, green: 6.7, snp: 2.5, pc: 0.7, oth: 6.2 } },
+      shares: { lab: 33.7, con: 23.7, reform: 14.3, restore: 0, ld: 12.2, green: 6.7, snp: 2.5, pc: 0.7, oth: 6.2 } },
+    may2026: { name: "Current polling (May 2026)",
+      shares: { lab: 19, con: 18, reform: 26, restore: 6, ld: 12, green: 14, snp: 2.5, pc: 0.7, oth: 1.8 } },
     reformsurge: { name: "Reform surge (illustrative)",
-      shares: { reform: 28, lab: 24, con: 18, ld: 12, green: 9, snp: 2.5, pc: 0.7, oth: 5.8 } },
+      shares: { lab: 22, con: 16, reform: 30, restore: 4, ld: 11, green: 9, snp: 2.5, pc: 0.7, oth: 4.8 } },
     contoryrecovery: { name: "Conservative recovery (illustrative)",
-      shares: { lab: 28, con: 30, reform: 12, ld: 12, green: 8, snp: 2.5, pc: 0.7, oth: 6.8 } },
+      shares: { lab: 26, con: 30, reform: 10, restore: 4, ld: 12, green: 8, snp: 2.5, pc: 0.7, oth: 6.8 } },
     progressive: { name: "Progressive wave (illustrative)",
-      shares: { lab: 38, con: 18, reform: 11, ld: 14, green: 12, snp: 2.5, pc: 0.8, oth: 3.7 } }
+      shares: { lab: 36, con: 16, reform: 10, restore: 2, ld: 14, green: 14, snp: 2.5, pc: 0.8, oth: 4.7 } },
+    restoresurge: { name: "Right splinter (illustrative)",
+      shares: { lab: 24, con: 17, reform: 18, restore: 14, ld: 12, green: 8, snp: 2.5, pc: 0.7, oth: 3.8 } }
   };
 
   // Default GB share used to compute swing in the regional model = 2024.

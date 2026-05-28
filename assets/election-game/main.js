@@ -202,16 +202,24 @@
         '<input class="share-input" data-shareinput="' + p + '" value="' + v.toFixed(1) + '"></div>';
     }).join("");
     var sum = SHARE_PARTIES.reduce(function (a, p) { return a + (S.shares[p] || 0); }, 0);
-    var src = S.lastPollSource ? '<p class="notice" style="color:var(--commons-l)">Loaded: ' + U.esc(S.lastPollSource) + '</p>' : "";
-    return '<div class="panel"><h3>National Vote Share (GB %)</h3>' +
-      '<div class="row" style="margin-bottom:10px">' +
-        '<button class="btn sm" data-act="fetchpolls" id="fetchbtn">↻ Load latest polls</button>' +
-        '<button class="btn sm" data-act="reset2024">2024 result</button>' +
+    var sumCol = Math.abs(sum - 100) < 0.5 ? "var(--good)" : Math.abs(sum - 100) < 5 ? "var(--warn)" : "var(--bad)";
+    var src = S.lastPollSource ? '<p class="notice" style="color:var(--commons-l);margin:8px 0 0">Loaded: ' + U.esc(S.lastPollSource) + '</p>' : "";
+    // preset dropdown — quick-load any of the scenarios from data.js
+    var presetOpts = '<option value="">— preset scenarios —</option>' +
+      Object.keys(D.PRESETS).map(function (k) { return '<option value="' + k + '">' + U.esc(D.PRESETS[k].name) + '</option>'; }).join("");
+    return '<div class="panel sim-controls"><h3>National Vote Share <small style="font-weight:400;text-transform:none;letter-spacing:0">· GB %</small></h3>' +
+      '<div class="sim-toolbar">' +
+        '<button class="btn sm" data-act="fetchpolls" id="fetchbtn">↻ Latest polls</button>' +
+        '<select class="sim-preset" data-presetsel>' + presetOpts + '</select>' +
         '<button class="btn sm" data-act="normalise">Normalise 100%</button>' +
         '<button class="btn sm" data-act="share">🔗 Share</button>' +
-        '<span class="spacer"></span><span class="muted" id="sharesum">Total: ' + sum.toFixed(1) + '%</span></div>' +
+      '</div>' +
+      '<div class="sim-total" style="color:' + sumCol + '">Total: <b>' + sum.toFixed(1) + '%</b><span id="sharesum" hidden></span></div>' +
       rows + src +
-      '<p class="notice"><b>Load latest polls</b> fetches the current poll-of-polls live, in your browser, from Wikipedia’s article <i>“Opinion polling for the next United Kingdom general election”</i> — which aggregates the British Polling Council member firms (YouGov, Opinium, More in Common, Survation, Techne, JL Partners, BMG, Find Out Now…). If it can’t be reached it keeps your current figures. Shares are normalised before projection; swing is measured versus the 2024 result.</p></div>';
+      '<details class="sim-help"><summary>How does this work?</summary>' +
+      '<p class="muted" style="font-size:12.5px;margin:8px 0 0"><b>Load latest polls</b> fetches the current poll-of-polls live, in your browser, from Wikipedia\'s "Opinion polling for the next United Kingdom general election" article — aggregating the British Polling Council member firms. If it can\'t be reached, your current figures stay. Shares are normalised before projection; swing is measured versus the 2024 result.</p>' +
+      '</details>' +
+      '</div>';
   }
 
   // --------------------------------------------------------- simulator view
@@ -236,9 +244,9 @@
       seatDetailPanel(shares) +
       battlegroundPanel(bg) +
       regionTable(r) +
-      '<div class="panel" style="margin-top:16px"><h3>How seats are modelled</h3>' +
-      '<p class="muted" style="font-size:13px;margin:0 0 8px">Every one of the 650 constituencies carries its <b>real July 2024 result</b> (actual Conservative / Labour / Reform vote shares and the real winning party; the remaining parties are region-calibrated to the published regional results). To project an outcome the model takes your national vote shares, works out each party’s <b>swing versus 2024</b>, applies that swing uniformly to every seat, then awards each seat to the highest share — first-past-the-post, aggregated across all 650. At zero swing it reproduces the exact 2024 Commons (Lab 411, Con 121, LD 72, SNP 9, Reform 5…).</p>' +
-      '<p class="muted" style="font-size:13px;margin:0">This is the classic <b>uniform national swing</b> swingometer. It’s an estimate, not a forecast: in reality swing varies by region and demographic, and tactical voting, incumbency and local candidates aren’t captured. Professional models (Electoral Calculus, YouGov MRP) layer regional/demographic transition models on much more data. Boundary data: mySociety; 2024 results: House of Commons Library / published constituency results.</p></div>';
+      '<div class="panel" style="margin-top:16px"><details><summary class="sim-summary">How seats are modelled</summary>' +
+      '<p class="muted" style="font-size:13px;margin:8px 0 8px">Every one of the 650 constituencies carries its <b>real July 2024 result</b> (actual Conservative / Labour / Reform vote shares and the real winning party; the remaining parties are region-calibrated to the published regional results). To project an outcome the model takes your national vote shares, works out each party\'s <b>swing versus 2024</b>, applies that swing uniformly to every seat, then awards each seat to the highest share — first-past-the-post, aggregated across all 650. At zero swing it reproduces the exact 2024 Commons (Lab 411, Con 121, LD 72, SNP 9, Reform 5…).</p>' +
+      '<p class="muted" style="font-size:13px;margin:0">This is the classic <b>uniform national swing</b> swingometer. It\'s an estimate, not a forecast: in reality swing varies by region and demographic, and tactical voting, incumbency and local candidates aren\'t captured. Professional models (Electoral Calculus, YouGov MRP) layer regional/demographic transition models on much more data. Boundary data: mySociety; 2024 results: House of Commons Library / published constituency results.</p></details></div>';
   }
   function governmentPanel(g) {
     if (!g) return "";
@@ -1937,6 +1945,16 @@
         S.shares[p] = v; inp.value = v.toFixed(1);
         var range = app.querySelector('[data-share="' + p + '"]'); if (range) range.value = v;
         refreshShareResults();
+      });
+    });
+    // preset dropdown — instantly applies a saved scenario to the sliders
+    app.querySelectorAll("[data-presetsel]").forEach(function (sel) {
+      sel.addEventListener("change", function () {
+        var key = sel.value; if (!key) return;
+        var preset = D.PRESETS && D.PRESETS[key]; if (!preset) return;
+        SHARE_PARTIES.forEach(function (p) { S.shares[p] = preset.shares[p] != null ? preset.shares[p] : 0; });
+        S.lastPollSource = preset.name;
+        render();
       });
     });
   }
