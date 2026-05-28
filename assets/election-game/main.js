@@ -19,6 +19,7 @@
     setupRole: "government",
     scenario: "steady",
     difficulty: "normal",
+    persona: "unifier",
     policyCat: "Taxation",
     policyDetail: null,
     reshufflePost: null,
@@ -85,6 +86,7 @@
         initiativeUsedTurn: g.initiativeUsedTurn,
         scheduledFiredYear: g.scheduledFiredYear,
         oppositionLeader: g.oppositionLeader,
+        persona: g.persona,
         milestones: g.milestones, promoteCount: g.promoteCount,
         oppShare: g.oppShare, govApproval: g.govApproval, energy: g.energy, maxEnergy: g.maxEnergy,
         momentum: g.momentum, oppHistory: g.oppHistory,
@@ -119,6 +121,7 @@
       if (s.crisisHistory) g.crisisHistory = s.crisisHistory;
       if (s.scheduledFiredYear) g.scheduledFiredYear = s.scheduledFiredYear;
       if (s.oppositionLeader) g.oppositionLeader = s.oppositionLeader;
+      if (s.persona) g.persona = s.persona;
       if (s.milestones) g.milestones = s.milestones;
       if (s.promoteCount) g.promoteCount = s.promoteCount;
       g.dilemmaHistory = s.dilemmaHistory || [];
@@ -354,8 +357,30 @@
       return '<button class="opt-card' + (S.difficulty === k ? " on" : "") + '" data-difficulty="' + k + '">' +
         '<b>' + U.esc(d.name) + '</b><span>' + desc + '</span></button>';
     }).join("");
+    // PM persona / leadership archetype — government mode only
+    var personaSection = "";
+    if (!opp && D.PERSONAS) {
+      var personaCards = D.PERSONAS.map(function (per) {
+        var m = per.mods || {};
+        var bits = [];
+        if (m.capital) bits.push((m.capital > 0 ? "+" : "") + m.capital + " capital");
+        if (m.regen && m.regen !== 1) bits.push(Math.round((m.regen - 1) * 100 > 0 ? "+" : "") + Math.round((m.regen - 1) * 100) + "% regen");
+        if (m.unity) bits.push((m.unity > 0 ? "+" : "") + Math.round(m.unity * 100) + " unity");
+        if (m.cabinet) bits.push("+" + m.cabinet + "★ cabinet");
+        if (m.gaffeMod && m.gaffeMod < 1) bits.push("media-savvy");
+        if (m.gaffeMod && m.gaffeMod > 1) bits.push("gaffe-prone");
+        var perks = bits.length ? '<span class="persona-perks">' + U.esc(bits.join(" · ")) + '</span>' : "";
+        return '<button class="opt-card persona-card' + (S.persona === per.id ? " on" : "") + '" data-persona="' + per.id + '">' +
+          '<b><span class="persona-ico">' + per.icon + '</span> ' + U.esc(per.name) + '</b>' +
+          '<span>' + U.esc(per.blurb) + '</span>' + perks + '</button>';
+      }).join("");
+      personaSection = '<h3 style="margin-top:16px">Leadership Style</h3>' +
+        '<p class="muted" style="margin:-4px 0 8px;font-size:12.5px">Your persona shapes how you start and how you govern — pick a way to lead.</p>' +
+        '<div class="opt-grid">' + personaCards + '</div>';
+    }
     var setupOpts = '<div class="panel" style="margin-top:14px"><h3>Starting Scenario</h3>' +
       '<div class="opt-grid">' + scenCards + '</div>' +
+      personaSection +
       '<h3 style="margin-top:16px">Difficulty</h3><div class="opt-grid">' + diffCards + '</div></div>';
     return '<h2 class="section-title">Choose Your Role</h2>' +
       '<p class="subtitle">' + blurb + '</p>' + resume + roleToggle + setupOpts +
@@ -586,8 +611,13 @@
       '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center;margin-bottom:8px">End Month ▶</button>' +
       '<button class="btn sm" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Call General Election</button>' +
       '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Resign</button>' +
+      (g.persona
+        ? '<div class="opp-leader" style="margin-top:14px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-2)"><div class="lab2" style="margin-bottom:4px">Your Leadership Style</div>' +
+          '<div style="font-weight:700">' + (g.persona.icon || "") + ' ' + U.esc(g.persona.name) + '</div>' +
+          '<div class="muted" style="font-size:12px">' + U.esc((g.persona.tag || "")) + '</div></div>'
+        : "") +
       (g.oppositionLeader
-        ? '<div class="opp-leader" style="margin-top:14px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-2)"><div class="lab2" style="margin-bottom:4px">Leader of the Opposition</div>' +
+        ? '<div class="opp-leader" style="margin-top:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-2)"><div class="lab2" style="margin-bottom:4px">Leader of the Opposition</div>' +
           '<div style="font-weight:700">' + U.esc(g.oppositionLeader.name) + '</div>' +
           '<div class="muted" style="font-size:12px">' + U.esc(g.oppositionLeader.partyName) + ' · ' + U.esc(g.oppositionLeader.style) + ' style</div></div>'
         : "") +
@@ -1759,8 +1789,9 @@
         '<div class="tr-dec-body"><b>' + U.esc(d.title) + '</b><span class="tr-dec-choice">▸ ' + U.esc(d.optionLabel) + '</span></div></div>';
     }).join("") : '<p class="muted">No major decisions logged.</p>';
 
+    var personaLine = g.persona ? ' Led as <b>' + (g.persona.icon || "") + ' ' + U.esc(g.persona.name) + '</b>.' : "";
     return '<h2 class="section-title">Term in Review</h2>' +
-      '<p class="subtitle">' + startDate + ' → ' + dateLabel(g) + '. ' + U.esc(party.name) + ' goes to the country. Here is your record.</p>' +
+      '<p class="subtitle">' + startDate + ' → ' + dateLabel(g) + '. ' + U.esc(party.name) + ' goes to the country.' + personaLine + ' Here is your record.</p>' +
       '<div class="panel" style="margin-bottom:16px"><h3>Manifesto pledges · <b style="color:' + (keptCount === (g.pledges || []).length ? "var(--good)" : keptCount > 0 ? "var(--warn)" : "var(--bad)") + '">' + keptCount + ' / ' + (g.pledges || []).length + ' kept</b></h3>' + plRows + '</div>' +
       '<div class="panel" style="margin-bottom:16px"><h3>Where the country is now · then vs now</h3>' + statRows + '</div>' +
       '<div class="panel" style="margin-bottom:16px"><h3>Milestones</h3>' + milesRow + '</div>' +
@@ -1831,6 +1862,9 @@
     app.querySelectorAll("[data-scenario]").forEach(function (el) {
       el.addEventListener("click", function () { S.scenario = el.getAttribute("data-scenario"); render(); });
     });
+    app.querySelectorAll("[data-persona]").forEach(function (el) {
+      el.addEventListener("click", function () { S.persona = el.getAttribute("data-persona"); render(); });
+    });
     app.querySelectorAll("[data-difficulty]").forEach(function (el) {
       el.addEventListener("click", function () { S.difficulty = el.getAttribute("data-difficulty"); render(); });
     });
@@ -1841,7 +1875,7 @@
           S.govern = E.newOppositionState(party, { scenario: S.scenario, difficulty: S.difficulty });
           go("opposition");
         } else {
-          S.govern = E.newGovernState(party, { scenario: S.scenario, difficulty: S.difficulty });
+          S.govern = E.newGovernState(party, { scenario: S.scenario, difficulty: S.difficulty, persona: S.persona });
           S.governTab = "policies";
           S.pledgeSel = S.govern.pledges.slice(); // pre-seed with sensible defaults
           go("pledges");

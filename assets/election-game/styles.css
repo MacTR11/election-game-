@@ -196,6 +196,9 @@ a { color: var(--commons-l); }
 .opt-card span { font-size: 11.5px; color: var(--ink-dim); line-height: 1.35; }
 .opt-card:hover { border-color: var(--commons-l); }
 .opt-card.on { border-color: var(--gold); background: rgba(201, 162, 39, .12); }
+.persona-card .persona-ico { font-size: 15px; margin-right: 2px; }
+.persona-perks { margin-top: 4px; font-size: 10.5px; letter-spacing: .3px; text-transform: uppercase;
+  color: var(--gold); font-weight: 700; opacity: .9; }
 .min-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
 .min-card { background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; }
 .min-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }

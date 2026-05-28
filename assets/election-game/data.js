@@ -2181,6 +2181,52 @@
     hard:   { id: "hard",   name: "Hard",   antiInc: 4.5, regen: 0.8, pressure: 1.35, mood: -0.05 }
   };
 
+  // ---------------------------------------------------------------------------
+  // PM PERSONAS — a leadership archetype chosen at the start of a government.
+  // Each reshapes the opening position and tweaks ongoing mechanics so the same
+  // party plays very differently run-to-run. Modifiers:
+  //   capital     — added to starting AND max political capital
+  //   regen       — multiplier on monthly capital regeneration
+  //   unity       — added to starting party unity (0–1)
+  //   gaffeMod    — multiplier on initiative gaffe chance (e.g. media-savvy < 1)
+  //   cabinet     — bump to every starting minister's competence (capped at 5)
+  //   growth      — added to starting real GDP growth (%)
+  //   groups      — opening mood deltas applied to specific voter blocs
+  //   pressure    — multiplier on country decay (stacks with difficulty)
+  // ---------------------------------------------------------------------------
+  var PERSONAS = [
+    { id: "firebrand", name: "The Firebrand", icon: "🔥",
+      blurb: "A conviction politician who electrifies the base and divides the nation. High energy, high risk.",
+      tag: "Conviction · polarising",
+      mods: { capital: 1, regen: 1.0, unity: 0.06, gaffeMod: 1.15, cabinet: 0, growth: 0, pressure: 1.0,
+              groups: { socialists: 0.06, patriots: 0.05, workingclass: 0.04, capitalists: -0.05, middleclass: -0.03 } } },
+    { id: "technocrat", name: "The Technocrat", icon: "📊",
+      blurb: "A details-first manager. The markets trust you and the machine of government runs well — but you rarely inspire.",
+      tag: "Competence · uninspiring",
+      mods: { capital: 0, regen: 1.0, unity: -0.02, gaffeMod: 0.85, cabinet: 1, growth: 0.3, pressure: 0.9,
+              groups: { capitalists: 0.06, middleclass: 0.04, wealthy: 0.04, young: -0.03, socialists: -0.03 } } },
+    { id: "unifier", name: "The Unifier", icon: "🤝",
+      blurb: "A consensus-builder who holds the party together and reassures the country. Steady, if unspectacular.",
+      tag: "Stability · cautious",
+      mods: { capital: 0, regen: 1.2, unity: 0.12, gaffeMod: 0.8, cabinet: 0, growth: 0, pressure: 0.92,
+              groups: { middleclass: 0.03, pensioners: 0.03, liberals: 0.02 } } },
+    { id: "populist", name: "The Populist", icon: "📣",
+      blurb: "A campaigner who rides the public mood and owns the airwaves — but the establishment and the markets are wary.",
+      tag: "Charisma · distrusted by markets",
+      mods: { capital: 1, regen: 1.05, unity: 0.0, gaffeMod: 0.7, cabinet: 0, growth: -0.1, pressure: 1.05,
+              groups: { workingclass: 0.06, poor: 0.05, motorists: 0.04, patriots: 0.03, capitalists: -0.06, wealthy: -0.04 } } },
+    { id: "reformer", name: "The Reformer", icon: "🛠️",
+      blurb: "A restless moderniser with a mandate to spend it. You get more done — but a nervous party watches every move.",
+      tag: "Ambition · restless party",
+      mods: { capital: 2, regen: 1.0, unity: -0.06, gaffeMod: 1.0, cabinet: 0, growth: 0.1, pressure: 0.95,
+              groups: { young: 0.05, students: 0.04, renters: 0.04, environment: 0.03, pensioners: -0.04 } } },
+    { id: "statesman", name: "The Statesman", icon: "🌐",
+      blurb: "A grandee respected at home and abroad. Crises find you calm and the world takes your call — but domestic detail bores you.",
+      tag: "Gravitas · aloof",
+      mods: { capital: 0, regen: 1.1, unity: 0.04, gaffeMod: 0.75, cabinet: 0, growth: 0.1, pressure: 0.9,
+              groups: { patriots: 0.04, liberals: 0.04, capitalists: 0.03, poor: -0.03, workingclass: -0.02 } } }
+  ];
+
   window.UKGAME.DATA = {
     PARTIES: PARTIES,
     REGIONS: REGIONS,
@@ -2199,6 +2245,7 @@
     SCENARIOS: SCENARIOS,
     OPP_SCENARIOS: OPP_SCENARIOS,
     DIFFICULTY: DIFFICULTY,
+    PERSONAS: PERSONAS,
     CRISES: CRISES,
     HEADLINES: HEADLINES,
     INITIATIVES: INITIATIVES,

@@ -540,10 +540,37 @@
     // apply difficulty (mechanical params + a starting mood shift)
     s.difficulty = (D.DIFFICULTY && D.DIFFICULTY[opts.difficulty]) || (D.DIFFICULTY && D.DIFFICULTY.normal) || null;
     if (s.difficulty && s.difficulty.mood) for (var di in s.groups) s.groups[di] = clamp01(s.groups[di] + s.difficulty.mood);
+    // apply the chosen PM persona (leadership archetype) — opening modifiers
+    applyPersona(s, opts.persona);
     computeFiscal(s);
     s.approval = computeApproval(s);
     recordHistory(s);
     return s;
+  }
+
+  // Look up a persona by id. Returns null for a missing/blank id (so a state
+  // reconstructed without a persona — e.g. during loadGame — gets no mods;
+  // a known persona id that isn't found falls back to the first defined one).
+  function personaById(id) {
+    if (!id) return null;
+    var P = D.PERSONAS || [];
+    for (var i = 0; i < P.length; i++) if (P[i].id === id) return P[i];
+    return P[0] || null;
+  }
+  // Apply a persona's opening modifiers to a fresh government state. The
+  // persona itself is stored on state.persona so ongoing mechanics
+  // (capital regen, gaffe chance, decay) can read its mods later. With no
+  // persona id (loadGame reconstruction) this is a no-op.
+  function applyPersona(s, id) {
+    var per = personaById(id);
+    s.persona = per || null;
+    if (!per || !per.mods) return;
+    var m = per.mods, k;
+    if (m.capital) { s.capital += m.capital; s.maxCapital += m.capital; }
+    if (m.unity != null) s.unity = clamp01(s.unity + m.unity);
+    if (m.growth) s.macro.realGrowth += m.growth;
+    if (m.groups) for (k in m.groups) if (s.groups[k] != null) s.groups[k] = clamp01(s.groups[k] + m.groups[k]);
+    if (m.cabinet && s.cabinet) for (k in s.cabinet) if (s.cabinet[k]) s.cabinet[k].competence = Math.min(5, s.cabinet[k].competence + m.cabinet);
   }
 
   // Snapshot the headline numbers each quarter so the UI can chart trends.
@@ -768,7 +795,8 @@
 
     // politics
     state.approval = computeApproval(state);
-    state.pressure += (1 / 3) * (state.difficulty ? state.difficulty.pressure : 1); // cost pressure builds monthly
+    state.pressure += (1 / 3) * (state.difficulty ? state.difficulty.pressure : 1) *
+      (state.persona && state.persona.mods && state.persona.mods.pressure ? state.persona.mods.pressure : 1); // cost pressure builds monthly
 
     // party morale: discontent builds while approval is poor and decays when it
     // recovers. A sustained slump triggers a leadership challenge — survive it
@@ -1103,6 +1131,7 @@
     if (state.unity < 0.35) r -= 0.4;
     r += cabinetBonus(state).capital;
     if (state.difficulty) r *= state.difficulty.regen;
+    if (state.persona && state.persona.mods && state.persona.mods.regen) r *= state.persona.mods.regen;
     return Math.max(1, Math.round(r));
   }
   // Capital headroom reflects your mandate — a big majority lets you spend more.
@@ -1253,9 +1282,12 @@
     if (e.stats) for (key in e.stats) if (state.stats[key] != null) state.stats[key] = clamp01(state.stats[key] + e.stats[key]);
     if (e.groups) for (key in e.groups) if (state.groups[key] != null) state.groups[key] = clamp01(state.groups[key] + e.groups[key]);
     if (e.all != null) for (key in state.groups) state.groups[key] = clamp01(state.groups[key] + e.all);
-    // gaffe chance (TV interview)
+    // gaffe chance (TV interview) — a media-savvy persona reduces it, a
+    // gaffe-prone one raises it.
     var gaffed = false;
-    if (it.gaffeChance && Math.random() < it.gaffeChance && it.gaffeEffects) {
+    var gaffeChance = it.gaffeChance || 0;
+    if (state.persona && state.persona.mods && state.persona.mods.gaffeMod) gaffeChance *= state.persona.mods.gaffeMod;
+    if (gaffeChance && Math.random() < gaffeChance && it.gaffeEffects) {
       gaffed = true;
       var ge = it.gaffeEffects;
       if (ge.unity != null) state.unity = clamp01(state.unity + ge.unity);
