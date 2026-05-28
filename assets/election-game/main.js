@@ -478,7 +478,9 @@
       '<div class="muted" style="font-size:12px">Month ' + g.turn + ' of ' + E.TERM_TURNS + ' until the election you must win.</div>' +
       '<div style="margin:14px 0 4px"><div class="lab2">Campaign energy · <b style="color:var(--gold)">' + g.energy + ' / ' + g.maxEnergy + '</b></div><div class="capital-dots">' + dots + '</div></div>' +
       '<div class="muted" style="font-size:11.5px;margin-bottom:14px">Spent on attacks, positioning and the ground game. Regenerates each month.</div>' +
-      '<button class="btn" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Force an Election</button>' +
+      '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center;margin-bottom:8px">End Month ▶</button>' +
+      '<button class="btn" data-act="fastforward" style="width:100%;justify-content:center;margin-bottom:8px">⏭ Fast-forward</button>' +
+      '<button class="btn sm" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Force an Election</button>' +
       '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Stand down</button>' +
       '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
       U.seatBar(live.totals) + U.legend(live.totals, { byParty: live.byParty, shares: live.shares }) +
@@ -560,7 +562,9 @@
       '<div class="capital-dots">' + dots + '</div></div>' +
       '<div class="muted" style="font-size:11.5px;margin-bottom:10px">Spent to change policy. Regenerates <b>+' + regen + '/month</b> — more when popular and united.</div>' +
       pledgesMini(g) +
-      '<button class="btn" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Call General Election</button>' +
+      '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center;margin-bottom:8px">End Month ▶</button>' +
+      '<button class="btn" data-act="fastforward" style="width:100%;justify-content:center;margin-bottom:8px">⏭ Fast-forward</button>' +
+      '<button class="btn sm" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Call General Election</button>' +
       '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Resign</button>' +
       '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
       U.seatBar(live.totals) + U.legend(live.totals, { byParty: live.byParty, shares: live.shares }) +
