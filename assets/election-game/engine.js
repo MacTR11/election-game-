@@ -70,6 +70,17 @@
   // national swing (vs 2024) to each seat's real baseline shares and takes the
   // winner seat by seat. regionAdj optionally adds campaign boosts to a party's
   // share within specific regions (e.g. { lon: { lab: 4 } }).
+  // Map region id → nation, so we can keep nation-restricted parties out of
+  // seats where they don't stand (SNP only in Scotland, PC only in Wales,
+  // DUP/SF/Alliance/UUP/SDLP only in Northern Ireland).
+  function regionNation(regId) {
+    for (var i = 0; i < D.REGIONS.length; i++) if (D.REGIONS[i].id === regId) return D.REGIONS[i].nation;
+    return null;
+  }
+  function partyEligibleInSeat(partyId, seat) {
+    var party = D.PARTIES[partyId]; if (!party || !party.nation) return true;
+    return party.nation === regionNation(seat.reg);
+  }
   function projectSeatsConstituency(shares, regionAdj) {
     var C = window.UKGAME.CONSTITUENCIES;
     var ns = normShares(shares), sw = swingFrom(ns);
@@ -78,13 +89,15 @@
       var seat = C[i], s = seat.s, best = null, bestv = -Infinity;
       var adj = regionAdj && regionAdj[seat.reg];
       for (p in s) {
+        if (!partyEligibleInSeat(p, seat)) continue;
         var v = s[p] + (sw[p] || 0) + (adj && adj[p] ? adj[p] : 0); if (v < 0) v = 0;
         if (v > bestv) { bestv = v; best = p; }
       }
-      // also consider parties that didn't stand in 2024 (eg Restore Britain):
-      // their seat share at zero swing is 0, so they start from sw[p] alone.
+      // also consider parties that didn't stand in 2024 (eg Restore Britain),
+      // but still respect nation eligibility — SNP doesn't get to win Bristol.
       for (p in sw) {
         if (p in s) continue;
+        if (!partyEligibleInSeat(p, seat)) continue;
         var v2 = (sw[p] || 0) + (adj && adj[p] ? adj[p] : 0); if (v2 < 0) v2 = 0;
         if (v2 > bestv) { bestv = v2; best = p; }
       }

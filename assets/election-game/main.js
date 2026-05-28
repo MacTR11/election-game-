@@ -23,7 +23,6 @@
     policyDetail: null,
     reshufflePost: null,
     shadowReshufflePost: null,
-    helpOpen: false,
     policyPending: {},   // { polId: pendingValue } — staged changes awaiting Confirm
     statDetail: null,    // stat id whose cause-and-effect modal is open
     pledgeSel: [],
@@ -485,7 +484,7 @@
       '</div></div>';
     return head + nowStrip(g) + kpis + chart + headPanel +
       '<div class="dash" style="margin-top:16px"><div>' + scorecard + '<div style="height:16px"></div>' + promote + tour + shadow + '</div>' + sidebar + '</div>' +
-      dilemmaModal() + shadowReshuffleModal() + helpModal() + endTurnFab(g);
+      dilemmaModal() + shadowReshuffleModal() + endTurnFab(g);
   }
   function shadowReshuffleModal() {
     var g = S.govern, post = S.shadowReshufflePost; if (!post || !g.shadowCabinet) return "";
@@ -572,7 +571,7 @@
         '<br><span class="faint">Every figure here is a band, not a forecast — normal polling uncertainty.</span>' +
       '</div></div></div>';
 
-    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + helpModal() + statDetailModal() + endTurnFab(g);
+    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + statDetailModal() + endTurnFab(g);
   }
   function trend(cur, prev, goodHigh) {
     if (prev == null) return "";
@@ -1081,38 +1080,15 @@
     }).join("");
     return '<div style="margin:0 0 12px"><div class="lab2" style="margin-bottom:6px">Pledges · ' + kept + '/' + g.pledges.length + ' kept</div>' + rows + '</div>';
   }
-  // Discoverable help modal — opens from the help pill / "?" key.
-  function helpModal() {
-    if (!S.helpOpen) return "";
-    return '<div class="modal-overlay" data-closehelp><div class="modal" style="max-width:520px">' +
-      '<div class="modal-tag">Quick reference</div><h2>How to play, fast</h2>' +
-      '<div class="help-sec"><div class="lab2">Keyboard shortcuts</div>' +
-        '<div class="kbd-row"><kbd>Space</kbd><span>End the month</span></div>' +
-        '<div class="kbd-row"><kbd>F</kbd><span>Fast-forward until something happens (max 6 months)</span></div>' +
-        '<div class="kbd-row"><kbd>1</kbd>–<kbd>9</kbd><span>Pick a decision option</span></div>' +
-        '<div class="kbd-row"><kbd>?</kbd><span>Toggle this help</span></div>' +
-        '<div class="kbd-row"><kbd>Esc</kbd><span>Close any modal</span></div>' +
-      '</div>' +
-      '<div class="help-sec"><div class="lab2">Tips</div>' +
-        '<ul style="margin:4px 0 0;padding-left:18px;font-size:13px;line-height:1.5">' +
-        '<li>Use the <b>±</b> buttons on each policy row for small nudges (1 capital). The slider modal is for bigger moves.</li>' +
-        '<li>Watch the <b>now-strip</b> at the top for active crises, pending decisions and struggling ministers.</li>' +
-        '<li>The seats range reflects polling uncertainty — get approval up and the range tightens in your favour.</li>' +
-        '<li>Manifesto pledges kept = trust dividend at the election. Broken pledges hurt.</li>' +
-        '</ul>' +
-      '</div>' +
-      '<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" data-act="closehelp">Got it</button></div>' +
-      '</div></div>';
-  }
   function endTurnFab(g) {
     // Don't render the FAB at all while a modal is open — it would just sit
     // disabled and overlap the modal's controls.
-    if (g.pendingDilemma || S.policyDetail || S.reshufflePost || S.shadowReshufflePost || S.selectedSeat || S.helpOpen) return "";
+    if (g.pendingDilemma || S.policyDetail || S.reshufflePost || S.shadowReshufflePost || S.selectedSeat || S.statDetail) return "";
     var hint = dateLabel(g);
     var disabled = g.gameOver;
     return '<div class="fab-cluster">' +
-      '<button class="fab-ff" data-act="fastforward"' + (disabled ? " disabled" : "") + ' title="Fast-forward until something happens (F)">⏭</button>' +
-      '<button class="fab-endturn" data-act="endturn"' + (disabled ? " disabled" : "") + ' title="End the month (Space)">' +
+      '<button class="fab-ff" data-act="fastforward"' + (disabled ? " disabled" : "") + ' title="Fast-forward until something happens">⏭</button>' +
+      '<button class="fab-endturn" data-act="endturn"' + (disabled ? " disabled" : "") + ' title="End the month">' +
       '<span class="fab-label">End Month ▶</span>' +
       '<span class="fab-hint">' + U.esc(hint) + '</span></button>' +
       '</div>';
@@ -1136,7 +1112,6 @@
       });
       if (weak) pills.push('<span class="now-pill warn" data-tab="cabinet">💼 ' + U.esc(weak.minister.name) + ' is struggling at ' + U.esc(weak.post.title) + '</span>');
     }
-    pills.push('<span class="now-pill help-pill" data-act="openhelp" title="Show keyboard shortcuts and tips">? Help</span>');
 
     // Front-page newspaper banner — one lead headline + 2 secondary lines.
     var heads = E.generateHeadlines ? E.generateHeadlines(g, 3) : [];
@@ -1739,8 +1714,6 @@
       case "resetcamp": startCampaign(); render(); break;
       case "closepolicy": S.policyDetail = null; render(); break;
       case "closereshuffle": S.reshufflePost = null; render(); break;
-      case "openhelp": S.helpOpen = true; render(); break;
-      case "closehelp": S.helpOpen = false; render(); break;
       case "closestat": S.statDetail = null; render(); break;
       case "cancelpending": S.policyPending = {}; render(); break;
       case "confirmpending": {
@@ -1905,50 +1878,14 @@
   function init() {
     app = $("#app");
     parseHash();
-    // Keyboard shortcuts — Space = end month, 1-4 = pick dilemma option,
-    // Esc = close any modal. Skipped while typing in inputs/textareas.
+    // Esc closes whichever modal is open (standard browser-friendly UX).
     document.addEventListener("keydown", function (e) {
-      if (!S.govern) return;
-      var t = e.target;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      var g = S.govern;
-      // Pick dilemma option by number key
-      if (g.pendingDilemma && /^[1-9]$/.test(e.key)) {
-        var idx = parseInt(e.key, 10) - 1;
-        if (idx < g.pendingDilemma.options.length) {
-          var dilBtn = document.querySelector('[data-dilemma="' + idx + '"]');
-          if (dilBtn) { dilBtn.click(); e.preventDefault(); }
-        }
-        return;
-      }
-      // ? opens / toggles the help modal
-      if (e.key === "?" && !g.pendingDilemma) {
-        S.helpOpen = !S.helpOpen; render(); e.preventDefault(); return;
-      }
-      // Esc closes whichever modal is open
-      if (e.key === "Escape") {
-        if (S.helpOpen) { S.helpOpen = false; render(); e.preventDefault(); return; }
-        if (S.statDetail) { S.statDetail = null; render(); e.preventDefault(); return; }
-        if (S.policyDetail) { S.policyDetail = null; render(); e.preventDefault(); return; }
-        if (S.reshufflePost) { S.reshufflePost = null; render(); e.preventDefault(); return; }
-        if (S.shadowReshufflePost) { S.shadowReshufflePost = null; render(); e.preventDefault(); return; }
-        if (S.selectedSeat) { S.selectedSeat = null; render(); e.preventDefault(); return; }
-        return;
-      }
-      // Space = end month (when on govern/opposition with no modal open)
-      if (e.key === " " && !g.pendingDilemma && !S.policyDetail && !S.reshufflePost && !S.shadowReshufflePost && !S.selectedSeat && !S.helpOpen) {
-        if (S.screen === "govern" || S.screen === "opposition") {
-          var fab = document.querySelector(".fab-endturn");
-          if (fab && !fab.disabled) { fab.click(); e.preventDefault(); }
-        }
-      }
-      // F = fast-forward
-      if ((e.key === "f" || e.key === "F") && !g.pendingDilemma && !S.policyDetail && !S.reshufflePost && !S.shadowReshufflePost && !S.selectedSeat && !S.helpOpen) {
-        if (S.screen === "govern" || S.screen === "opposition") {
-          action("fastforward"); e.preventDefault();
-        }
-      }
+      if (e.key !== "Escape") return;
+      if (S.statDetail) { S.statDetail = null; render(); e.preventDefault(); return; }
+      if (S.policyDetail) { S.policyDetail = null; render(); e.preventDefault(); return; }
+      if (S.reshufflePost) { S.reshufflePost = null; render(); e.preventDefault(); return; }
+      if (S.shadowReshufflePost) { S.shadowReshufflePost = null; render(); e.preventDefault(); return; }
+      if (S.selectedSeat) { S.selectedSeat = null; render(); e.preventDefault(); return; }
     });
     // delegated handlers (work even inside injected panels / the dilemma modal)
     app.addEventListener("click", function (e) {
@@ -1973,9 +1910,6 @@
       }
       if (e.target.hasAttribute && e.target.hasAttribute("data-closeseat")) {
         S.selectedSeat = null; render(); return;
-      }
-      if (e.target.hasAttribute && e.target.hasAttribute("data-closehelp")) {
-        S.helpOpen = false; render(); return;
       }
       if (e.target.hasAttribute && e.target.hasAttribute("data-closestat")) {
         S.statDetail = null; render(); return;
