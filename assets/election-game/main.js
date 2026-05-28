@@ -481,7 +481,6 @@
       '<div style="margin:14px 0 4px"><div class="lab2">Campaign energy · <b style="color:var(--gold)">' + g.energy + ' / ' + g.maxEnergy + '</b></div><div class="capital-dots">' + dots + '</div></div>' +
       '<div class="muted" style="font-size:11.5px;margin-bottom:14px">Spent on attacks, positioning and the ground game. Regenerates each month.</div>' +
       '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center;margin-bottom:8px">End Month ▶</button>' +
-      '<button class="btn" data-act="fastforward" style="width:100%;justify-content:center;margin-bottom:8px">⏭ Fast-forward</button>' +
       '<button class="btn sm" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Force an Election</button>' +
       '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Stand down</button>' +
       '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
@@ -565,7 +564,6 @@
       '<div class="muted" style="font-size:11.5px;margin-bottom:10px">Spent to change policy. Regenerates <b>+' + regen + '/month</b> — more when popular and united.</div>' +
       pledgesMini(g) +
       '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center;margin-bottom:8px">End Month ▶</button>' +
-      '<button class="btn" data-act="fastforward" style="width:100%;justify-content:center;margin-bottom:8px">⏭ Fast-forward</button>' +
       '<button class="btn sm" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Call General Election</button>' +
       '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Resign</button>' +
       '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
@@ -1244,7 +1242,6 @@
     var hint = dateLabel(g);
     var disabled = g.gameOver;
     return '<div class="fab-cluster">' +
-      '<button class="fab-ff" data-act="fastforward"' + (disabled ? " disabled" : "") + ' title="Fast-forward until something happens">⏭</button>' +
       '<button class="fab-endturn" data-act="endturn"' + (disabled ? " disabled" : "") + ' title="End the month">' +
       '<span class="fab-label">End Month ▶</span>' +
       '<span class="fab-hint">' + U.esc(hint) + '</span></button>' +
@@ -2007,25 +2004,6 @@
         render(); flashKpis();
         if (!hard) toast("Confirmed " + ids.length + " change" + (ids.length === 1 ? "" : "s") + " · spent " + totalCost + " ⚡");
         if (resignedAny) setTimeout(function () { toast("💼 " + resignedAny.outgoing.name + " resigns in protest — " + resignedAny.incoming.name + " takes the brief.", 4200); }, 250);
-        break;
-      }
-      case "fastforward": {
-        if (g.pendingDilemma || g.gameOver) return;
-        var advanced = 0, MAX = 6;
-        while (advanced < MAX) {
-          var res = g.role === "opposition" ? E.simulateOppositionTurn(g) : E.simulateTurn(g);
-          advanced++;
-          if (g.gameOver) break;
-          if (res.electionDue) { startCampaign(); go("campaign"); return; }
-          if (res.midterm) {
-            if (res.midterm === "local") E.runLocalElections(g); else E.runByElection(g);
-            go("midterm"); return;
-          }
-          if (g.pendingDilemma) break;
-        }
-        E.checkMilestones(g);
-        render(); flashKpis();
-        toast("Fast-forwarded " + advanced + " month" + (advanced === 1 ? "" : "s") + " — " + dateLabel(g) + (g.pendingDilemma ? " · decision waiting" : ""));
         break;
       }
       case "closeshadowreshuffle": S.shadowReshufflePost = null; render(); break;
