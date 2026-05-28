@@ -25,6 +25,7 @@
     shadowReshufflePost: null,
     policyPending: {},   // { polId: pendingValue } — staged changes awaiting Confirm
     statDetail: null,    // stat id whose cause-and-effect modal is open
+    groupDetail: null,   // voter group id whose modal is open
     compareA: "approval",
     compareB: "growth",
     pledgeSel: [],
@@ -577,7 +578,7 @@
         '<br><span class="faint">Every figure here is a band, not a forecast — normal polling uncertainty.</span>' +
       '</div></div></div>';
 
-    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + statDetailModal() + endTurnFab(g);
+    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + statDetailModal() + groupDetailModal() + endTurnFab(g);
   }
   function trend(cur, prev, goodHigh) {
     if (prev == null) return "";
@@ -943,6 +944,97 @@
     out.sort(function (a, b) { return Math.abs(b.contribution) - Math.abs(a.contribution); });
     return out;
   }
+  // What's pushing a voter bloc's contentment up or down — direct policy
+  // effects plus the cross-stat sensitivities baked into computeTargets.
+  function groupInfluences(g, groupId) {
+    var out = [];
+    // policy contributions
+    D.POLICIES.forEach(function (pol) {
+      var k = pol.effects && pol.effects.groups && pol.effects.groups[groupId];
+      if (!k) return;
+      var v = g.policies[pol.id], range = pol.max - pol.min;
+      var nv = range > 0 ? (v - pol.def) / range : 0;
+      var contribution = k * nv;
+      if (Math.abs(contribution) < 0.005) return;
+      out.push({ source: pol.name, icon: pol.icon, contribution: contribution,
+        detail: "Set to " + fmtPolicyVal(pol, v) + " (default " + fmtPolicyVal(pol, pol.def) + ")", type: "policy" });
+    });
+    // stat-sensitivities lifted from computeTargets
+    var SENS = {
+      pensioners:  [{ stat: "nhs", k: 0.25, pivot: 0.45 }],
+      poor:        [{ stat: "equality", k: 0.20, pivot: 0.48 }],
+      parents:     [{ stat: "education", k: 0.22, pivot: 0.5 }, { stat: "nhs", k: 0.12, pivot: 0.45 }],
+      homeowners:  [{ stat: "housing", k: 0.18, pivot: 0.4 }, { stat: "crime", k: -0.10, pivot: 0.4 }],
+      renters:     [{ stat: "housing", k: 0.30, pivot: 0.4 }],
+      young:       [{ stat: "housing", k: 0.18, pivot: 0.4 }, { stat: "environment", k: 0.10, pivot: 0.45 }],
+      environment: [{ stat: "environment", k: 0.30, pivot: 0.45 }],
+      patriots:    [{ stat: "immigration", k: -0.18, pivot: 0.6 }],
+      minorities:  [{ stat: "crime", k: -0.12, pivot: 0.4 }]
+    };
+    if (SENS[groupId]) SENS[groupId].forEach(function (s) {
+      var diff = (g.stats[s.stat] || 0) - s.pivot;
+      var contribution = s.k * diff;
+      if (Math.abs(contribution) < 0.005) return;
+      out.push({ source: (STAT_NAME[s.stat] || s.stat) + " level", icon: "📊", contribution: contribution,
+        detail: "Currently at " + Math.round((g.stats[s.stat] || 0) * 100) + " (this bloc compares against " + Math.round(s.pivot * 100) + ")",
+        type: "stat" });
+    });
+    // shared economy hits — affect every group
+    var m = g.macro;
+    function macroNormPart(v, lo, hi) { return Math.max(0, Math.min(1, (v - lo) / (hi - lo))); }
+    var gdpN = macroNormPart(m.realGrowth, -2, 4);
+    var inflN = macroNormPart(m.inflation, 0, 8);
+    var unempN = macroNormPart(m.unemployment, 2, 10);
+    var svc = ((g.stats.nhs || 0) + (g.stats.education || 0) + (1 - (g.stats.crime || 0)) + (g.stats.housing || 0)) / 4;
+    var econContribs = [
+      { src: "Real growth", icon: "📈", val: 0.32 * (gdpN - 0.5), detail: m.realGrowth.toFixed(1) + "% per year" },
+      { src: "Inflation",    icon: "🔥", val: -0.30 * (inflN - 0.29), detail: m.inflation.toFixed(1) + "% CPI" },
+      { src: "Unemployment", icon: "🛠", val: -0.24 * (unempN - 0.144), detail: m.unemployment.toFixed(1) + "%" },
+      { src: "Public services", icon: "🏥", val: 0.42 * (svc - 0.46), detail: "Composite NHS + schools + housing + (1-crime)" }
+    ];
+    econContribs.forEach(function (e) {
+      if (Math.abs(e.val) < 0.005) return;
+      out.push({ source: e.src, icon: e.icon, contribution: e.val, detail: e.detail, type: "macro" });
+    });
+    out.sort(function (a, b) { return Math.abs(b.contribution) - Math.abs(a.contribution); });
+    return out;
+  }
+  function groupDetailModal() {
+    var g = S.govern, id = S.groupDetail; if (!id) return "";
+    var gr = D.GROUPS.filter(function (x) { return x.id === id; })[0]; if (!gr) return "";
+    var v = g.groups[id], pct = Math.round(v * 100);
+    var col = v > 0.55 ? "var(--good)" : v > 0.42 ? "var(--warn)" : "var(--bad)";
+    var first = g.history && g.history.length ? g.history[0] : null;
+    var startV = (first && first.groups && first.groups[id] != null) ? first.groups[id] : gr.base;
+    var delta = v - startV;
+    var series = (g.history || []).map(function (h) { return (h.groups && h.groups[id] != null) ? h.groups[id] * 100 : null; }).filter(function (x) { return x != null; });
+    var sparkline = series.length > 1 ? U.lineChart(series, { color: col }) : "";
+    var infl = groupInfluences(g, id);
+    var maxMag = Math.max.apply(null, infl.map(function (i) { return Math.abs(i.contribution); }).concat([0.01]));
+    var rows = infl.length ? infl.map(function (it) {
+      var up = it.contribution > 0;
+      var col2 = up ? "var(--good)" : "var(--bad)";
+      var w = Math.abs(it.contribution) / maxMag * 100;
+      return '<div class="cause-row">' +
+        '<div class="cause-ic">' + it.icon + '</div>' +
+        '<div class="cause-body">' +
+          '<div class="cause-name">' + U.esc(it.source) + '<small>' + U.esc(it.detail || "") + '</small></div>' +
+          '<div class="cause-bar"><i style="width:' + w + '%;background:' + col2 + '"></i></div>' +
+        '</div>' +
+        '<div class="cause-arrow" style="color:' + col2 + '">' + (up ? "▲" : "▼") + '</div></div>';
+    }).join("") : '<p class="muted" style="margin-top:8px">Nothing notable is pushing this bloc right now — they\'re sitting near baseline.</p>';
+    var deltaTxt = Math.abs(delta) < 0.005 ? "no change since term start" : (delta > 0 ? "+" : "") + (delta * 100).toFixed(1) + "pts since term start";
+    return '<div class="modal-overlay" data-closegroup><div class="modal" style="max-width:580px">' +
+      '<div class="modal-tag">' + U.esc(gr.name) + ' · what\'s driving their mood</div>' +
+      '<h2>' + U.esc(gr.name) + ' · <b style="color:' + col + '">' + pct + '</b><small style="font-weight:400;color:var(--ink-dim);margin-left:8px;font-size:14px">' + gr.size + '% of electorate</small></h2>' +
+      '<div class="cause-bar-big"><i style="width:' + (v * 100) + '%;background:' + col + '"></i></div>' +
+      '<p class="muted" style="margin:8px 0 4px">Trajectory: ' + U.esc(deltaTxt) + '</p>' +
+      (sparkline ? '<div style="margin:6px 0 10px">' + sparkline + '</div>' : '') +
+      '<p class="muted" style="margin:6px 0 4px">The biggest forces pushing this bloc right now, ranked by current contribution.</p>' +
+      '<div class="cause-list">' + rows + '</div>' +
+      '<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" data-act="closegroup">Close</button></div>' +
+      '</div></div>';
+  }
   function statDetailModal() {
     var g = S.govern, id = S.statDetail; if (!id) return "";
     var st = D.STATS.filter(function (s) { return s.id === id; })[0]; if (!st) return "";
@@ -988,8 +1080,8 @@
       // bubble diameter scales smoothly with the group's share of the electorate
       var d = Math.round(56 + Math.sqrt(gr.size) * 11);  // ~70px for size 8 → ~134px for size 50
       var deltaTxt = Math.abs(delta) < 0.005 ? "" : (delta > 0 ? "▲" : "▼") + " " + (Math.abs(delta) * 100).toFixed(0);
-      return '<div class="vbubble" style="width:' + d + 'px;height:' + d + 'px" title="' +
-        U.esc(gr.name) + ' — ' + ringPct + '% content, ' + gr.size + '% of electorate' + (delta ? ', ' + (delta > 0 ? '+' : '') + (delta * 100).toFixed(1) + 'pts since term start' : '') + '">' +
+      return '<div class="vbubble" data-groupdetail="' + gr.id + '" style="width:' + d + 'px;height:' + d + 'px" title="' +
+        U.esc(gr.name) + ' — ' + ringPct + '% content, ' + gr.size + '% of electorate' + (delta ? ', ' + (delta > 0 ? '+' : '') + (delta * 100).toFixed(1) + 'pts since term start' : '') + '. Click for detail.">' +
         '<svg viewBox="0 0 100 100" class="vbubble-ring" aria-hidden="true">' +
           '<circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="6"></circle>' +
           '<circle cx="50" cy="50" r="46" fill="none" stroke="' + col + '" stroke-width="6" stroke-dasharray="' +
@@ -1147,7 +1239,7 @@
   function endTurnFab(g) {
     // Don't render the FAB at all while a modal is open — it would just sit
     // disabled and overlap the modal's controls.
-    if (g.pendingDilemma || S.policyDetail || S.reshufflePost || S.shadowReshufflePost || S.selectedSeat || S.statDetail) return "";
+    if (g.pendingDilemma || S.policyDetail || S.reshufflePost || S.shadowReshufflePost || S.selectedSeat || S.statDetail || S.groupDetail) return "";
     var hint = dateLabel(g);
     var disabled = g.gameOver;
     return '<div class="fab-cluster">' +
@@ -1679,6 +1771,9 @@
     app.querySelectorAll("[data-statdetail]").forEach(function (el) {
       el.addEventListener("click", function () { S.statDetail = el.getAttribute("data-statdetail"); render(); });
     });
+    app.querySelectorAll("[data-groupdetail]").forEach(function (el) {
+      el.addEventListener("click", function () { S.groupDetail = el.getAttribute("data-groupdetail"); render(); });
+    });
     app.querySelectorAll("[data-cmp]").forEach(function (el) {
       el.addEventListener("click", function () {
         var parts = el.getAttribute("data-cmp").split(":");
@@ -1862,6 +1957,7 @@
       case "closepolicy": S.policyDetail = null; render(); break;
       case "closereshuffle": S.reshufflePost = null; render(); break;
       case "closestat": S.statDetail = null; render(); break;
+      case "closegroup": S.groupDetail = null; render(); break;
       case "cancelpending": S.policyPending = {}; render(); break;
       case "confirmpending": {
         var pending = S.policyPending || {};
@@ -2028,6 +2124,7 @@
     // Esc closes whichever modal is open (standard browser-friendly UX).
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;
+      if (S.groupDetail) { S.groupDetail = null; render(); e.preventDefault(); return; }
       if (S.statDetail) { S.statDetail = null; render(); e.preventDefault(); return; }
       if (S.policyDetail) { S.policyDetail = null; render(); e.preventDefault(); return; }
       if (S.reshufflePost) { S.reshufflePost = null; render(); e.preventDefault(); return; }
@@ -2060,6 +2157,9 @@
       }
       if (e.target.hasAttribute && e.target.hasAttribute("data-closestat")) {
         S.statDetail = null; render(); return;
+      }
+      if (e.target.hasAttribute && e.target.hasAttribute("data-closegroup")) {
+        S.groupDetail = null; render(); return;
       }
       var seat = e.target.closest("[data-seat]");
       if (seat) {
