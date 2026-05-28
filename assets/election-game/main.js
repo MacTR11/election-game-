@@ -83,10 +83,11 @@
         shadowCabinet: g.shadowCabinet, shadowPool: g.shadowPool, regionEffort: g.regionEffort,
         activeCrisis: g.activeCrisis, crisisHistory: g.crisisHistory,
         initiativeUsedTurn: g.initiativeUsedTurn,
+        scheduledFiredYear: g.scheduledFiredYear,
         milestones: g.milestones, promoteCount: g.promoteCount,
         oppShare: g.oppShare, govApproval: g.govApproval, energy: g.energy, maxEnergy: g.maxEnergy,
         momentum: g.momentum, oppHistory: g.oppHistory,
-        pendingDilemma: g.pendingDilemma ? g.pendingDilemma.id : null,
+        pendingDilemma: g.pendingDilemma ? (g.pendingDilemma.scheduled ? g.pendingDilemma : g.pendingDilemma.id) : null,
         activeEvents: g.activeEvents.map(function (e) { return e.id; })
       }));
     } catch (e) { /* storage unavailable */ }
@@ -115,6 +116,7 @@
       if (s.regionEffort) g.regionEffort = s.regionEffort;
       if (s.activeCrisis) g.activeCrisis = s.activeCrisis;
       if (s.crisisHistory) g.crisisHistory = s.crisisHistory;
+      if (s.scheduledFiredYear) g.scheduledFiredYear = s.scheduledFiredYear;
       if (s.milestones) g.milestones = s.milestones;
       if (s.promoteCount) g.promoteCount = s.promoteCount;
       g.dilemmaHistory = s.dilemmaHistory || [];
@@ -124,7 +126,11 @@
       g.activeEvents = (s.activeEvents || []).map(function (id) {
         return D.EVENTS.filter(function (e) { return e.id === id; })[0];
       }).filter(Boolean);
-      g.pendingDilemma = s.pendingDilemma ? (D.DILEMMAS.filter(function (d) { return d.id === s.pendingDilemma; })[0] || null) : null;
+      g.pendingDilemma = s.pendingDilemma
+        ? (typeof s.pendingDilemma === "object"
+            ? s.pendingDilemma
+            : (D.DILEMMAS.filter(function (d) { return d.id === s.pendingDilemma; })[0] || null))
+        : null;
       g.gameOver = false; g.lastElection = null;
       S.govern = g; S.loadedRole = opp ? "opposition" : "government"; return true;
     } catch (e) { return false; }

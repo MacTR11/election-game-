@@ -757,15 +757,19 @@
 
     var electionDue = state.turn >= TERM_TURNS;
     // Order of priority for what lands on the desk: an active crisis stage,
-    // a brand-new crisis triggering, mid-term elections, PMQs, then dilemmas.
+    // a brand-new crisis, a date-anchored fixture (Budget March, Conference
+    // October, Autumn Statement November), the May local elections, by-
+    // elections, PMQs, then a regular dilemma.
     if (!electionDue && !state.gameOver) {
       if (state.activeCrisis && state.activeCrisis.fireAt === state.turn) {
         state.pendingDilemma = buildCrisisDilemma(state);
       } else if (!state.activeCrisis && tryStartCrisis(state)) {
         state.pendingDilemma = buildCrisisDilemma(state);
+      } else if ((state.pendingDilemma = buildScheduledEvent(state)) != null) {
+        // already set above
       } else if (state.month === 5 && state.turn >= 7) state.pendingMidterm = "local";
       else if (state.turn > 4 && Math.random() < 0.05) state.pendingMidterm = "by";
-      else if (state.turn % 6 === 0) state.pendingDilemma = buildPMQ(state);
+      else if (state.turn % 3 === 0) state.pendingDilemma = buildPMQ(state);
       else if (Math.random() < 0.34) state.pendingDilemma = pickDilemma(state);
     }
     return { electionDue: electionDue, midterm: state.pendingMidterm || null };
@@ -787,6 +791,89 @@
     return avail[Math.floor(Math.random() * avail.length)];
   }
 
+  // SCHEDULED CALENDAR FIXTURES — the UK political year has set-piece moments
+  // that always land in the same month. Each fires at most once per calendar
+  // year (tracked in state.scheduledFiredYear).
+  function buildScheduledEvent(state) {
+    state.scheduledFiredYear = state.scheduledFiredYear || {};
+    var key, dilemma = null;
+    if (state.month === 3) {                  // Spring Budget
+      key = "budget_" + state.year;
+      if (!state.scheduledFiredYear[key]) {
+        state.scheduledFiredYear[key] = true;
+        dilemma = buildBudgetDilemma(state, "spring");
+      }
+    } else if (state.month === 10) {          // Party Conference season
+      key = "conference_" + state.year;
+      if (!state.scheduledFiredYear[key]) {
+        state.scheduledFiredYear[key] = true;
+        dilemma = buildConferenceDilemma(state);
+      }
+    } else if (state.month === 11) {          // Autumn Statement
+      key = "autumn_" + state.year;
+      if (!state.scheduledFiredYear[key]) {
+        state.scheduledFiredYear[key] = true;
+        dilemma = buildAutumnStatementDilemma(state);
+      }
+    }
+    return dilemma;
+  }
+  function buildBudgetDilemma(state) {
+    return {
+      id: "sched-budget-" + state.year, scheduled: true,
+      title: "The Spring Budget",
+      desc: "Budget Day. The Chancellor rises to a packed Commons; the lobby is full; markets and voters are watching every word. What is the shape of this Budget?",
+      options: [
+        { label: "Tax cuts for households",
+          result: "A retail Budget — fuel and basic-rate relief steal the headlines.",
+          effects: { policy: { incometax: -0.04, fuelduty: -0.06 }, all: 0.02,
+            groups: { workingclass: 0.05, middleclass: 0.05, motorists: 0.04, capitalists: -0.02 } } },
+        { label: "Invest in public services",
+          result: "Billions for the NHS and schools — the left applauds, the markets blink.",
+          effects: { policy: { nhs: 0.06, education: 0.05 }, macro: { deficit: 4 },
+            groups: { publicsector: 0.06, pensioners: 0.05, parents: 0.05, capitalists: -0.04 } } },
+        { label: "Hold the line — fiscal restraint",
+          result: "A serious Budget for serious times. Households feel the squeeze; gilt markets purr.",
+          effects: { macro: { deficit: -5 }, groups: { capitalists: 0.06, wealthy: 0.05, poor: -0.05, workingclass: -0.04 }, all: -0.01 } }
+      ]
+    };
+  }
+  function buildConferenceDilemma(state) {
+    return {
+      id: "sched-conference-" + state.year, scheduled: true,
+      title: "Party Conference: the Keynote",
+      desc: "Conference season is on. Activists fill the hall, journalists fill the press pen and the rest of the country watches the clip on the news. What does the PM say?",
+      options: [
+        { label: "A bold pitch for radical change",
+          result: "Stirring stuff for the activists; the centre wonders if you've lost your touch.",
+          effects: { groups: { young: 0.05, students: 0.05, environment: 0.04, middleclass: -0.03, pensioners: -0.03 }, unity: -0.02 } },
+        { label: "Steady stewardship and continuity",
+          result: "A statesmanlike speech that reassures the country and bores the room.",
+          effects: { groups: { middleclass: 0.05, pensioners: 0.05, capitalists: 0.03, young: -0.03 }, unity: 0.04 } },
+        { label: "Red meat for the party base",
+          result: "The hall roars. The press call it divisive, the polls move.",
+          effects: { groups: { patriots: 0.05, workingclass: 0.04, socialists: 0.04, liberals: -0.04 }, unity: 0.05 } }
+      ]
+    };
+  }
+  function buildAutumnStatementDilemma(state) {
+    return {
+      id: "sched-autumn-" + state.year, scheduled: true,
+      title: "The Autumn Statement",
+      desc: "Mid-fiscal-year update. The OBR forecast is in, markets are listening, and the Chancellor needs a steer.",
+      options: [
+        { label: "Loosen the strings — boost growth",
+          result: "A growth Budget in all but name; the deficit takes the strain.",
+          effects: { macro: { deficit: 6, realGrowth: 0.15 }, groups: { poor: 0.04, workingclass: 0.04, capitalists: -0.02 } } },
+        { label: "Tighten belts, fiscal discipline",
+          result: "Bond markets steady; households brace.",
+          effects: { macro: { deficit: -5 }, groups: { capitalists: 0.06, wealthy: 0.04, poor: -0.05, workingclass: -0.04 } } },
+        { label: "Targeted measures only",
+          result: "A mid-table mini-Budget. Nobody storms out, nobody cheers.",
+          effects: { groups: { middleclass: 0.02, pensioners: 0.02 } } }
+      ]
+    };
+  }
   // Prime Minister's Questions — a recurring set-piece. The opposition attacks
   // your weakest area; you choose how to handle the dispatch box. Built as a
   // dilemma object so it reuses the same modal + resolution path.
