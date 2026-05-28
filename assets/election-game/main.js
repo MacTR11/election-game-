@@ -1078,7 +1078,19 @@
       '<div class="panel"><h3>Net Seat Changes (vs 2024)</h3>' + netChangePanel(r.totals) + '</div></div>' +
       '<div class="panel" style="margin-top:16px"><h3>' + party.name + ': Where the Seats Moved</h3>' + notableFlipsPanel(r.playerParty, r.seatWinners) + '</div>' +
       '<div class="panel" style="margin-top:16px"><h3>Constituency Map</h3>' + mapView(r.seatWinners) + '</div>' +
-      '<div class="row" style="margin-top:16px;justify-content:center">' + btn + '</div>';
+      '<div class="row" style="margin-top:16px;justify-content:center">' + btn + '</div>' +
+      seatDetailOverlay(r);
+  }
+  function seatDetailOverlay(r) {
+    if (!S.selectedSeat) return "";
+    var seat = seatByCode(S.selectedSeat); if (!seat) return "";
+    var d = E.seatResult(seat, r.shares);
+    return '<div class="modal-overlay" data-closeseat><div class="modal" style="max-width:520px">' +
+      '<div class="modal-tag">Constituency · ' + U.esc(seat.reg || "") + '</div>' +
+      '<h2>' + U.esc(seat.n) + '</h2>' +
+      U.seatCard(d) +
+      '<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" data-act="closeseat">Close</button></div>' +
+      '</div></div>';
   }
 
   // -------------------------------------------------------------- listeners
@@ -1347,6 +1359,7 @@
         if (g.choosePledges) { S.pledgeSel = []; go("pledges"); } else go("govern");
         break;
       case "continuemid": g.lastMidterm = null; g.pendingMidterm = null; go("govern"); break;
+      case "closeseat": S.selectedSeat = null; render(); break;
       case "seegameover": go("govern"); break;
       case "quitgovern": if (confirm("Resign and leave Number 10? Your saved game will be deleted.")) { clearSave(); S.govern = null; go("home"); } break;
     }
@@ -1462,10 +1475,14 @@
       if (e.target.classList && e.target.classList.contains("pol-overlay")) {
         S.policyDetail = null; render(); return;
       }
+      if (e.target.hasAttribute && e.target.hasAttribute("data-closeseat")) {
+        S.selectedSeat = null; render(); return;
+      }
       var seat = e.target.closest("[data-seat]");
       if (seat) {
         S.selectedSeat = seat.getAttribute("data-seat");
         if (S.screen === "simulator") $("#sim-results").innerHTML = simResults();
+        else if (S.screen === "election" || S.screen === "midterm") render();
       }
     });
     document.querySelectorAll(".nav-btn").forEach(function (b) {
