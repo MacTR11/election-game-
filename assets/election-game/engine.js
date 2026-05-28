@@ -848,6 +848,32 @@
   }
 
   // =====================================================================
+  // NEWS HEADLINES — pick a handful of headlines reflecting today's state of
+  // the country. Deterministic by turn so the briefing is stable on re-render.
+  // =====================================================================
+  function generateHeadlines(state, max) {
+    var L = D.HEADLINES || [], out = [], i, j, eligible = [];
+    for (i = 0; i < L.length; i++) {
+      try { if (L[i].cond && L[i].cond(state)) eligible.push(L[i]); } catch (e) { /* skip */ }
+    }
+    // turn-seeded shuffle so the same set of headlines holds within a turn
+    var seed = (state.turn || 0) * 9301 + 49297;
+    function pick(arr) { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return arr[seed % arr.length]; }
+    // a stable shuffle of the eligible list by seed
+    eligible = eligible.slice();
+    for (i = eligible.length - 1; i > 0; i--) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      j = seed % (i + 1); var t = eligible[i]; eligible[i] = eligible[j]; eligible[j] = t;
+    }
+    var n = Math.min(max || 3, eligible.length);
+    for (i = 0; i < n; i++) {
+      var h = eligible[i];
+      out.push(h.fmt ? h.fmt(state) : pick(h.lines));
+    }
+    return out;
+  }
+
+  // =====================================================================
   // CRISIS CHAINS — multi-stage scripted events that unfold over several
   // months with persistent drag and sequential decision points.
   // =====================================================================
@@ -1081,6 +1107,7 @@
     reshuffleCabinet: reshuffleCabinet,
     cabinetBonus: cabinetBonus,
     CABINET_POSTS: CABINET_POSTS,
+    generateHeadlines: generateHeadlines,
     changeCost: changeCost,
     capitalRegen: capitalRegen,
     maxCapitalFor: maxCapitalFor,

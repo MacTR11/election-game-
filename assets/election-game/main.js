@@ -789,7 +789,12 @@
       return '<div class="stat-row" style="grid-template-columns:24px 1fr"><div style="font-size:15px">' + (done ? "✅" : "⬜") + '</div>' +
         '<div class="name" style="color:' + (done ? "var(--good)" : "var(--ink-dim)") + '">' + U.esc(pl.text) + '</div></div>';
     }).join("");
-    return crisisBanner + '<div class="panel" style="margin-bottom:16px"><h3>Cabinet Briefing</h3>' +
+    var heads = E.generateHeadlines(g, 4);
+    var headPanel = heads.length
+      ? '<div class="panel news-panel" style="margin-bottom:16px"><h3>📰 Today\'s Headlines</h3>' +
+          '<ul class="news-list">' + heads.map(function (h) { return '<li>' + U.esc(h) + '</li>'; }).join("") + '</ul></div>'
+      : "";
+    return crisisBanner + headPanel + '<div class="panel" style="margin-bottom:16px"><h3>Cabinet Briefing</h3>' +
       '<p>' + mood + ' ' + fin + ' On today\'s numbers you would ' +
       (live.won ? govType + " (" + live.playerSeats + " seats)" : "lose office, falling to " + live.playerSeats + " seats") + '.</p></div>' +
       '<div class="panel" style="margin-bottom:16px"><h3>Manifesto Pledges</h3>' + pledges +

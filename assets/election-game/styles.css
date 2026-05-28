@@ -215,6 +215,11 @@ a { color: var(--commons-l); }
 .mover-name small { color: var(--ink-dim); font-weight: 400; font-size: 11px; }
 .mover-spark .linechart { height: 38px; }
 .mover-delta { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 13px; }
+.news-panel { border-left: 4px solid var(--commons-l); }
+.news-list { list-style: none; padding: 0; margin: 0; }
+.news-list li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; line-height: 1.35; font-family: Georgia, "Times New Roman", serif; }
+.news-list li:last-child { border-bottom: 0; }
+.news-list li::before { content: "▶ "; color: var(--commons-l); font-family: inherit; font-weight: 800; }
 
 /* economy charts */
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
