@@ -242,17 +242,16 @@ a { color: var(--commons-l); }
 /* Floating End Month FAB cluster — always reachable */
 .fab-cluster { position: fixed; right: 22px; bottom: 22px; z-index: 50; display: flex; align-items: center; gap: 10px; }
 .fab-endturn {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 12px 22px; border: none; border-radius: 999px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 11px 20px; border: none; border-radius: 999px; cursor: pointer;
   background: var(--commons); color: #f3f8ee; font-weight: 800;
-  box-shadow: 0 10px 28px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.06) inset;
+  box-shadow: 0 10px 26px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.06) inset;
   transition: transform .12s, box-shadow .12s;
 }
-.fab-endturn:hover { transform: translateY(-1px); box-shadow: 0 14px 34px rgba(0,0,0,.55); }
+.fab-endturn:hover { transform: translateY(-1px); box-shadow: 0 14px 32px rgba(0,0,0,.6); }
 .fab-endturn:active { transform: translateY(0); }
 .fab-endturn:disabled { opacity: .45; cursor: not-allowed; }
-.fab-endturn .fab-label { font-size: 14.5px; letter-spacing: .3px; }
-.fab-endturn .fab-hint { font-size: 11px; font-weight: 500; color: rgba(243,248,238,.7); }
+.fab-endturn .fab-label { font-size: 14px; letter-spacing: .3px; }
 /* "What's happening this month" strip */
 .now-strip { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; margin: 10px 0 0;
   background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; font-size: 12.5px; }
@@ -419,32 +418,41 @@ svg.dualchart { width: 100%; height: 150px; display: block; }
 .dj-choice { font-size: 13px; color: var(--gold); margin-top: 2px; font-weight: 600; }
 .dj-result { font-size: 12px; color: var(--ink-dim); margin-top: 2px; font-family: Georgia, "Times New Roman", serif; font-style: italic; }
 /* Political compass — econ × social grid with party + player dots */
-.cmp-grid { display: grid; grid-template-columns: 64px 1fr; gap: 8px; align-items: stretch; }
-.cmp-axis-y { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-dim);
-  text-align: center; align-self: center; line-height: 1.6; }
 .cmp-plot { position: relative; height: 360px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .cmp-line { position: absolute; background: rgba(255,255,255,.10); }
 .cmp-line-h { left: 0; right: 0; top: 50%; height: 1px; }
 .cmp-line-v { top: 0; bottom: 0; left: 50%; width: 1px; }
-.cmp-quad { position: absolute; padding: 8px 10px; font-size: 10px; letter-spacing: .8px; color: var(--ink-dim);
+.cmp-edge-top, .cmp-edge-bot {
+  position: absolute; font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--ink-dim); pointer-events: none; font-weight: 600;
+  left: 50%; transform: translateX(-50%);
+}
+.cmp-edge-top { top: 6px; }
+.cmp-edge-bot { bottom: 6px; }
+.cmp-x-axis { display: flex; justify-content: space-between; padding: 6px 4px 0;
+  font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--ink-dim);
+  font-weight: 600; }
+.cmp-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 10px; font-size: 11.5px; color: var(--ink-dim); }
+.cmp-leg-item { display: inline-flex; align-items: center; gap: 5px; }
+.cmp-leg-item.me { color: var(--gold); font-weight: 800; }
+.cmp-leg-dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid rgba(0,0,0,.5); display: inline-block; }
+.cmp-quad { position: absolute; padding: 28px 12px 8px; font-size: 9px; letter-spacing: .7px; color: rgba(255,255,255,.22);
   text-transform: uppercase; pointer-events: none; line-height: 1.3; }
 .cmp-quad.nw { top: 0; left: 0; }
 .cmp-quad.ne { top: 0; right: 0; text-align: right; }
-.cmp-quad.sw { bottom: 0; left: 0; }
-.cmp-quad.se { bottom: 0; right: 0; text-align: right; }
+.cmp-quad.sw { bottom: 0; left: 0; padding: 8px 12px 28px; }
+.cmp-quad.se { bottom: 0; right: 0; text-align: right; padding: 8px 12px 28px; }
 .cmp-dot { position: absolute; width: 14px; height: 14px; border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid rgba(0,0,0,.4); box-shadow: 0 1px 3px rgba(0,0,0,.4); }
 .cmp-dot.ghost { opacity: .42; }
 .cmp-dot.cmp-dot-you { width: 22px; height: 22px; border: 3px solid #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.15), 0 2px 8px rgba(0,0,0,.6); z-index: 2; }
 .cmp-dot-lab { position: absolute; top: 110%; left: 50%; transform: translateX(-50%);
-  font-size: 10px; font-weight: 800; letter-spacing: .4px; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+  font-size: 9.5px; font-weight: 800; letter-spacing: .3px; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.9); }
 .cmp-dot.cmp-dot-you .cmp-dot-lab { font-size: 11px; top: 116%; }
-.cmp-axis-x { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 1px;
-  text-transform: uppercase; color: var(--ink-dim); padding: 4px 4px 0 72px; }
 .cmp-drift { color: var(--ink-dim); }
 @media (max-width: 620px) {
-  .cmp-grid { grid-template-columns: 44px 1fr; }
-  .cmp-plot { height: 280px; }
-  .cmp-axis-x { padding-left: 52px; }
+  .cmp-plot { height: 300px; }
+  .cmp-quad { padding: 24px 10px 6px; font-size: 8.5px; }
+  .cmp-quad.sw, .cmp-quad.se { padding: 6px 10px 24px; }
 }
 /* Britain by Region — per-region seat breakdown */
 .region-list { display: grid; gap: 8px; }

@@ -1240,12 +1240,11 @@
     // Don't render the FAB at all while a modal is open — it would just sit
     // disabled and overlap the modal's controls.
     if (g.pendingDilemma || S.policyDetail || S.reshufflePost || S.shadowReshufflePost || S.selectedSeat || S.statDetail || S.groupDetail) return "";
-    var hint = dateLabel(g);
     var disabled = g.gameOver;
     return '<div class="fab-cluster">' +
-      '<button class="fab-endturn" data-act="endturn"' + (disabled ? " disabled" : "") + ' title="End the month">' +
+      '<button class="fab-endturn" data-act="endturn"' + (disabled ? " disabled" : "") + ' title="End the month — ' + U.esc(dateLabel(g)) + '">' +
       '<span class="fab-label">End Month ▶</span>' +
-      '<span class="fab-hint">' + U.esc(hint) + '</span></button>' +
+      '</button>' +
       '</div>';
   }
   // A compact "what's happening this month" strip — surfaces active crisis,
@@ -1462,25 +1461,29 @@
       var p = D.PARTIES[pid]; if (!p) return "";
       var x = (p.econ + 1) / 2 * 100, y = (1 - (p.soc + 1) / 2) * 100;
       var isMe = pid === g.party;
-      return '<div class="cmp-dot' + (isMe ? " ghost" : "") + '" style="left:' + x + '%;top:' + y + '%;background:' + p.color + '" title="' + U.esc(p.name) + '">' +
-        '<span class="cmp-dot-lab" style="color:' + p.color + '">' + U.esc(p.short) + '</span></div>';
+      // hover-only labels for other parties; the YOU dot keeps its visible label
+      return '<div class="cmp-dot' + (isMe ? " ghost" : "") + '" style="left:' + x + '%;top:' + y + '%;background:' + p.color + '" title="' + U.esc(p.name) + (isMe ? " — party baseline" : "") + '"></div>';
     }).join("");
     var px = (pos.econ + 1) / 2 * 100, py = (1 - (pos.soc + 1) / 2) * 100;
     var youDot = '<div class="cmp-dot cmp-dot-you" style="left:' + px + '%;top:' + py + '%;background:' + party.color + '" title="Your current policy position">' +
       '<span class="cmp-dot-lab" style="color:' + party.color + '">YOU</span></div>';
     var drift = '<span class="cmp-drift">Drift from ' + U.esc(party.name) + ' baseline · econ ' + ((pos.econ - (party.econ || 0)) >= 0 ? "+" : "") + (pos.econ - (party.econ || 0)).toFixed(2) + ', social ' + ((pos.soc - (party.soc || 0)) >= 0 ? "+" : "") + (pos.soc - (party.soc || 0)).toFixed(2) + '</span>';
+    // colour legend so the dots stay readable without inline labels
+    var legend = playable.map(function (pid) {
+      var p = D.PARTIES[pid]; if (!p) return "";
+      var isMe = pid === g.party;
+      return '<span class="cmp-leg-item' + (isMe ? " me" : "") + '"><span class="cmp-leg-dot" style="background:' + p.color + '"></span>' + U.esc(p.short) + (isMe ? " · YOU" : "") + '</span>';
+    }).join("");
     return '<div class="panel" style="margin-bottom:16px"><h3>Your Political Position</h3>' +
-      '<div class="cmp-grid"><div class="cmp-axis-y">authoritarian<br><span class="faint">↕</span><br>liberal</div>' +
       '<div class="cmp-plot">' +
         '<div class="cmp-line cmp-line-h"></div><div class="cmp-line cmp-line-v"></div>' +
-        '<div class="cmp-quad nw">left ·<br>authoritarian</div>' +
-        '<div class="cmp-quad ne">right ·<br>authoritarian</div>' +
-        '<div class="cmp-quad sw">left ·<br>liberal</div>' +
-        '<div class="cmp-quad se">right ·<br>liberal</div>' +
+        '<div class="cmp-edge-top">↑ authoritarian</div>' +
+        '<div class="cmp-edge-bot">↓ liberal</div>' +
         dots + youDot +
-      '</div></div>' +
-      '<div class="cmp-axis-x"><span>economic left</span><span class="faint">↔</span><span>economic right</span></div>' +
-      '<p class="notice" style="margin-top:8px">' + drift + ' — your faded party dot shows where the party stands at default; the bright YOU dot is where your current policy mix lands.</p>' +
+      '</div>' +
+      '<div class="cmp-x-axis"><span>← economic left</span><span class="faint">·</span><span>economic right →</span></div>' +
+      '<div class="cmp-legend">' + legend + '</div>' +
+      '<p class="notice" style="margin-top:8px">' + drift + ' — your faded party dot is the baseline, the bright YOU dot is your current policy mix. Hover dots for party names.</p>' +
       '</div>';
   }
 
