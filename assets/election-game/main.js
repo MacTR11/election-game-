@@ -1304,8 +1304,66 @@
       '<div class="panel" style="margin-bottom:16px"><h3>Manifesto Pledges</h3>' + pledges +
       '<p class="notice">Keeping your pledges by the next election earns a trust dividend at the ballot box; breaking them costs you.</p></div>' +
       '<div class="panel" style="margin-bottom:16px"><h3>In the In-Tray</h3>' + events + '</div>' +
+      politicalCompass(g) +
       '<div class="panel"><h3>Electoral Map — if an election were held today</h3>' +
       mapView(live.seatWinners) + '</div>';
+  }
+
+  // Compute the player's position on a 2-D political compass — starts at their
+  // party's baseline (econ left/right, social libertarian/authoritarian) and
+  // drifts as their policies move away from defaults, weighted by which voter
+  // blocs each policy pleases.
+  function compassPosition(g) {
+    var party = D.PARTIES[g.party];
+    var ec = (party && party.econ) || 0;
+    var sc = (party && party.soc) || 0;
+    var grpById = {}; D.GROUPS.forEach(function (gr) { grpById[gr.id] = gr; });
+    D.POLICIES.forEach(function (pol) {
+      if (!pol.effects || !pol.effects.groups) return;
+      var v = g.policies[pol.id], range = pol.max - pol.min;
+      var nv = range > 0 ? (v - pol.def) / range : 0;
+      if (Math.abs(nv) < 0.001) return;
+      var biasE = 0, biasS = 0;
+      Object.keys(pol.effects.groups).forEach(function (gid) {
+        var gr = grpById[gid]; if (!gr) return;
+        var k = pol.effects.groups[gid];
+        biasE += k * (gr.econ || 0);
+        biasS += k * (gr.soc || 0);
+      });
+      ec += biasE * nv * 0.55;
+      sc += biasS * nv * 0.55;
+    });
+    return { econ: Math.max(-1, Math.min(1, ec)), soc: Math.max(-1, Math.min(1, sc)) };
+  }
+  function politicalCompass(g) {
+    var pos = compassPosition(g);
+    var party = D.PARTIES[g.party];
+    // every playable party + Restore + Reform plotted at their baseline
+    var playable = ["lab", "con", "ld", "reform", "restore", "green", "snp", "pc"];
+    var dots = playable.map(function (pid) {
+      var p = D.PARTIES[pid]; if (!p) return "";
+      var x = (p.econ + 1) / 2 * 100, y = (1 - (p.soc + 1) / 2) * 100;
+      var isMe = pid === g.party;
+      return '<div class="cmp-dot' + (isMe ? " ghost" : "") + '" style="left:' + x + '%;top:' + y + '%;background:' + p.color + '" title="' + U.esc(p.name) + '">' +
+        '<span class="cmp-dot-lab" style="color:' + p.color + '">' + U.esc(p.short) + '</span></div>';
+    }).join("");
+    var px = (pos.econ + 1) / 2 * 100, py = (1 - (pos.soc + 1) / 2) * 100;
+    var youDot = '<div class="cmp-dot cmp-dot-you" style="left:' + px + '%;top:' + py + '%;background:' + party.color + '" title="Your current policy position">' +
+      '<span class="cmp-dot-lab" style="color:' + party.color + '">YOU</span></div>';
+    var drift = '<span class="cmp-drift">Drift from ' + U.esc(party.name) + ' baseline · econ ' + ((pos.econ - (party.econ || 0)) >= 0 ? "+" : "") + (pos.econ - (party.econ || 0)).toFixed(2) + ', social ' + ((pos.soc - (party.soc || 0)) >= 0 ? "+" : "") + (pos.soc - (party.soc || 0)).toFixed(2) + '</span>';
+    return '<div class="panel" style="margin-bottom:16px"><h3>Your Political Position</h3>' +
+      '<div class="cmp-grid"><div class="cmp-axis-y">authoritarian<br><span class="faint">↕</span><br>liberal</div>' +
+      '<div class="cmp-plot">' +
+        '<div class="cmp-line cmp-line-h"></div><div class="cmp-line cmp-line-v"></div>' +
+        '<div class="cmp-quad nw">left ·<br>authoritarian</div>' +
+        '<div class="cmp-quad ne">right ·<br>authoritarian</div>' +
+        '<div class="cmp-quad sw">left ·<br>liberal</div>' +
+        '<div class="cmp-quad se">right ·<br>liberal</div>' +
+        dots + youDot +
+      '</div></div>' +
+      '<div class="cmp-axis-x"><span>economic left</span><span class="faint">↔</span><span>economic right</span></div>' +
+      '<p class="notice" style="margin-top:8px">' + drift + ' — your faded party dot shows where the party stands at default; the bright YOU dot is where your current policy mix lands.</p>' +
+      '</div>';
   }
 
   function viewGameOver() {

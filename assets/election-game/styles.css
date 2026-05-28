@@ -384,6 +384,34 @@ svg.dualchart { width: 100%; height: 150px; display: block; }
   .pledge-prog-head { grid-template-columns: 18px 1fr; row-gap: 2px; }
   .pledge-prog-val { grid-column: 2; font-size: 11.5px; }
 }
+/* Political compass — econ × social grid with party + player dots */
+.cmp-grid { display: grid; grid-template-columns: 64px 1fr; gap: 8px; align-items: stretch; }
+.cmp-axis-y { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-dim);
+  text-align: center; align-self: center; line-height: 1.6; }
+.cmp-plot { position: relative; height: 360px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.cmp-line { position: absolute; background: rgba(255,255,255,.10); }
+.cmp-line-h { left: 0; right: 0; top: 50%; height: 1px; }
+.cmp-line-v { top: 0; bottom: 0; left: 50%; width: 1px; }
+.cmp-quad { position: absolute; padding: 8px 10px; font-size: 10px; letter-spacing: .8px; color: var(--ink-dim);
+  text-transform: uppercase; pointer-events: none; line-height: 1.3; }
+.cmp-quad.nw { top: 0; left: 0; }
+.cmp-quad.ne { top: 0; right: 0; text-align: right; }
+.cmp-quad.sw { bottom: 0; left: 0; }
+.cmp-quad.se { bottom: 0; right: 0; text-align: right; }
+.cmp-dot { position: absolute; width: 14px; height: 14px; border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid rgba(0,0,0,.4); box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.cmp-dot.ghost { opacity: .42; }
+.cmp-dot.cmp-dot-you { width: 22px; height: 22px; border: 3px solid #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.15), 0 2px 8px rgba(0,0,0,.6); z-index: 2; }
+.cmp-dot-lab { position: absolute; top: 110%; left: 50%; transform: translateX(-50%);
+  font-size: 10px; font-weight: 800; letter-spacing: .4px; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+.cmp-dot.cmp-dot-you .cmp-dot-lab { font-size: 11px; top: 116%; }
+.cmp-axis-x { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--ink-dim); padding: 4px 4px 0 72px; }
+.cmp-drift { color: var(--ink-dim); }
+@media (max-width: 620px) {
+  .cmp-grid { grid-template-columns: 44px 1fr; }
+  .cmp-plot { height: 280px; }
+  .cmp-axis-x { padding-left: 52px; }
+}
 /* Britain by Region — per-region seat breakdown */
 .region-list { display: grid; gap: 8px; }
 .region-row { display: grid; grid-template-columns: 1.4fr 1fr 1.4fr; gap: 12px; align-items: center; padding: 8px 10px;
