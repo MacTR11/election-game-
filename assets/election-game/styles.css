@@ -266,8 +266,16 @@ a { color: var(--commons-l); }
   100% { background-color: rgba(201,162,39,0.00); transform: translateY(0); }
 }
 .kpi-pulse { animation: kpiPulse .8s ease-out; border-radius: 6px; padding: 0 4px; margin: 0 -4px; }
-.now-pill[data-tab] { cursor: pointer; }
-.now-pill[data-tab]:hover { filter: brightness(1.15); }
+.now-pill[data-tab], .now-pill[data-act] { cursor: pointer; }
+.now-pill[data-tab]:hover, .now-pill[data-act]:hover { filter: brightness(1.15); }
+.now-pill.help-pill { background: var(--bg-2); color: var(--ink-dim); border: 1px solid var(--border); margin-left: auto; }
+.now-pill.help-pill:hover { color: var(--gold); border-color: var(--gold); }
+.pl-mini-row { display: grid; grid-template-columns: 18px 1fr; gap: 6px; font-size: 12px; padding: 2px 0; line-height: 1.4; }
+.pl-mini-tick { color: var(--good); font-weight: 800; text-align: center; }
+.help-sec { margin-top: 14px; }
+.kbd-row { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; padding: 4px 0; font-size: 13px; }
+kbd { display: inline-block; background: var(--bg-2); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px;
+  padding: 2px 7px; font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 11px; font-weight: 700; color: var(--ink); margin-right: 4px; }
 /* Inline policy ± nudge buttons (no modal needed for small steps) */
 .pol-nudge-cell { display: inline-flex; gap: 3px; }
 .pol-nudge { width: 26px; height: 26px; padding: 0; line-height: 1; border-radius: 6px;

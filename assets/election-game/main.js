@@ -23,6 +23,7 @@
     policyDetail: null,
     reshufflePost: null,
     shadowReshufflePost: null,
+    helpOpen: false,
     pledgeSel: [],
     campaign: null,
     byseat: null,
@@ -472,9 +473,9 @@
       U.seatBar(live.totals) + U.legend(live.totals, { byParty: live.byParty, shares: live.shares }) +
       '<div class="muted" style="font-size:11.5px;margin-top:6px"><span class="faint">Every figure is a band — polling uncertainty.</span></div>' +
       '</div></div>';
-    return head + kpis + chart + headPanel +
+    return head + nowStrip(g) + kpis + chart + headPanel +
       '<div class="dash" style="margin-top:16px"><div>' + scorecard + '<div style="height:16px"></div>' + promote + tour + shadow + '</div>' + sidebar + '</div>' +
-      dilemmaModal() + shadowReshuffleModal() + endTurnFab(g);
+      dilemmaModal() + shadowReshuffleModal() + helpModal() + endTurnFab(g);
   }
   function shadowReshuffleModal() {
     var g = S.govern, post = S.shadowReshufflePost; if (!post || !g.shadowCabinet) return "";
@@ -546,7 +547,8 @@
       '<div class="statbar"><i style="width:' + (g.unity * 100) + '%;background:' + unityCol + '"></i></div>' + unityWarn + '</div>' +
       '<div style="margin:14px 0 4px"><div class="lab2">Political capital · <b style="color:var(--gold)">' + g.capital + ' / ' + g.maxCapital + '</b> <span class="faint">(+' + regen + '/mo)</span></div>' +
       '<div class="capital-dots">' + dots + '</div></div>' +
-      '<div class="muted" style="font-size:11.5px;margin-bottom:14px">Spent to change policy (further moves cost more). You regenerate <b>+' + regen + '/month</b> — more when you\'re popular and united; your election mandate sets the cap.</div>' +
+      '<div class="muted" style="font-size:11.5px;margin-bottom:10px">Spent to change policy. Regenerates <b>+' + regen + '/month</b> — more when popular and united.</div>' +
+      pledgesMini(g) +
       '<button class="btn" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Call General Election</button>' +
       '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Resign</button>' +
       '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
@@ -560,7 +562,7 @@
         '<br><span class="faint">Every figure here is a band, not a forecast — normal polling uncertainty.</span>' +
       '</div></div></div>';
 
-    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + endTurnFab(g);
+    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + helpModal() + endTurnFab(g);
   }
   function trend(cur, prev, goodHigh) {
     if (prev == null) return "";
@@ -875,6 +877,40 @@
       });
     });
   }
+  // Compact pledge tracker for the sidebar so the player doesn't have to
+  // switch to the Briefing tab to see how the manifesto is going.
+  function pledgesMini(g) {
+    if (!g.pledges || !g.pledges.length) return "";
+    var kept = 0, rows = g.pledges.map(function (id) {
+      var pl = D.PLEDGES.filter(function (p) { return p.id === id; })[0];
+      if (!pl) return "";
+      var ok = pl.ok(g); if (ok) kept++;
+      return '<div class="pl-mini-row"><span class="pl-mini-tick">' + (ok ? "✓" : "○") +
+        '</span><span style="color:' + (ok ? "var(--good)" : "var(--ink-dim)") + '">' + U.esc(pl.text) + '</span></div>';
+    }).join("");
+    return '<div style="margin:0 0 12px"><div class="lab2" style="margin-bottom:6px">Pledges · ' + kept + '/' + g.pledges.length + ' kept</div>' + rows + '</div>';
+  }
+  // Discoverable help modal — opens from the help pill / "?" key.
+  function helpModal() {
+    if (!S.helpOpen) return "";
+    return '<div class="modal-overlay" data-closehelp><div class="modal" style="max-width:520px">' +
+      '<div class="modal-tag">Quick reference</div><h2>How to play, fast</h2>' +
+      '<div class="help-sec"><div class="lab2">Keyboard shortcuts</div>' +
+        '<div class="kbd-row"><kbd>Space</kbd><span>End the month</span></div>' +
+        '<div class="kbd-row"><kbd>1</kbd>–<kbd>9</kbd><span>Pick a decision option</span></div>' +
+        '<div class="kbd-row"><kbd>Esc</kbd><span>Close any modal</span></div>' +
+      '</div>' +
+      '<div class="help-sec"><div class="lab2">Tips</div>' +
+        '<ul style="margin:4px 0 0;padding-left:18px;font-size:13px;line-height:1.5">' +
+        '<li>Use the <b>±</b> buttons on each policy row for small nudges (1 capital). The slider modal is for bigger moves.</li>' +
+        '<li>Watch the <b>now-strip</b> at the top for active crises, pending decisions and struggling ministers.</li>' +
+        '<li>The seats range reflects polling uncertainty — get approval up and the range tightens in your favour.</li>' +
+        '<li>Manifesto pledges kept = trust dividend at the election. Broken pledges hurt.</li>' +
+        '</ul>' +
+      '</div>' +
+      '<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" data-act="closehelp">Got it</button></div>' +
+      '</div></div>';
+  }
   function endTurnFab(g) {
     // Don't render the FAB at all while a modal is open — it would just sit
     // disabled and overlap the modal's controls.
@@ -907,7 +943,7 @@
     }
     var heads = E.generateHeadlines ? E.generateHeadlines(g, 1) : [];
     if (heads.length) bits.push('<span class="now-head">📰 ' + U.esc(heads[0]) + '</span>');
-    if (!bits.length) return "";
+    bits.push('<span class="now-pill help-pill" data-act="openhelp" title="Show keyboard shortcuts and tips">? Help</span>');
     return '<div class="now-strip">' + bits.join("") + '</div>';
   }
 
@@ -1496,6 +1532,8 @@
       case "resetcamp": startCampaign(); render(); break;
       case "closepolicy": S.policyDetail = null; render(); break;
       case "closereshuffle": S.reshufflePost = null; render(); break;
+      case "openhelp": S.helpOpen = true; render(); break;
+      case "closehelp": S.helpOpen = false; render(); break;
       case "closeshadowreshuffle": S.shadowReshufflePost = null; render(); break;
       case "continuesave": if (loadGame()) go(S.loadedRole === "opposition" ? "opposition" : "govern"); break;
       case "discardsave": clearSave(); render(); break;
@@ -1630,8 +1668,13 @@
         }
         return;
       }
+      // ? opens / toggles the help modal
+      if (e.key === "?" && !g.pendingDilemma) {
+        S.helpOpen = !S.helpOpen; render(); e.preventDefault(); return;
+      }
       // Esc closes whichever modal is open
       if (e.key === "Escape") {
+        if (S.helpOpen) { S.helpOpen = false; render(); e.preventDefault(); return; }
         if (S.policyDetail) { S.policyDetail = null; render(); e.preventDefault(); return; }
         if (S.reshufflePost) { S.reshufflePost = null; render(); e.preventDefault(); return; }
         if (S.shadowReshufflePost) { S.shadowReshufflePost = null; render(); e.preventDefault(); return; }
@@ -1669,6 +1712,9 @@
       }
       if (e.target.hasAttribute && e.target.hasAttribute("data-closeseat")) {
         S.selectedSeat = null; render(); return;
+      }
+      if (e.target.hasAttribute && e.target.hasAttribute("data-closehelp")) {
+        S.helpOpen = false; render(); return;
       }
       var seat = e.target.closest("[data-seat]");
       if (seat) {
