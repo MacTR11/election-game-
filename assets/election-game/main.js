@@ -473,7 +473,7 @@
       U.seatBar(live.totals) + U.legend(live.totals) + '</div></div>';
     return head + kpis + chart + headPanel +
       '<div class="dash" style="margin-top:16px"><div>' + scorecard + '<div style="height:16px"></div>' + promote + tour + shadow + '</div>' + sidebar + '</div>' +
-      dilemmaModal() + shadowReshuffleModal();
+      dilemmaModal() + shadowReshuffleModal() + endTurnFab(g);
   }
   function shadowReshuffleModal() {
     var g = S.govern, post = S.shadowReshufflePost; if (!post || !g.shadowCabinet) return "";
@@ -558,7 +558,7 @@
         '<br><span class="faint">Range reflects normal polling uncertainty. A long-serving government faces a growing "time for a change" mood.</span>' +
       '</div></div></div>';
 
-    return head + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal();
+    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + endTurnFab(g);
   }
   function trend(cur, prev, goodHigh) {
     if (prev == null) return "";
@@ -629,10 +629,16 @@
       var impTxt = Math.abs(imp) < 0.5 ? '<span class="faint">±0</span>'
         : '<span style="color:' + (imp > 0 ? "var(--bad)" : "var(--good)") + '">' + (imp > 0 ? "+" : "−") + "£" + Math.abs(Math.round(imp)) + "bn</span>";
       var moved = Math.abs(v - pol.def) > 1e-9;
+      var canDown = v > pol.min && g.capital >= 1;
+      var canUp = v < pol.max && g.capital >= 1;
       return '<div class="pol-row" data-poldetail="' + pol.id + '">' +
         '<div class="pol-ic">' + pol.icon + '</div>' +
         '<div class="pol-name">' + pol.name + (moved ? ' <span class="moved">●</span>' : "") + '<small>' + pol.low + " ↔ " + pol.high + '</small></div>' +
         '<div class="pol-val">' + fmtPolicyVal(pol, v) + '</div>' +
+        '<div class="pol-nudge-cell">' +
+          '<button class="pol-nudge" data-polnudge="' + pol.id + ':-1" title="Step down (1 ⚡)"' + (canDown ? '' : ' disabled') + '>−</button>' +
+          '<button class="pol-nudge" data-polnudge="' + pol.id + ':1" title="Step up (1 ⚡)"' + (canUp ? '' : ' disabled') + '>+</button>' +
+        '</div>' +
         '<div class="pol-imp">' + impTxt + '</div><div class="pol-go">›</div></div>';
     }).join("");
     return '<div class="panel"><div class="tabs subtabs">' + pills + '</div>' +
@@ -851,6 +857,35 @@
     if (!parts.length) return null;
     parts.sort(function (a, b) { return b.mag - a.mag; });
     return parts.slice(0, 3).map(function (p) { return p.txt; }).join(" · ");
+  }
+
+  // Always-visible floating End Month button so you never have to scroll to advance.
+  // It greys itself out while a decision modal is up and shows the current date.
+  function endTurnFab(g) {
+    // Don't render the FAB at all while a modal is open — it would just sit
+    // disabled and overlap the modal's controls.
+    if (g.pendingDilemma || S.policyDetail || S.reshufflePost || S.shadowReshufflePost || S.selectedSeat) return "";
+    var hint = dateLabel(g);
+    var disabled = g.gameOver;
+    return '<button class="fab-endturn" data-act="endturn"' + (disabled ? " disabled" : "") + ' title="End the month (Space)">' +
+      '<span class="fab-label">End Month ▶</span>' +
+      '<span class="fab-hint">' + U.esc(hint) + '</span></button>';
+  }
+  // A compact "what's happening this month" strip — surfaces active crisis,
+  // a top headline and any pending decision, so context is never a tab away.
+  function nowStrip(g) {
+    var bits = [];
+    if (g.activeCrisis) {
+      var ch = (D.CRISES || []).filter(function (c) { return c.id === g.activeCrisis.id; })[0];
+      if (ch) bits.push('<span class="now-pill bad" data-tab="briefing">⚠ ' + U.esc(ch.name) + '</span>');
+    }
+    if (g.pendingDilemma) {
+      bits.push('<span class="now-pill warn">📋 Decision on your desk</span>');
+    }
+    var heads = E.generateHeadlines ? E.generateHeadlines(g, 1) : [];
+    if (heads.length) bits.push('<span class="now-head">📰 ' + U.esc(heads[0]) + '</span>');
+    if (!bits.length) return "";
+    return '<div class="now-strip">' + bits.join("") + '</div>';
   }
 
   function stars(c) { return '<span class="stars">' + "★".repeat(c) + '<span class="faint">' + "★".repeat(5 - c) + '</span></span>'; }
@@ -1260,6 +1295,28 @@
     app.querySelectorAll("[data-poldetail]").forEach(function (el) {
       el.addEventListener("click", function () { S.policyDetail = el.getAttribute("data-poldetail"); render(); });
     });
+    // inline policy ± nudges — one step for ~1 capital, no modal needed
+    app.querySelectorAll("[data-polnudge]").forEach(function (btn) {
+      btn.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        var parts = btn.getAttribute("data-polnudge").split(":");
+        var pol = D.POLICIES.filter(function (p) { return p.id === parts[0]; })[0]; if (!pol) return;
+        var dir = parseInt(parts[1], 10);
+        var g = S.govern, oldVal = g.policies[pol.id];
+        var step = pol.step || 1;
+        var newVal = oldVal + dir * step;
+        if (newVal < pol.min || newVal > pol.max) return;
+        var cost = E.changeCost(pol, oldVal, newVal);
+        if (cost > g.capital) { toast("Not enough political capital."); return; }
+        g.capital -= cost;
+        g.policies[pol.id] = newVal;
+        var hard = g.difficulty && g.difficulty.id === "hard";
+        if (!hard) toast((dir > 0 ? "▲ " : "▼ ") + pol.name + " → " + fmtPolicyVal(pol, newVal) + " (cost " + cost + " ⚡)");
+        var resigned = E.maybeMinisterResign(g, pol.id, cost);
+        if (resigned) toast("💼 " + resigned.outgoing.name + " resigns in protest — " + resigned.incoming.name + " takes the brief.", 4200);
+        render();
+      });
+    });
     // generic actions
     app.querySelectorAll("[data-act]").forEach(function (el) {
       el.addEventListener("click", function () { action(el.getAttribute("data-act")); });
@@ -1531,6 +1588,39 @@
   function init() {
     app = $("#app");
     parseHash();
+    // Keyboard shortcuts — Space = end month, 1-4 = pick dilemma option,
+    // Esc = close any modal. Skipped while typing in inputs/textareas.
+    document.addEventListener("keydown", function (e) {
+      if (!S.govern) return;
+      var t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      var g = S.govern;
+      // Pick dilemma option by number key
+      if (g.pendingDilemma && /^[1-9]$/.test(e.key)) {
+        var idx = parseInt(e.key, 10) - 1;
+        if (idx < g.pendingDilemma.options.length) {
+          var dilBtn = document.querySelector('[data-dilemma="' + idx + '"]');
+          if (dilBtn) { dilBtn.click(); e.preventDefault(); }
+        }
+        return;
+      }
+      // Esc closes whichever modal is open
+      if (e.key === "Escape") {
+        if (S.policyDetail) { S.policyDetail = null; render(); e.preventDefault(); return; }
+        if (S.reshufflePost) { S.reshufflePost = null; render(); e.preventDefault(); return; }
+        if (S.shadowReshufflePost) { S.shadowReshufflePost = null; render(); e.preventDefault(); return; }
+        if (S.selectedSeat) { S.selectedSeat = null; render(); e.preventDefault(); return; }
+        return;
+      }
+      // Space = end month (when on govern/opposition with no modal open)
+      if (e.key === " " && !g.pendingDilemma && !S.policyDetail && !S.reshufflePost && !S.shadowReshufflePost && !S.selectedSeat) {
+        if (S.screen === "govern" || S.screen === "opposition") {
+          var fab = document.querySelector(".fab-endturn");
+          if (fab && !fab.disabled) { fab.click(); e.preventDefault(); }
+        }
+      }
+    });
     // delegated handlers (work even inside injected panels / the dilemma modal)
     app.addEventListener("click", function (e) {
       if (!e.target.closest) return;
