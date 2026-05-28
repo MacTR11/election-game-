@@ -81,6 +81,13 @@
         var v = s[p] + (sw[p] || 0) + (adj && adj[p] ? adj[p] : 0); if (v < 0) v = 0;
         if (v > bestv) { bestv = v; best = p; }
       }
+      // also consider parties that didn't stand in 2024 (eg Restore Britain):
+      // their seat share at zero swing is 0, so they start from sw[p] alone.
+      for (p in sw) {
+        if (p in s) continue;
+        var v2 = (sw[p] || 0) + (adj && adj[p] ? adj[p] : 0); if (v2 < 0) v2 = 0;
+        if (v2 > bestv) { bestv = v2; best = p; }
+      }
       totals[best] = (totals[best] || 0) + 1;
       seatWinners[seat.c] = best;
       (regionTally[seat.reg] || (regionTally[seat.reg] = {}));
@@ -459,6 +466,9 @@
     for (i = 0; i < D.STATS.length; i++) s.stats[D.STATS[i].id] = D.STATS[i].base;
     for (i = 0; i < D.GROUPS.length; i++) s.groups[D.GROUPS[i].id] = D.GROUPS[i].base;
     var cab = generateCabinet(); s.cabinet = cab.cabinet; s.talentPool = cab.talentPool;
+    // anchor live seat projections to the player's "winning" counterfactual
+    var wb = (D.WINNING_BASELINE && D.WINNING_BASELINE[party]) || D.BASELINE;
+    s.baseline = {}; for (var bp in wb) s.baseline[bp] = wb[bp];
     // settle so the starting policies are reflected in the stats and the books
     computeTargets(s, true);
     // apply the chosen scenario (absolute macro overrides + stat/group deltas)
@@ -872,29 +882,34 @@
   // party, then redistribute the rest across the other parties (the main rival
   // soaks up most of the change), and project the Commons.
   function runGeneralElection(state, regionAdj) {
-    var base = D.BASELINE[state.party] || 10;
+    // The player's "winning baseline" is the counterfactual election that put
+    // them into office. For Labour this matches the real 2024 result; for
+    // other parties it lifts them to a credible winning share so the live
+    // projection doesn't show Labour still leading the day they take power.
+    var pb = state.baseline || D.BASELINE;
+    var base = pb[state.party] || (D.BASELINE[state.party] || 10);
     var pledgeBonus = (pledgesKept(state) - 1.5) * 1.6; // trust dividend / penalty
     // "time for a change": every government faces an anti-incumbency drag that
-    // deepens the longer it has held power. Approval now has to clear ~50% to
-    // hold your 2024 vote, so a flat record loses ground.
+    // deepens the longer it has held power. Approval has to clear ~50% to
+    // hold the share you won on, so a flat record loses ground.
     var antiBase = state.difficulty ? state.difficulty.antiInc : 3;
     var antiIncumbency = antiBase + 3 * (state.termsWon || 0);
     var playerShare = clamp(base + (state.approval - 0.50) * 95 + pledgeBonus - antiIncumbency, 4, 58);
     var delta = playerShare - base;
 
-    // distribute -delta across the others in proportion to their baseline,
-    // but send extra to the player's main ideological rival.
+    // distribute -delta across the others in proportion to THEIR starting share
+    // (in the player's baseline), with extra weight on the main rival.
     var shares = {}, p, others = [], otherBase = 0;
     var rival = mainRival(state.party);
-    for (p in D.BASELINE) {
+    for (p in pb) {
       if (p === state.party) { shares[p] = playerShare; continue; }
-      others.push(p); otherBase += D.BASELINE[p];
+      others.push(p); otherBase += pb[p];
     }
     for (var i = 0; i < others.length; i++) {
       p = others[i];
-      var weight = D.BASELINE[p] / otherBase;
+      var weight = otherBase > 0 ? pb[p] / otherBase : 0;
       if (p === rival) weight = Math.min(1, weight + 0.30);
-      shares[p] = Math.max(0, D.BASELINE[p] - delta * weight);
+      shares[p] = Math.max(0, pb[p] - delta * weight);
     }
     // renormalise to 100
     var sum = 0; for (p in shares) sum += shares[p];
@@ -912,8 +927,8 @@
   }
 
   function mainRival(party) {
-    var rivals = { lab: "con", con: "lab", ld: "con", reform: "con",
-                   green: "lab", snp: "lab", pc: "lab" };
+    var rivals = { lab: "con", con: "lab", ld: "con", reform: "restore",
+                   restore: "reform", green: "lab", snp: "lab", pc: "lab" };
     return rivals[party] || "con";
   }
 

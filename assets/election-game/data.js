@@ -30,6 +30,7 @@
     ld:       { id: "ld",       name: "Liberal Democrats",     short: "LD",  color: "#faa61a", econ: -0.1, soc: -0.5, playable: true },
     reform:   { id: "reform",   name: "Reform UK",             short: "RFM", color: "#12b6cf", econ:  0.5, soc:  0.8, playable: true },
     green:    { id: "green",    name: "Green Party",           short: "GRN", color: "#02a95b", econ: -0.7, soc: -0.6, playable: true },
+    restore:  { id: "restore",  name: "Restore Britain",       short: "RST", color: "#0a2c4d", econ:  0.5, soc:  0.95, playable: true },
     snp:      { id: "snp",      name: "Scottish National Party",short:"SNP", color: "#fdf38e", econ: -0.4, soc: -0.3, playable: true, nation: "sct" },
     pc:       { id: "pc",       name: "Plaid Cymru",           short: "PC",  color: "#005b54", econ: -0.5, soc: -0.3, playable: true, nation: "wal" },
     dup:      { id: "dup",      name: "DUP",                   short: "DUP", color: "#d46a4c", econ:  0.4, soc:  0.7, nation: "ni" },
@@ -1166,6 +1167,25 @@
   var BASELINE = PRESETS.ge2024.shares;
 
   // ---------------------------------------------------------------------------
+  // WINNING BASELINES — for each playable party, the national vote shares of
+  // the counterfactual general election they JUST won. The live projection
+  // anchors the player to these (so a Con or Reform PM doesn't see Labour as
+  // the largest party at the start of their term). For Labour these are the
+  // actual 2024 numbers. For SNP / PC, a UK-level win is implausible so they
+  // keep close to 2024 (a serious choice if you pick them).
+  // ---------------------------------------------------------------------------
+  var WINNING_BASELINE = {
+    lab:     { lab: 33.7, con: 22.7, reform: 11.3, restore: 6.0, ld: 12.2, green: 6.7,  snp: 2.5, pc: 0.7, oth: 4.2 },
+    con:     { lab: 27.0, con: 42.4, reform: 5.0,  restore: 5.0, ld: 10.5, green: 5.0,  snp: 2.5, pc: 0.7, oth: 2.9 },
+    reform:  { lab: 22.0, con: 14.0, reform: 40.0, restore: 5.0, ld: 9.0,  green: 6.0,  snp: 2.5, pc: 0.7, oth: 0.8 },
+    ld:      { lab: 20.0, con: 16.0, reform: 8.0,  restore: 5.0, ld: 38.0, green: 7.0,  snp: 2.5, pc: 0.7, oth: 2.8 },
+    green:   { lab: 19.0, con: 14.0, reform: 8.0,  restore: 5.0, ld: 10.0, green: 35.0, snp: 2.5, pc: 0.7, oth: 5.8 },
+    snp:     { lab: 32.0, con: 20.0, reform: 12.0, restore: 5.0, ld: 12.0, green: 7.0,  snp: 5.0, pc: 0.7, oth: 6.3 },
+    pc:      { lab: 33.0, con: 21.0, reform: 12.0, restore: 5.0, ld: 12.0, green: 7.0,  snp: 2.5, pc: 1.0, oth: 6.5 },
+    restore: { lab: 22.0, con: 13.0, reform: 12.0, restore: 35.0, ld: 9.0, green: 5.0, snp: 2.5, pc: 0.7, oth: 0.8 }
+  };
+
+  // ---------------------------------------------------------------------------
   // LOCAL ELECTIONS — a national-equivalent-vote model. Approx total principal
   // council seats up for the cycle, allocated proportionally with a small
   // incumbency/FPTP distortion handled in the engine.
@@ -1174,7 +1194,7 @@
     totalSeats: 8000,
     councils: 230,
     // party tendency multipliers for converting national share to local seats
-    localBias: { lab: 1.02, con: 1.05, ld: 1.18, green: 1.10, reform: 0.85, oth: 1.25, snp: 1.0, pc: 1.0 }
+    localBias: { lab: 1.02, con: 1.05, ld: 1.18, green: 1.10, reform: 0.85, restore: 0.80, oth: 1.25, snp: 1.0, pc: 1.0 }
   };
 
   // ---------------------------------------------------------------------------
@@ -1503,6 +1523,7 @@
     EVENTS: EVENTS,
     PRESETS: PRESETS,
     BASELINE: BASELINE,
+    WINNING_BASELINE: WINNING_BASELINE,
     LOCAL: LOCAL,
     SCENARIOS: SCENARIOS,
     OPP_SCENARIOS: OPP_SCENARIOS,
@@ -1510,6 +1531,6 @@
     CRISES: CRISES,
     HEADLINES: HEADLINES,
     // ordered list of the main GB parties for charts/legends
-    MAIN_PARTIES: ["lab", "con", "reform", "ld", "green", "snp", "pc", "oth"]
+    MAIN_PARTIES: ["lab", "con", "reform", "restore", "ld", "green", "snp", "pc", "oth"]
   };
 })();

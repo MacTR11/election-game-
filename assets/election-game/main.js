@@ -9,7 +9,7 @@
   var $ = function (sel, r) { return (r || document).querySelector(sel); };
   var app;
 
-  var SHARE_PARTIES = ["lab", "con", "reform", "ld", "green", "snp", "pc", "oth"];
+  var SHARE_PARTIES = ["lab", "con", "reform", "restore", "ld", "green", "snp", "pc", "oth"];
 
   var S = {
     screen: "home",
@@ -570,9 +570,13 @@
   function dilemmaModal() {
     var g = S.govern, d = g.pendingDilemma;
     if (!d) return "";
+    var hardMode = g.difficulty && g.difficulty.id === "hard";
     var opts = d.options.map(function (o, i) {
-      var preview = decisionSummary(o);
-      var previewHtml = preview ? '<span class="opt-preview">📊 ' + U.esc(preview) + '</span>' : "";
+      var previewHtml = "";
+      if (!hardMode) {
+        var preview = decisionSummary(o);
+        if (preview) previewHtml = '<span class="opt-preview">📊 ' + U.esc(preview) + '</span>';
+      }
       return '<button class="dilemma-opt" data-dilemma="' + i + '"><b>' + U.esc(o.label) + '</b>' +
         '<span>' + U.esc(o.result) + '</span>' + previewHtml + '</button>';
     }).join("");
@@ -675,15 +679,45 @@
         '<span class="faint">' + U.esc(pol.high) + '</span></div>' +
       '<input type="range" style="width:100%" min="' + pol.min + '" max="' + pol.max + '" step="' + (pol.step || 1) + '" value="' + v + '" data-policy="' + pol.id + '">' +
       '<div class="afford-track"><i class="afford-fill" style="left:' + bandL + '%;width:' + bandW + '%"></i><i class="afford-now" style="left:' + nowPct + '%"></i></div>' +
-      '<div class="pol-cost" data-pol-cost style="margin-top:4px;font-size:12px">Drag within the lit band — you have <b>' + g.capital + '</b> political capital to spend.</div>' +
-      '<div style="margin-top:6px">Budget impact: ' + impLine + '</div></div>' +
+      '<div class="pol-cost" data-pol-cost style="margin-top:4px;font-size:12px">Drag the slider — nothing is spent until you Confirm. You have <b>' + g.capital + '</b> political capital.</div>' +
+      '<div class="pol-impact" data-pol-impact style="margin-top:4px;font-size:12px;color:var(--ink-dim);min-height:18px">📊 Move the slider to preview the impact.</div>' +
+      '<div style="margin-top:6px">Budget impact at this setting: ' + impLine + '</div></div>' +
       '<div class="viz2" style="margin-top:14px">' +
         '<div><div class="lab2" style="margin-bottom:6px">Raising this affects</div>' + econ + '</div>' +
         '<div><div class="lab2" style="margin-bottom:6px">Pleases</div>' + pills(gains, "#2ecc71") +
         '<div class="lab2" style="margin:10px 0 6px">Upsets</div>' + pills(loses, "#e74c3c") + '</div>' +
       '</div>' +
-      '<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn primary" data-act="closepolicy">Done</button></div>' +
+      '<div class="row" style="justify-content:flex-end;margin-top:14px;gap:8px">' +
+        '<button class="btn" data-act="closepolicy">Done</button>' +
+        '<button class="btn primary" data-confirmpolicy="' + pol.id + '" disabled>Confirm change</button>' +
+      '</div>' +
       '</div></div>';
+  }
+  // Preview a policy move's biggest effects (stats, groups, deficit Δ).
+  function policyMovePreview(pol, oldVal, newVal) {
+    if (oldVal === newVal) return null;
+    var range = pol.max - pol.min;
+    var d = (newVal - oldVal) / range;
+    var parts = [];
+    function add(label, val, fmtFn) {
+      if (Math.abs(val) < 0.005) return;
+      parts.push({ mag: Math.abs(val), txt: (val > 0 ? "▲" : "▼") + " " + label + " " + (fmtFn ? fmtFn(val) : val.toFixed(2)) });
+    }
+    var imp = deficitImpact(pol, newVal) - deficitImpact(pol, oldVal);
+    if (Math.abs(imp) >= 0.5) add("deficit", imp, function (v) { return (v > 0 ? "+£" : "−£") + Math.abs(Math.round(v)) + "bn"; });
+    if (pol.effects && pol.effects.stats) for (var sid in pol.effects.stats) {
+      var sv = pol.effects.stats[sid] * d;
+      var label = STAT_NAME[sid] || sid;
+      add(label, sv, function (v) { return (v > 0 ? "+" : "") + (v * 100).toFixed(0) + "pts"; });
+    }
+    if (pol.effects && pol.effects.groups) for (var gid in pol.effects.groups) {
+      var grp = D.GROUPS.filter(function (g) { return g.id === gid; })[0]; if (!grp) continue;
+      var gv = pol.effects.groups[gid] * d;
+      add(grp.name, gv, function (v) { return (v > 0 ? "+" : "") + (v * 100).toFixed(0) + "pts"; });
+    }
+    if (!parts.length) return null;
+    parts.sort(function (a, b) { return b.mag - a.mag; });
+    return parts.slice(0, 3).map(function (p) { return p.txt; }).join(" · ");
   }
 
   function tabEconomy() {
@@ -1169,6 +1203,22 @@
         } else toast("Not enough political capital.");
       });
     });
+    app.querySelectorAll("[data-confirmpolicy]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-confirmpolicy");
+        var pol = D.POLICIES.filter(function (p) { return p.id === id; })[0]; if (!pol) return;
+        var range = document.querySelector('[data-policy="' + id + '"]'); if (!range) return;
+        var g = S.govern, newVal = parseFloat(range.value), oldVal = g.policies[id];
+        var cost = E.changeCost(pol, oldVal, newVal);
+        if (newVal === oldVal) return;
+        if (cost > g.capital) { toast("Not enough political capital."); return; }
+        g.capital -= cost;
+        g.policies[id] = newVal;
+        var resigned = E.maybeMinisterResign(g, id, cost);
+        if (resigned) toast("💼 " + resigned.outgoing.name + " resigns in protest — " + resigned.incoming.name + " takes the brief.", 4200);
+        render();
+      });
+    });
     app.querySelectorAll("[data-shadowreshuffle]").forEach(function (el) {
       el.addEventListener("click", function () { S.shadowReshufflePost = el.getAttribute("data-shadowreshuffle"); render(); });
     });
@@ -1255,38 +1305,42 @@
       var oldVal = S.govern.policies[id];
       var min = pol.min, span = pol.max - pol.min;
       var costEl = range.parentNode.querySelector("[data-pol-cost]");
+      var impEl = range.parentNode.querySelector("[data-pol-impact]");
       var nowEl = range.parentNode.querySelector(".afford-now");
-      // live label, cost and affordability feedback while dragging (no re-render)
+      // The Confirm button lives outside the slider's parentNode — find it via the modal.
+      var confirmBtn = document.querySelector('[data-confirmpolicy="' + id + '"]');
+      // Live preview as the user drags — nothing is spent until Confirm.
       function reflect() {
         var g = S.govern, newVal = parseFloat(range.value);
         var cell = range.parentNode.querySelector(".pv");
         if (cell) cell.textContent = fmtPolicyVal(pol, newVal);
         if (nowEl) nowEl.style.left = (newVal - min) / span * 100 + "%";
-        if (!costEl) return;
         var cost = E.changeCost(pol, oldVal, newVal);
-        if (newVal === oldVal) {
-          costEl.className = "pol-cost";
-          costEl.innerHTML = "Drag within the lit band — you have <b>" + g.capital + "</b> political capital to spend.";
-        } else if (cost <= g.capital) {
-          costEl.className = "pol-cost ok";
-          costEl.innerHTML = "This change costs <b>" + cost + "</b> of your <b>" + g.capital + "</b> political capital.";
-        } else {
-          costEl.className = "pol-cost over";
-          costEl.innerHTML = "Too big a move: it would cost <b>" + cost + "</b> but you only have <b>" + g.capital + "</b>. Stay within the lit band.";
+        if (costEl) {
+          if (newVal === oldVal) {
+            costEl.className = "pol-cost";
+            costEl.innerHTML = "Drag the slider — nothing is spent until you Confirm. You have <b>" + g.capital + "</b> political capital.";
+          } else if (cost <= g.capital) {
+            costEl.className = "pol-cost ok";
+            costEl.innerHTML = "This change would cost <b>" + cost + "</b> of your <b>" + g.capital + "</b> political capital.";
+          } else {
+            costEl.className = "pol-cost over";
+            costEl.innerHTML = "Too big: would cost <b>" + cost + "</b> but you only have <b>" + g.capital + "</b>. Stay within the lit band.";
+          }
+        }
+        if (impEl) {
+          var preview = policyMovePreview(pol, oldVal, newVal);
+          impEl.innerHTML = preview ? "📊 " + U.esc(preview) : "📊 Move the slider to preview the impact.";
+        }
+        if (confirmBtn) {
+          var ok = newVal !== oldVal && cost <= g.capital;
+          confirmBtn.disabled = !ok;
+          confirmBtn.textContent = newVal === oldVal ? "Confirm change"
+            : ok ? "Confirm · spend " + cost + " ⚡"
+                 : "Not enough capital (need " + cost + ")";
         }
       }
       range.addEventListener("input", reflect);
-      range.addEventListener("change", function () {
-        var g = S.govern, newVal = parseFloat(range.value);
-        var cost = E.changeCost(pol, oldVal, newVal);
-        if (cost > g.capital) { range.value = oldVal; reflect(); return; }
-        if (newVal === oldVal) return;
-        g.capital -= cost;
-        g.policies[id] = newVal;
-        var resigned = E.maybeMinisterResign(g, id, cost);
-        if (resigned) toast("💼 " + resigned.outgoing.name + " resigns in protest — " + resigned.incoming.name + " takes the brief.", 4200);
-        render();
-      });
     });
   }
 
@@ -1486,9 +1540,12 @@
       if (d && S.govern && S.govern.pendingDilemma) {
         var idx = parseInt(d.getAttribute("data-dilemma"), 10);
         var dil = S.govern.pendingDilemma, chosen = dil.options[idx];
-        E.resolveDilemma(S.govern, idx);
-        var summary = decisionSummary(chosen);
-        if (summary) toast(summary);
+        var g = S.govern, hard = g.difficulty && g.difficulty.id === "hard";
+        E.resolveDilemma(g, idx);
+        if (!hard) {
+          var summary = decisionSummary(chosen);
+          if (summary) toast(summary);
+        }
         render();
         return;
       }
