@@ -24,6 +24,7 @@
     reshufflePost: null,
     shadowReshufflePost: null,
     helpOpen: false,
+    policyPending: {},   // { polId: pendingValue } — staged changes awaiting Confirm
     pledgeSel: [],
     campaign: null,
     byseat: null,
@@ -636,26 +637,55 @@
     var pills = POLICY_CATS.map(function (c) {
       return '<div class="tab' + (S.policyCat === c ? " active" : "") + '" data-polcat="' + c + '">' + c + '</div>';
     }).join("");
+    // pending-changes summary across all policies (not just the visible cat)
+    var pendingKeys = Object.keys(S.policyPending || {});
+    var totalPendingCost = 0, totalDeficitDelta = 0;
+    pendingKeys.forEach(function (pid) {
+      var pp = D.POLICIES.filter(function (x) { return x.id === pid; })[0]; if (!pp) return;
+      var ov = g.policies[pid], nv = S.policyPending[pid];
+      totalPendingCost += E.changeCost(pp, ov, nv);
+      totalDeficitDelta += deficitImpact(pp, nv) - deficitImpact(pp, ov);
+    });
+    var pendingBar = "";
+    if (pendingKeys.length) {
+      var canAfford = totalPendingCost <= g.capital;
+      var defTxt = Math.abs(totalDeficitDelta) < 0.5 ? "no budget impact"
+        : (totalDeficitDelta > 0 ? "+£" + Math.round(totalDeficitDelta) + "bn deficit" : "−£" + Math.abs(Math.round(totalDeficitDelta)) + "bn (saves money)");
+      pendingBar = '<div class="pending-bar' + (canAfford ? '' : ' over') + '">' +
+        '<div class="pending-info"><b>' + pendingKeys.length + ' pending change' + (pendingKeys.length === 1 ? '' : 's') + '</b>' +
+        ' · cost <b>' + totalPendingCost + ' ⚡</b> of your <b>' + g.capital + '</b> · ' + defTxt + '</div>' +
+        '<div class="pending-btns">' +
+          '<button class="btn sm" data-act="cancelpending">Cancel</button>' +
+          '<button class="btn primary sm" data-act="confirmpending"' + (canAfford ? '' : ' disabled') + '>Confirm</button>' +
+        '</div></div>';
+    }
     var rows = D.POLICIES.filter(function (p) { return p.cat === S.policyCat; }).map(function (pol) {
-      var v = g.policies[pol.id], imp = deficitImpact(pol, v);
+      var currentVal = g.policies[pol.id];
+      var pendingVal = S.policyPending[pol.id];
+      var hasPending = pendingVal != null && pendingVal !== currentVal;
+      var displayVal = hasPending ? pendingVal : currentVal;
+      var imp = deficitImpact(pol, displayVal);
       var impTxt = Math.abs(imp) < 0.5 ? '<span class="faint">±0</span>'
         : '<span style="color:' + (imp > 0 ? "var(--bad)" : "var(--good)") + '">' + (imp > 0 ? "+" : "−") + "£" + Math.abs(Math.round(imp)) + "bn</span>";
-      var moved = Math.abs(v - pol.def) > 1e-9;
-      var canDown = v > pol.min && g.capital >= 1;
-      var canUp = v < pol.max && g.capital >= 1;
-      return '<div class="pol-row" data-poldetail="' + pol.id + '">' +
+      var moved = Math.abs(displayVal - pol.def) > 1e-9;
+      var canDown = displayVal > pol.min;
+      var canUp = displayVal < pol.max;
+      var valHtml = hasPending
+        ? '<span class="pol-pending">' + fmtPolicyVal(pol, currentVal) + ' → <b>' + fmtPolicyVal(pol, pendingVal) + '</b></span>'
+        : fmtPolicyVal(pol, displayVal);
+      return '<div class="pol-row' + (hasPending ? ' pending' : '') + '" data-poldetail="' + pol.id + '">' +
         '<div class="pol-ic">' + pol.icon + '</div>' +
         '<div class="pol-name">' + pol.name + (moved ? ' <span class="moved">●</span>' : "") + '<small>' + pol.low + " ↔ " + pol.high + '</small></div>' +
-        '<div class="pol-val">' + fmtPolicyVal(pol, v) + '</div>' +
+        '<div class="pol-val">' + valHtml + '</div>' +
         '<div class="pol-nudge-cell">' +
-          '<button class="pol-nudge" data-polnudge="' + pol.id + ':-1" title="Step down (1 ⚡)"' + (canDown ? '' : ' disabled') + '>−</button>' +
-          '<button class="pol-nudge" data-polnudge="' + pol.id + ':1" title="Step up (1 ⚡)"' + (canUp ? '' : ' disabled') + '>+</button>' +
+          '<button class="pol-nudge" data-polnudge="' + pol.id + ':-1" title="Step down — stage a change"' + (canDown ? '' : ' disabled') + '>−</button>' +
+          '<button class="pol-nudge" data-polnudge="' + pol.id + ':1" title="Step up — stage a change"' + (canUp ? '' : ' disabled') + '>+</button>' +
         '</div>' +
         '<div class="pol-imp">' + impTxt + '</div><div class="pol-go">›</div></div>';
     }).join("");
-    return '<div class="panel"><div class="tabs subtabs">' + pills + '</div>' +
+    return '<div class="panel">' + pendingBar + '<div class="tabs subtabs">' + pills + '</div>' +
       '<div class="pol-list">' + rows + '</div>' +
-      '<p class="notice">Click a policy to set it in real terms and see exactly what it costs and which parts of the economy and which voters it helps or hurts.</p></div>';
+      '<p class="notice">Use ± to stage a change (it costs nothing until you Confirm), or click a row for the full slider. Pending changes appear in gold.</p></div>';
   }
 
   // Democracy-style policy detail: the lever plus a clear impact breakdown.
@@ -937,27 +967,35 @@
   // A compact "what's happening this month" strip — surfaces active crisis,
   // a top headline and any pending decision, so context is never a tab away.
   function nowStrip(g) {
-    var bits = [];
+    // Status pills row (crisis / decision / struggling minister / help) —
+    // kept separate from the newspaper banner so each is easy to scan.
+    var pills = [];
     if (g.activeCrisis) {
       var ch = (D.CRISES || []).filter(function (c) { return c.id === g.activeCrisis.id; })[0];
-      if (ch) bits.push('<span class="now-pill bad" data-tab="briefing">⚠ ' + U.esc(ch.name) + '</span>');
+      if (ch) pills.push('<span class="now-pill bad" data-tab="briefing">⚠ ' + U.esc(ch.name) + '</span>');
     }
-    if (g.pendingDilemma) {
-      bits.push('<span class="now-pill warn">📋 Decision on your desk</span>');
-    }
-    // surface a struggling cabinet minister so you know when to reshuffle
+    if (g.pendingDilemma) pills.push('<span class="now-pill warn">📋 Decision on your desk</span>');
     if (g.cabinet) {
       var weak = null;
       E.CABINET_POSTS.forEach(function (post) {
         var m = g.cabinet[post.id];
         if (m && m.competence <= 2 && (!weak || m.competence < weak.minister.competence)) weak = { post: post, minister: m };
       });
-      if (weak) bits.push('<span class="now-pill warn" data-tab="cabinet">💼 ' + U.esc(weak.minister.name) + ' is struggling at ' + U.esc(weak.post.title) + '</span>');
+      if (weak) pills.push('<span class="now-pill warn" data-tab="cabinet">💼 ' + U.esc(weak.minister.name) + ' is struggling at ' + U.esc(weak.post.title) + '</span>');
     }
-    var heads = E.generateHeadlines ? E.generateHeadlines(g, 1) : [];
-    if (heads.length) bits.push('<span class="now-head">📰 ' + U.esc(heads[0]) + '</span>');
-    bits.push('<span class="now-pill help-pill" data-act="openhelp" title="Show keyboard shortcuts and tips">? Help</span>');
-    return '<div class="now-strip">' + bits.join("") + '</div>';
+    pills.push('<span class="now-pill help-pill" data-act="openhelp" title="Show keyboard shortcuts and tips">? Help</span>');
+
+    // Front-page newspaper banner — one lead headline + 2 secondary lines.
+    var heads = E.generateHeadlines ? E.generateHeadlines(g, 3) : [];
+    var lead = heads[0] || "Westminster looks ahead";
+    var secondary = heads.slice(1, 3).map(function (h) { return '<li>' + U.esc(h) + '</li>'; }).join("");
+    var paper = '<div class="newspaper">' +
+      '<div class="np-mast"><span>The Number 10 Gazette</span><span class="np-date">' + dateLabel(g) + '</span></div>' +
+      '<h3 class="np-headline">' + U.esc(lead) + '</h3>' +
+      (secondary ? '<ul class="np-secondary">' + secondary + '</ul>' : '') +
+      '<div class="np-pills">' + pills.join("") + '</div>' +
+      '</div>';
+    return paper;
   }
 
   function stars(c) { return '<span class="stars">' + "★".repeat(c) + '<span class="faint">' + "★".repeat(5 - c) + '</span></span>'; }
@@ -1321,6 +1359,9 @@
         if (cost > g.capital) { toast("Not enough political capital."); return; }
         g.capital -= cost;
         g.policies[id] = newVal;
+        // Clear any conflicting pending nudge for this lever and refresh fiscal
+        if (S.policyPending && S.policyPending[id] != null) delete S.policyPending[id];
+        E.computeFiscal(g);
         var resigned = E.maybeMinisterResign(g, id, cost);
         if (resigned) toast("💼 " + resigned.outgoing.name + " resigns in protest — " + resigned.incoming.name + " takes the brief.", 4200);
         render();
@@ -1367,25 +1408,22 @@
     app.querySelectorAll("[data-poldetail]").forEach(function (el) {
       el.addEventListener("click", function () { S.policyDetail = el.getAttribute("data-poldetail"); render(); });
     });
-    // inline policy ± nudges — one step for ~1 capital, no modal needed
+    // inline ± stages a pending change — nothing is spent until Confirm
     app.querySelectorAll("[data-polnudge]").forEach(function (btn) {
       btn.addEventListener("click", function (ev) {
         ev.stopPropagation();
         var parts = btn.getAttribute("data-polnudge").split(":");
         var pol = D.POLICIES.filter(function (p) { return p.id === parts[0]; })[0]; if (!pol) return;
         var dir = parseInt(parts[1], 10);
-        var g = S.govern, oldVal = g.policies[pol.id];
+        var g = S.govern, currentVal = g.policies[pol.id];
         var step = pol.step || 1;
-        var newVal = oldVal + dir * step;
-        if (newVal < pol.min || newVal > pol.max) return;
-        var cost = E.changeCost(pol, oldVal, newVal);
-        if (cost > g.capital) { toast("Not enough political capital."); return; }
-        g.capital -= cost;
-        g.policies[pol.id] = newVal;
-        var hard = g.difficulty && g.difficulty.id === "hard";
-        if (!hard) toast((dir > 0 ? "▲ " : "▼ ") + pol.name + " → " + fmtPolicyVal(pol, newVal) + " (cost " + cost + " ⚡)");
-        var resigned = E.maybeMinisterResign(g, pol.id, cost);
-        if (resigned) toast("💼 " + resigned.outgoing.name + " resigns in protest — " + resigned.incoming.name + " takes the brief.", 4200);
+        var basis = S.policyPending[pol.id] != null ? S.policyPending[pol.id] : currentVal;
+        var newVal = Math.min(pol.max, Math.max(pol.min, basis + dir * step));
+        if (newVal === basis) return;
+        // round to step grain to avoid float drift
+        newVal = Math.round(newVal * 1e6) / 1e6;
+        if (newVal === currentVal) delete S.policyPending[pol.id];
+        else S.policyPending[pol.id] = newVal;
         render();
       });
     });
@@ -1547,6 +1585,33 @@
       case "closereshuffle": S.reshufflePost = null; render(); break;
       case "openhelp": S.helpOpen = true; render(); break;
       case "closehelp": S.helpOpen = false; render(); break;
+      case "cancelpending": S.policyPending = {}; render(); break;
+      case "confirmpending": {
+        var pending = S.policyPending || {};
+        var ids = Object.keys(pending); if (!ids.length) return;
+        var totalCost = 0;
+        ids.forEach(function (pid) {
+          var pp = D.POLICIES.filter(function (x) { return x.id === pid; })[0]; if (!pp) return;
+          totalCost += E.changeCost(pp, g.policies[pid], pending[pid]);
+        });
+        if (totalCost > g.capital) { toast("Not enough political capital."); return; }
+        var hard = g.difficulty && g.difficulty.id === "hard";
+        var resignedAny = null;
+        ids.forEach(function (pid) {
+          var pp = D.POLICIES.filter(function (x) { return x.id === pid; })[0]; if (!pp) return;
+          var cost = E.changeCost(pp, g.policies[pid], pending[pid]);
+          g.capital -= cost;
+          g.policies[pid] = pending[pid];
+          var r = E.maybeMinisterResign(g, pid, cost); if (r && !resignedAny) resignedAny = r;
+        });
+        S.policyPending = {};
+        // refresh fiscal so deficit / receipts / spending KPIs update immediately
+        E.computeFiscal(g);
+        render(); flashKpis();
+        if (!hard) toast("Confirmed " + ids.length + " change" + (ids.length === 1 ? "" : "s") + " · spent " + totalCost + " ⚡");
+        if (resignedAny) setTimeout(function () { toast("💼 " + resignedAny.outgoing.name + " resigns in protest — " + resignedAny.incoming.name + " takes the brief.", 4200); }, 250);
+        break;
+      }
       case "fastforward": {
         if (g.pendingDilemma || g.gameOver) return;
         var advanced = 0, MAX = 6;
