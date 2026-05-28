@@ -1264,8 +1264,26 @@
     var pledges = g.pledges.map(function (id) {
       var pl = D.PLEDGES.filter(function (x) { return x.id === id; })[0]; if (!pl) return "";
       var done = pl.ok(g);
-      return '<div class="stat-row" style="grid-template-columns:24px 1fr"><div style="font-size:15px">' + (done ? "✅" : "⬜") + '</div>' +
-        '<div class="name" style="color:' + (done ? "var(--good)" : "var(--ink-dim)") + '">' + U.esc(pl.text) + '</div></div>';
+      // progress toward target — works for both "higher is better" pledges and
+      // "lower is better" ones (deficit, crime, migration, debt).
+      var cur = pl.metric ? pl.metric(g) : 0;
+      var prog = 0;
+      if (pl.metric && pl.target != null) {
+        if (pl.hi) prog = Math.min(1, cur / pl.target);
+        else       prog = cur <= 0 ? 1 : Math.min(1, pl.target / cur);
+        if (done) prog = 1;
+      }
+      var col = done ? "var(--good)" : prog >= 0.75 ? "var(--warn)" : "var(--bad)";
+      var icon = done ? "✅" : prog >= 0.95 ? "⌛" : "⬜";
+      var detail = pl.metric ? (pl.fmt ? pl.fmt(cur) : cur) + (done ? "" : " · target " + (pl.hi ? "≥" : "≤") + " " + (pl.fmt ? pl.fmt(pl.target) : pl.target)) : "";
+      return '<div class="pledge-prog">' +
+        '<div class="pledge-prog-head">' +
+          '<span class="pledge-prog-icon">' + icon + '</span>' +
+          '<span class="pledge-prog-name" style="color:' + (done ? "var(--good)" : "var(--ink)") + '">' + U.esc(pl.text) + '</span>' +
+          '<span class="pledge-prog-val" style="color:' + col + '">' + U.esc(detail) + '</span>' +
+        '</div>' +
+        '<div class="pledge-prog-bar"><i style="width:' + (prog * 100).toFixed(1) + '%;background:' + col + '"></i></div>' +
+      '</div>';
     }).join("");
     var heads = E.generateHeadlines(g, 4);
     var headPanel = heads.length

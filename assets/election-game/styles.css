@@ -370,6 +370,20 @@ svg.dualchart { width: 100%; height: 150px; display: block; }
 @media (max-width: 620px) {
   .cmp-row { grid-template-columns: 1fr; gap: 4px; }
 }
+/* Manifesto pledge progress bars */
+.pledge-prog { margin: 0 0 12px; }
+.pledge-prog:last-child { margin-bottom: 0; }
+.pledge-prog-head { display: grid; grid-template-columns: 20px 1fr auto; gap: 8px; align-items: center;
+  font-size: 13px; margin-bottom: 4px; }
+.pledge-prog-icon { font-size: 14px; text-align: center; }
+.pledge-prog-name { font-weight: 700; }
+.pledge-prog-val { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pledge-prog-bar { height: 8px; border-radius: 4px; background: var(--bg-2); border: 1px solid var(--border); overflow: hidden; }
+.pledge-prog-bar i { display: block; height: 100%; border-radius: 4px; transition: width .3s; }
+@media (max-width: 620px) {
+  .pledge-prog-head { grid-template-columns: 18px 1fr; row-gap: 2px; }
+  .pledge-prog-val { grid-column: 2; font-size: 11.5px; }
+}
 /* Britain by Region — per-region seat breakdown */
 .region-list { display: grid; gap: 8px; }
 .region-row { display: grid; grid-template-columns: 1.4fr 1fr 1.4fr; gap: 12px; align-items: center; padding: 8px 10px;
