@@ -532,8 +532,14 @@
         var m = per.mods || {};
         var bits = [];
         if (m.capital) bits.push((m.capital > 0 ? "+" : "") + m.capital + " capital");
-        if (m.regen && m.regen !== 1) bits.push(Math.round((m.regen - 1) * 100 > 0 ? "+" : "") + Math.round((m.regen - 1) * 100) + "% regen");
-        if (m.unity) bits.push((m.unity > 0 ? "+" : "") + Math.round(m.unity * 100) + " unity");
+        if (m.regen && m.regen !== 1) {
+          var rp = Math.round((m.regen - 1) * 100);
+          bits.push((rp > 0 ? "+" : "") + rp + "% regen");
+        }
+        if (m.unity) {
+          var up = Math.round(m.unity * 100);
+          bits.push((up > 0 ? "+" : "") + up + " unity");
+        }
         if (m.cabinet) bits.push("+" + m.cabinet + "★ cabinet");
         if (m.gaffeMod && m.gaffeMod < 1) bits.push("media-savvy");
         if (m.gaffeMod && m.gaffeMod > 1) bits.push("gaffe-prone");
