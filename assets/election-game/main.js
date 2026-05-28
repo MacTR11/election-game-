@@ -929,9 +929,72 @@
   }
 
   // --------------------------------------------------------- election night
+  // ---- election night helpers ----
+  var _base2024Seats = null;
+  function base2024Seats() {
+    if (_base2024Seats) return _base2024Seats;
+    var C = window.UKGAME.CONSTITUENCIES || [], out = {};
+    for (var i = 0; i < C.length; i++) out[C[i].w] = (out[C[i].w] || 0) + 1;
+    return (_base2024Seats = out);
+  }
+  function electionVerdict(r, isOpp) {
+    var maj = r.playerMajority, gv = r.government, seats = r.playerSeats;
+    if (r.won) {
+      if (maj > 100) return { tag: "LANDSLIDE", col: "var(--good)", line: "An emphatic victory of historic scale." };
+      if (maj > 30)  return { tag: "SOLID MAJORITY", col: "var(--good)", line: "A clear mandate to govern as you see fit." };
+      if (maj > 0)   return { tag: "WORKING MAJORITY", col: "var(--good)", line: "Enough to govern — but every vote will count." };
+      if (gv.type === "coalition") return { tag: "COALITION DEAL", col: "var(--warn)", line: "You'll lead a coalition; the bargaining begins now." };
+      if (gv.type === "minority")  return { tag: "MINORITY GOVERNMENT", col: "var(--warn)", line: "Largest party — but you'll govern vote by vote." };
+      return { tag: "HUNG PARLIAMENT", col: "var(--warn)", line: "No clear winner; talks begin." };
+    }
+    if (seats < 80)              return { tag: "WIPEOUT", col: "var(--bad)", line: "An historic rout. Decades to rebuild." };
+    if (maj < -100)              return { tag: "HEAVY DEFEAT", col: "var(--bad)", line: "A punishing verdict from the electorate." };
+    return { tag: "OUT OF OFFICE", col: "var(--bad)", line: "The voters have decided it's time for a change." };
+  }
+  function netChangePanel(totals) {
+    var base = base2024Seats();
+    var ids = Object.keys(totals).concat(Object.keys(base))
+      .filter(function (v, i, a) { return a.indexOf(v) === i && (totals[v] || 0) + (base[v] || 0) > 0; })
+      .sort(function (a, b) { return (totals[b] || 0) - (totals[a] || 0); });
+    var rows = ids.map(function (p) {
+      var nw = totals[p] || 0, bs = base[p] || 0, d = nw - bs;
+      var dCol = d > 0 ? "var(--good)" : d < 0 ? "var(--bad)" : "var(--ink-dim)";
+      var dTxt = d === 0 ? "±0" : (d > 0 ? "+" + d : d);
+      return '<div class="netchg-row"><div class="netchg-name" style="color:' + U.pcolor(p) + '">' + U.pshort(p) + '</div>' +
+        '<div class="netchg-now">' + nw + '</div>' +
+        '<div class="netchg-d" style="color:' + dCol + ';font-weight:800">' + dTxt + '</div></div>';
+    }).join("");
+    return '<div class="netchg-list">' + rows + '</div>';
+  }
+  function notableFlipsPanel(playerParty, seatWinners) {
+    var C = window.UKGAME.CONSTITUENCIES || [];
+    var gains = [], losses = [];
+    for (var i = 0; i < C.length; i++) {
+      var seat = C[i], prev = seat.w, now = seatWinners[seat.c];
+      if (now === prev) continue;
+      if (now === playerParty) gains.push({ name: seat.n, from: prev });
+      else if (prev === playerParty) losses.push({ name: seat.n, to: now });
+    }
+    function rows(list, key, prefix) {
+      if (!list.length) return '<p class="muted" style="font-size:13px;margin:4px 0 0">No ' + prefix + ' this time.</p>';
+      return list.slice(0, 6).map(function (s) {
+        return '<div class="flip-row"><span class="flip-seat">' + U.esc(s.name) + '</span>' +
+          '<span class="pill" style="background:' + U.pcolor(s[key]) + '22;color:' + U.pcolor(s[key]) + '">' +
+          (key === "from" ? "from " : "to ") + U.pshort(s[key]) + '</span></div>';
+      }).join("");
+    }
+    var more = function (n) { return n > 6 ? '<div class="muted" style="font-size:12px;margin-top:4px">…and ' + (n - 6) + ' more.</div>' : ""; };
+    return '<div class="flip-cols">' +
+      '<div><div class="lab2" style="margin-bottom:6px;color:var(--good)">Notable gains (' + gains.length + ')</div>' + rows(gains, "from", "gains") + more(gains.length) + '</div>' +
+      '<div><div class="lab2" style="margin-bottom:6px;color:var(--bad)">Notable losses (' + losses.length + ')</div>' + rows(losses, "to", "losses") + more(losses.length) + '</div>' +
+      '</div>';
+  }
+
   function viewElectionNight() {
     var g = S.govern, r = g.lastElection, won = r.won, gv = r.government;
     var isOpp = g.role === "opposition";
+    var party = D.PARTIES[r.playerParty];
+    var v = electionVerdict(r, isOpp);
     var contLabel = gv.type === "majority" ? "Continue — majority of " + r.playerMajority
       : gv.type === "coalition" ? "Continue — form your coalition ▶" : "Continue — lead a minority ▶";
     var btn;
@@ -939,14 +1002,20 @@
     else if (isOpp) btn = '<button class="btn" data-act="fighton">Carry on as Opposition ▶</button>';
     else if (won) btn = '<button class="btn primary" data-act="continueterm">' + contLabel + '</button>';
     else btn = '<button class="btn danger" data-act="seegameover">See the damage</button>';
-    var sub = isOpp
-      ? (won ? D.PARTIES[r.playerParty].name + " has WON POWER — " + r.playerSeats + " seats on " + r.shares[r.playerParty].toFixed(1) + "%!"
-             : D.PARTIES[r.playerParty].name + " took " + r.playerSeats + " seats on " + r.shares[r.playerParty].toFixed(1) + "% — not enough this time.")
-      : D.PARTIES[r.playerParty].name + " won " + r.shares[r.playerParty].toFixed(1) + "% of the national vote and " + r.playerSeats + " seats.";
-    return '<h2 class="section-title">Election Night</h2>' +
-      '<p class="subtitle">' + sub + '</p>' +
-      U.headline(r) + governmentPanel(gv) +
+    var hero = '<div class="election-hero" style="border-left:6px solid ' + v.col + '">' +
+      '<div class="lab2">Election Night · ' + dateLabel(g) + '</div>' +
+      '<div class="verdict" style="color:' + v.col + '">' + v.tag + '</div>' +
+      '<div class="verdict-line">' + U.esc(v.line) + '</div>' +
+      '<div class="hero-stats">' +
+        '<div><div class="lab2">' + party.name + '</div><div class="big" style="color:' + party.color + '">' + r.shares[r.playerParty].toFixed(1) + '%</div></div>' +
+        '<div><div class="lab2">Seats</div><div class="big">' + r.playerSeats + '<small>/650</small></div></div>' +
+        '<div><div class="lab2">Majority</div><div class="big" style="color:' + (r.playerMajority > 0 ? "var(--good)" : "var(--bad)") + '">' + (r.playerMajority > 0 ? "+" : "") + r.playerMajority + '</div></div>' +
+      '</div></div>';
+    return hero + governmentPanel(gv) +
       '<div class="panel" style="margin-top:16px"><h3>The New House of Commons</h3>' + U.hemicycle(r.totals) + U.seatBar(r.totals) + U.legend(r.totals, { shares: r.shares }) + '</div>' +
+      '<div class="dash" style="margin-top:16px"><div class="panel"><h3>National Vote — swing vs 2024</h3>' + U.voteSwing(r.shares) + '</div>' +
+      '<div class="panel"><h3>Net Seat Changes (vs 2024)</h3>' + netChangePanel(r.totals) + '</div></div>' +
+      '<div class="panel" style="margin-top:16px"><h3>' + party.name + ': Where the Seats Moved</h3>' + notableFlipsPanel(r.playerParty, r.seatWinners) + '</div>' +
       '<div class="panel" style="margin-top:16px"><h3>Constituency Map</h3>' + mapView(r.seatWinners) + '</div>' +
       '<div class="row" style="margin-top:16px;justify-content:center">' + btn + '</div>';
   }
