@@ -1419,6 +1419,38 @@
             { label: "Bring the troops home, focus inward", result: "Voters are relieved; allies are quietly disappointed.",
               effects: { groups: { workingclass: 0.05, patriots: -0.04 } }, next: null }
           ] }
+      ] },
+    { id: "housing", name: "Housing-Market Crash",
+      trigger: function (s) { return s.turn > 9 && (s.stats.housing < 0.30 || s.macro.inflation > 5) && Math.random() < 0.025; },
+      drag: { stats: { housing: -0.010 }, groups: { homeowners: -0.014, renters: -0.005, capitalists: -0.010 }, macro: { realGrowth: -0.04 } },
+      stages: [
+        { title: "The Bubble Bursts", desc: "House prices fall sharply for the first time in a generation. Negative equity rises by the day and builders mothball developments.",
+          options: [
+            { label: "Emergency Help-to-Buy package", result: "Buyers tempted back; the bill is enormous and critics call it propping up a broken market.",
+              effects: { policy: { housing: 0.10 }, macro: { deficit: 5 }, groups: { homeowners: 0.08, capitalists: 0.04 } }, next: 1, in: 3 },
+            { label: "State-funded affordable building blitz", result: "Renters cheer; the construction sector welcomes the contracts.",
+              effects: { policy: { housing: 0.18 }, macro: { deficit: 6 }, groups: { renters: 0.10, workingclass: 0.05, young: 0.06 } }, next: 1, in: 3 },
+            { label: "Let the market correct", result: "Orthodox and brutal; foreclosures keep climbing.",
+              effects: { stats: { housing: -0.04 }, groups: { homeowners: -0.10, capitalists: 0.04 } }, next: 1, in: 3 }
+          ] },
+        { title: "Repossessions Surge", desc: "Mortgage defaults are climbing; charities warn of a wave of evictions.",
+          options: [
+            { label: "Ban repossessions for 12 months", result: "Households relieved; lenders threaten to pull back from the market.",
+              effects: { policy: { businessreg: 0.10 }, groups: { renters: 0.06, homeowners: 0.08, capitalists: -0.10 } }, next: 2, in: 3 },
+            { label: "Mortgage interest support scheme", result: "Targeted help; the deficit absorbs it.",
+              effects: { macro: { deficit: 4 }, groups: { homeowners: 0.10, middleclass: 0.06 } }, next: 2, in: 3 },
+            { label: "Tighten landlord rules", result: "Renters protected; some landlords sell up.",
+              effects: { policy: { businessreg: 0.08 }, stats: { housing: -0.02 }, groups: { renters: 0.10, homeowners: -0.04 } }, next: 2, in: 3 }
+          ] },
+        { title: "Rebuilding the Market", desc: "The acute phase eases. The strategic question is what kind of housing market Britain wants next.",
+          options: [
+            { label: "Planning reform & build, build, build", result: "Supply surges over time; the shires fume.",
+              effects: { policy: { housing: 0.15 }, stats: { housing: 0.05 }, groups: { renters: 0.08, young: 0.06, homeowners: -0.06 } }, next: null },
+            { label: "Council-housing revival", result: "A return to large-scale public housebuilding.",
+              effects: { policy: { housing: 0.12, localgov: 0.08 }, macro: { deficit: 4 }, groups: { workingclass: 0.06, unions: 0.06 } }, next: null },
+            { label: "Cool the market with higher stamp duty", result: "Speculators dampened; movers grumble.",
+              effects: { policy: { stampduty: 0.10 }, macro: { deficit: -2 }, groups: { homeowners: -0.06, socialists: 0.04 } }, next: null }
+          ] }
       ] }
   ];
 

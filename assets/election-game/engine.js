@@ -332,7 +332,7 @@
     var c = 2 + Math.floor(Math.random() * 4); // 2..5
     if ((c === 2 || c === 5) && Math.random() < 0.4) c = 3 + Math.floor(Math.random() * 2); // bias to the middle
     return { name: name, competence: c, trait: MIN_TRAITS[Math.floor(Math.random() * MIN_TRAITS.length)],
-             loyalty: Math.round((0.3 + Math.random() * 0.6) * 100) / 100 };
+             loyalty: Math.round((0.3 + Math.random() * 0.6) * 100) / 100, tenure: 0 };
   }
   function generateCabinet() {
     var used = {}, cab = {}, pool = [], i;
@@ -386,6 +386,7 @@
     var incoming = pool[bestIdx];
     pool.splice(bestIdx, 1);
     pool.push(m);
+    incoming.tenure = 0;
     state.cabinet[postId] = incoming;
     state.unity = clamp01(state.unity - m.loyalty * 0.05);
     state.lastResignTurn = state.turn;
@@ -399,6 +400,7 @@
     if (state.capital < cost) return false;
     var outgoing = state.cabinet[post];
     state.capital -= cost;
+    cand.tenure = 0;                              // fresh in post
     state.cabinet[post] = cand;
     state.talentPool.splice(poolIndex, 1);
     state.talentPool.push(outgoing);
@@ -451,6 +453,7 @@
     if (g.energy < cost) return false;
     var outgoing = g.shadowCabinet[post];
     g.energy -= cost;
+    cand.tenure = 0;
     g.shadowCabinet[post] = cand;
     g.shadowPool.splice(poolIndex, 1);
     g.shadowPool.push(outgoing);
@@ -746,6 +749,10 @@
     state.turn += 1;
     state.month += 1;
     if (state.month > 12) { state.month = 1; state.year += 1; }
+    // bump each minister's tenure (in months) so the cabinet panel can show
+    // how long they've been at their post
+    if (state.cabinet) for (var _p in state.cabinet) if (state.cabinet[_p]) state.cabinet[_p].tenure = (state.cabinet[_p].tenure || 0) + 1;
+    if (state.shadowCabinet) for (var _sp in state.shadowCabinet) if (state.shadowCabinet[_sp]) state.shadowCabinet[_sp].tenure = (state.shadowCabinet[_sp].tenure || 0) + 1;
     recordHistory(state);
 
     var electionDue = state.turn >= TERM_TURNS;
@@ -1259,6 +1266,7 @@
     g.momentum *= Math.min(0.95, 0.7 + cb.decay);
     g.energy = Math.min(g.maxEnergy, g.energy + 2 + cb.energy);
     g.turn += 1; g.month += 1; if (g.month > 12) { g.month = 1; g.year += 1; }
+    if (g.shadowCabinet) for (var _sp2 in g.shadowCabinet) if (g.shadowCabinet[_sp2]) g.shadowCabinet[_sp2].tenure = (g.shadowCabinet[_sp2].tenure || 0) + 1;
     recordOppHistory(g);
     return { electionDue: g.turn >= TERM_TURNS };
   }

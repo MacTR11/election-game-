@@ -458,11 +458,13 @@
       var sCards = E.SHADOW_POSTS.map(function (post) {
         var m = g.shadowCabinet[post.id]; if (!m) return "";
         var perf = ministerPerf(m.competence);
+        var sTen = m.tenure || 0;
+        var sTenTxt = sTen === 0 ? "Just appointed" : sTen === 1 ? "1 month in role" : sTen + " months in role";
         return '<div class="min-card">' +
           '<div class="min-top"><div><div class="lab2">' + U.esc(post.title) + '</div>' +
           '<div class="min-name">' + U.esc(m.name) + '</div></div>' +
           '<button class="btn sm" data-shadowreshuffle="' + post.id + '"' + (g.energy < 3 ? " disabled" : "") + '>Reshuffle (3)</button></div>' +
-          '<div class="min-meta">' + stars(m.competence) + ' <span style="color:' + perf.col + '">' + perf.t + '</span></div>' +
+          '<div class="min-meta">' + stars(m.competence) + ' <span style="color:' + perf.col + '">' + perf.t + '</span><span class="min-tenure">· ' + sTenTxt + '</span></div>' +
           '<div class="min-trait">“' + U.esc(m.trait) + '” · ' + post.area + '</div></div>';
       }).join("");
       shadow = '<div class="panel" style="margin-top:16px"><h3>Your Shadow Cabinet</h3>' +
@@ -1292,11 +1294,13 @@
     var cards = E.CABINET_POSTS.map(function (post) {
       var m = g.cabinet[post.id]; if (!m) return "";
       var perf = ministerPerf(m.competence);
+      var tenure = m.tenure || 0;
+      var tenureTxt = tenure === 0 ? "Just appointed" : tenure === 1 ? "1 month in post" : tenure + " months in post";
       return '<div class="min-card">' +
         '<div class="min-top"><div><div class="lab2">' + U.esc(post.title) + '</div>' +
         '<div class="min-name">' + U.esc(m.name) + '</div></div>' +
         '<button class="btn sm" data-reshuffle="' + post.id + '"' + (g.capital < 2 ? " disabled" : "") + '>Reshuffle</button></div>' +
-        '<div class="min-meta">' + stars(m.competence) + ' <span style="color:' + perf.col + '">' + perf.t + '</span></div>' +
+        '<div class="min-meta">' + stars(m.competence) + ' <span style="color:' + perf.col + '">' + perf.t + '</span><span class="min-tenure">· ' + tenureTxt + '</span></div>' +
         '<div class="min-trait">“' + U.esc(m.trait) + '” · oversees ' + post.area + '</div></div>';
     }).join("");
     return '<div class="panel"><h3>Your Cabinet</h3>' +

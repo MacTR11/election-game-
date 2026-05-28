@@ -201,6 +201,7 @@ a { color: var(--commons-l); }
 .min-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .min-name { font-weight: 800; font-size: 15px; margin-top: 2px; }
 .min-meta { margin: 7px 0 4px; font-size: 13px; }
+.min-tenure { color: var(--ink-dim); font-size: 11.5px; margin-left: 6px; }
 .min-trait { font-size: 11.5px; color: var(--ink-dim); }
 .stars { color: var(--gold); letter-spacing: 1px; }
 .appoint-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
