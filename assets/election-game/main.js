@@ -25,6 +25,7 @@
     shadowReshufflePost: null,
     helpOpen: false,
     policyPending: {},   // { polId: pendingValue } — staged changes awaiting Confirm
+    statDetail: null,    // stat id whose cause-and-effect modal is open
     pledgeSel: [],
     campaign: null,
     byseat: null,
@@ -571,7 +572,7 @@
         '<br><span class="faint">Every figure here is a band, not a forecast — normal polling uncertainty.</span>' +
       '</div></div></div>';
 
-    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + helpModal() + endTurnFab(g);
+    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + helpModal() + statDetailModal() + endTurnFab(g);
   }
   function trend(cur, prev, goodHigh) {
     if (prev == null) return "";
@@ -831,13 +832,81 @@
 
     var rows = D.STATS.map(function (st) {
       var v = g.stats[st.id];
-      return '<div class="stat-row"><div class="name">' + st.name + '</div>' +
+      return '<div class="stat-row clickrow" data-statdetail="' + st.id + '" title="Click to see what\'s pushing this number"><div class="name">' + st.name + '</div>' +
         '<div class="statbar"><i style="width:' + (v * 100) + '%;background:' + U.statColor(st, v) + '"></i></div>' +
         '<div class="v">' + Math.round(v * 100) + '</div></div>';
     }).join("");
-    var services = '<div class="panel"><h3>State of the Nation (quality of services)</h3>' + rows +
-      '<p class="notice">These move with a lag and feed into each other — poor education drives crime, a strained NHS hits pensioners — and decay over time unless you invest.</p></div>';
+    var services = '<div class="panel"><h3>State of the Nation</h3>' + rows +
+      '<p class="notice">Click any line to see <b>what\'s pushing it</b> — the policy levers, cabinet performance and demographic pressure most responsible for where the number is right now.</p></div>';
     return chartPanel + budget + services;
+  }
+  // Compute the top influences on a stat right now: each policy whose lever
+  // has moved away from default, the cabinet bonus (if any), and the
+  // demographic / cost pressure drag baked into computeTargets.
+  function statInfluences(g, statId) {
+    var out = [];
+    D.POLICIES.forEach(function (pol) {
+      var k = pol.effects && pol.effects.stats && pol.effects.stats[statId];
+      if (!k) return;
+      var v = g.policies[pol.id], range = pol.max - pol.min;
+      var nv = range > 0 ? (v - pol.def) / range : 0;
+      var contribution = k * nv;
+      if (Math.abs(contribution) < 0.005) return;
+      out.push({ source: pol.name, icon: pol.icon, contribution: contribution,
+        detail: "Set to " + fmtPolicyVal(pol, v) + " (default " + fmtPolicyVal(pol, pol.def) + ")",
+        type: "policy", id: pol.id });
+    });
+    if (E.cabinetBonus) {
+      var cab = E.cabinetBonus(g);
+      if (cab && cab[statId] && Math.abs(cab[statId]) > 0.005) {
+        // identify the relevant minister
+        var post = null;
+        if (statId === "nhs") post = "health";
+        else if (statId === "education") post = "education";
+        else if (statId === "crime" || statId === "immigration") post = "home";
+        var minister = post && g.cabinet ? g.cabinet[post] : null;
+        out.push({ source: "Cabinet performance" + (minister ? " (" + minister.name + ")" : ""),
+          icon: "💼", contribution: cab[statId], detail: minister ? "Competence " + minister.competence + "/5" : "",
+          type: "cabinet" });
+      }
+    }
+    // pressure drag — coefficients lifted from computeTargets in engine.js
+    var pressureDrag = { nhs: -0.013, housing: -0.011, education: -0.008, crime: 0.008, immigration: 0.006 };
+    if (pressureDrag[statId] != null && (g.pressure || 0) > 0) {
+      var pd = pressureDrag[statId] * (g.pressure || 0);
+      if (Math.abs(pd) >= 0.005) out.push({ source: "Cost & demographic pressure", icon: "⏳",
+        contribution: pd, detail: "Services decay unless invested in", type: "pressure" });
+    }
+    out.sort(function (a, b) { return Math.abs(b.contribution) - Math.abs(a.contribution); });
+    return out;
+  }
+  function statDetailModal() {
+    var g = S.govern, id = S.statDetail; if (!id) return "";
+    var st = D.STATS.filter(function (s) { return s.id === id; })[0]; if (!st) return "";
+    var v = g.stats[id], pct = Math.round(v * 100);
+    var infl = statInfluences(g, id);
+    var maxMag = Math.max.apply(null, infl.map(function (i) { return Math.abs(i.contribution); }).concat([0.01]));
+    var rows = infl.length ? infl.map(function (it) {
+      var up = it.contribution > 0;
+      var good = up ? !statIsBadWhenHigh(id) : statIsBadWhenHigh(id);
+      var col = good ? "var(--good)" : "var(--bad)";
+      var w = Math.abs(it.contribution) / maxMag * 100;
+      return '<div class="cause-row">' +
+        '<div class="cause-ic">' + it.icon + '</div>' +
+        '<div class="cause-body">' +
+          '<div class="cause-name">' + U.esc(it.source) + '<small>' + U.esc(it.detail || "") + '</small></div>' +
+          '<div class="cause-bar"><i style="width:' + w + '%;background:' + col + '" data-side="' + (up ? "up" : "down") + '"></i></div>' +
+        '</div>' +
+        '<div class="cause-arrow" style="color:' + col + '">' + (up ? "▲" : "▼") + '</div></div>';
+    }).join("") : '<p class="muted" style="margin-top:8px">Nothing notable is pushing this stat right now — it\'s sitting near its baseline.</p>';
+    return '<div class="modal-overlay" data-closestat><div class="modal" style="max-width:560px">' +
+      '<div class="modal-tag">' + U.esc(st.name) + ' · what\'s driving it</div>' +
+      '<h2>' + U.esc(st.name) + ' · <b style="color:' + U.statColor(st, v) + '">' + pct + '</b></h2>' +
+      '<div class="cause-bar-big"><i style="width:' + (v * 100) + '%;background:' + U.statColor(st, v) + '"></i></div>' +
+      '<p class="muted" style="margin:10px 0 4px">The biggest forces pushing this number right now, ranked by current contribution. <span style="color:var(--good)">Green ▲</span> is moving it in a good direction, <span style="color:var(--bad)">red ▼</span> against you.</p>' +
+      '<div class="cause-list">' + rows + '</div>' +
+      '<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" data-act="closestat">Close</button></div>' +
+      '</div></div>';
   }
 
   function tabVoters() {
@@ -900,8 +969,38 @@
       moversPanel = '<div class="panel" style="margin-top:16px"><h3>Biggest Movers Since You Took Office</h3>' + rows +
         '<p class="notice">The voter groups whose mood has shifted most — these are the blocs your policies and decisions are reaching.</p></div>';
     }
+    // Per-region breakdown — who's winning where if an election were held today.
+    var live = E.seatRange ? E.seatRange(g) : E.runGeneralElection(g);
+    var regionPanel = "";
+    if (live.byRegion) {
+      var regionRows = live.byRegion.map(function (br) {
+        var seats = br.seats || {};
+        // sort parties present in this region's seat distribution
+        var keys = Object.keys(seats).filter(function (k) { return seats[k] > 0; })
+          .sort(function (a, b) { return seats[b] - seats[a]; });
+        var total = keys.reduce(function (a, k) { return a + seats[k]; }, 0) || br.region.seats;
+        var segs = keys.map(function (k) {
+          return '<i style="width:' + (seats[k] / total * 100).toFixed(2) + '%;background:' + U.pcolor(k) + '" title="' + U.pshort(k) + ' ' + seats[k] + '"></i>';
+        }).join("");
+        var top = keys.slice(0, 3).map(function (k) {
+          return '<span class="pill" style="background:' + U.pcolor(k) + '22;color:' + U.pcolor(k) + '">' + U.pshort(k) + ' ' + seats[k] + '</span>';
+        }).join(" ");
+        var mine = seats[g.party] || 0;
+        var lead = keys[0];
+        var leadCol = lead === g.party ? "var(--good)" : "var(--bad)";
+        return '<div class="region-row">' +
+          '<div class="region-name">' + U.esc(br.region.name) + '<small>' + br.region.seats + ' seats · you win <b style="color:' + leadCol + '">' + mine + '</b></small></div>' +
+          '<div class="region-bar">' + segs + '</div>' +
+          '<div class="region-pills">' + top + '</div>' +
+        '</div>';
+      }).join("");
+      regionPanel = '<div class="panel" style="margin-top:16px"><h3>Britain by Region · on today\'s projection</h3>' +
+        '<div class="region-list">' + regionRows + '</div>' +
+        '<p class="notice">Each bar shows the seat split inside that region right now. Click the Briefing tab for the full constituency map.</p></div>';
+    }
     return bubblePanel +
-      '<div class="panel"><h3>Voter Groups · ranked</h3><div class="group-grid">' + cells + '</div>' +
+      regionPanel +
+      '<div class="panel" style="margin-top:16px"><h3>Voter Groups · ranked</h3><div class="group-grid">' + cells + '</div>' +
       '<p class="notice">Groups overlap (a renter can also be a young environmentalist), so sizes do not sum to 100%.</p></div>' +
       moversPanel;
   }
@@ -1462,6 +1561,9 @@
     app.querySelectorAll("[data-poldetail]").forEach(function (el) {
       el.addEventListener("click", function () { S.policyDetail = el.getAttribute("data-poldetail"); render(); });
     });
+    app.querySelectorAll("[data-statdetail]").forEach(function (el) {
+      el.addEventListener("click", function () { S.statDetail = el.getAttribute("data-statdetail"); render(); });
+    });
     // inline ± stages a pending change — nothing is spent until Confirm
     app.querySelectorAll("[data-polnudge]").forEach(function (btn) {
       btn.addEventListener("click", function (ev) {
@@ -1639,6 +1741,7 @@
       case "closereshuffle": S.reshufflePost = null; render(); break;
       case "openhelp": S.helpOpen = true; render(); break;
       case "closehelp": S.helpOpen = false; render(); break;
+      case "closestat": S.statDetail = null; render(); break;
       case "cancelpending": S.policyPending = {}; render(); break;
       case "confirmpending": {
         var pending = S.policyPending || {};
@@ -1826,6 +1929,7 @@
       // Esc closes whichever modal is open
       if (e.key === "Escape") {
         if (S.helpOpen) { S.helpOpen = false; render(); e.preventDefault(); return; }
+        if (S.statDetail) { S.statDetail = null; render(); e.preventDefault(); return; }
         if (S.policyDetail) { S.policyDetail = null; render(); e.preventDefault(); return; }
         if (S.reshufflePost) { S.reshufflePost = null; render(); e.preventDefault(); return; }
         if (S.shadowReshufflePost) { S.shadowReshufflePost = null; render(); e.preventDefault(); return; }
@@ -1872,6 +1976,9 @@
       }
       if (e.target.hasAttribute && e.target.hasAttribute("data-closehelp")) {
         S.helpOpen = false; render(); return;
+      }
+      if (e.target.hasAttribute && e.target.hasAttribute("data-closestat")) {
+        S.statDetail = null; render(); return;
       }
       var seat = e.target.closest("[data-seat]");
       if (seat) {

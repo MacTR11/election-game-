@@ -344,6 +344,34 @@ kbd { display: inline-block; background: var(--bg-2); border: 1px solid var(--bo
 .bb-summary .lab2 { display: block; margin-bottom: 2px; }
 .bb-summary b { font-size: 17px; font-variant-numeric: tabular-nums; }
 .bb-toggle { cursor: pointer; color: var(--commons-l); font-size: 12.5px; font-weight: 600; }
+/* Cause-and-effect modal — what's pushing this stat */
+.stat-row.clickrow { cursor: pointer; transition: background .12s; }
+.stat-row.clickrow:hover { background: rgba(255,255,255,.03); }
+.cause-bar-big { height: 12px; border-radius: 6px; background: var(--bg-2); border: 1px solid var(--border); overflow: hidden; margin: 4px 0 6px; }
+.cause-bar-big i { display: block; height: 100%; }
+.cause-list { margin-top: 4px; }
+.cause-row { display: grid; grid-template-columns: 32px 1fr 22px; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.cause-row:last-child { border-bottom: 0; }
+.cause-ic { font-size: 19px; text-align: center; }
+.cause-name { font-size: 13.5px; font-weight: 700; }
+.cause-name small { display: block; color: var(--ink-dim); font-weight: 400; font-size: 11px; margin-top: 2px; }
+.cause-bar { height: 6px; border-radius: 4px; background: var(--bg-2); margin-top: 5px; overflow: hidden; }
+.cause-bar i { display: block; height: 100%; border-radius: 4px; }
+.cause-arrow { font-size: 18px; font-weight: 800; text-align: center; }
+/* Britain by Region — per-region seat breakdown */
+.region-list { display: grid; gap: 8px; }
+.region-row { display: grid; grid-template-columns: 1.4fr 1fr 1.4fr; gap: 12px; align-items: center; padding: 8px 10px;
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; }
+.region-name { font-size: 13px; font-weight: 700; }
+.region-name small { display: block; color: var(--ink-dim); font-weight: 400; font-size: 11px; margin-top: 2px; }
+.region-bar { display: flex; height: 14px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+.region-bar i { display: block; height: 100%; }
+.region-pills { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.region-pills .pill { font-size: 11px; padding: 2px 8px; }
+@media (max-width: 620px) {
+  .region-row { grid-template-columns: 1fr; gap: 6px; }
+  .region-pills { justify-content: flex-start; }
+}
 @media (max-width: 620px) {
   .vbubble-grid { gap: 8px; }
   .vbubble-pct { font-size: 16px; }
