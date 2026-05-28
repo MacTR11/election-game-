@@ -239,6 +239,14 @@ a { color: var(--commons-l); }
 .flip-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .flip-row:last-child { border-bottom: 0; }
 .flip-seat { font-weight: 600; }
+@media (max-width: 620px) {
+  .election-hero { padding: 14px 16px; }
+  .election-hero .verdict { font-size: 24px; }
+  .election-hero .hero-stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .election-hero .big { font-size: 22px; }
+  .modal { padding: 14px 16px; max-width: 96vw; }
+  .modal h2 { font-size: 18px; }
+}
 
 /* economy charts */
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }

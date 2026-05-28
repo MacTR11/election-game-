@@ -900,6 +900,34 @@
   }
 
   // =====================================================================
+  // MILESTONES — small celebratory achievements when the country hits a
+  // notable threshold. Each one fires at most once per game.
+  // =====================================================================
+  var MILESTONES = [
+    { id: "books",     name: "🏆 Books Balanced",      cond: function (s) { return s.macro.deficit < 50; } },
+    { id: "debtdown",  name: "🏆 Debt Falling",        cond: function (s) { return s.macro.debtPct < 90; } },
+    { id: "nhsfix",    name: "🏆 NHS Revived",         cond: function (s) { return s.stats.nhs > 0.65; } },
+    { id: "homes",     name: "🏆 Building Boom",       cond: function (s) { return s.stats.housing > 0.6; } },
+    { id: "jobs",      name: "🏆 Full Employment",     cond: function (s) { return s.macro.unemployment < 3.5; } },
+    { id: "crime",     name: "🏆 Streets Safe Again",  cond: function (s) { return s.stats.crime < 0.3; } },
+    { id: "schools",   name: "🏆 Schools Flourishing", cond: function (s) { return s.stats.education > 0.65; } },
+    { id: "green",     name: "🏆 Climate Leader",      cond: function (s) { return s.stats.environment > 0.7; } },
+    { id: "equal",     name: "🏆 Fair Country",        cond: function (s) { return s.stats.equality > 0.65; } },
+    { id: "twoterms",  name: "🏆 Re-elected!",         cond: function (s) { return s.termsWon >= 2; } },
+    { id: "threeterms",name: "🏆 Three-Term PM",       cond: function (s) { return s.termsWon >= 3; } }
+  ];
+  function checkMilestones(state) {
+    state.milestones = state.milestones || [];
+    var fired = [];
+    for (var i = 0; i < MILESTONES.length; i++) {
+      var m = MILESTONES[i];
+      if (state.milestones.indexOf(m.id) >= 0) continue;
+      if (m.cond(state)) { state.milestones.push(m.id); fired.push(m.name); }
+    }
+    return fired;
+  }
+
+  // =====================================================================
   // NEWS HEADLINES — pick a handful of headlines reflecting today's state of
   // the country. Deterministic by turn so the briefing is stable on re-render.
   // =====================================================================
@@ -1182,6 +1210,8 @@
     applyElectionResult: applyElectionResult,
     runLocalElections: runLocalElections,
     runByElection: runByElection,
+    checkMilestones: checkMilestones,
+    MILESTONES: MILESTONES,
     reshuffleCabinet: reshuffleCabinet,
     cabinetBonus: cabinetBonus,
     CABINET_POSTS: CABINET_POSTS,

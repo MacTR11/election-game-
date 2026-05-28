@@ -77,6 +77,7 @@
         cabinet: g.cabinet, talentPool: g.talentPool,
         shadowCabinet: g.shadowCabinet, shadowPool: g.shadowPool, regionEffort: g.regionEffort,
         activeCrisis: g.activeCrisis, crisisHistory: g.crisisHistory,
+        milestones: g.milestones, promoteCount: g.promoteCount,
         oppShare: g.oppShare, govApproval: g.govApproval, energy: g.energy, maxEnergy: g.maxEnergy,
         momentum: g.momentum, oppHistory: g.oppHistory,
         pendingDilemma: g.pendingDilemma ? g.pendingDilemma.id : null,
@@ -108,6 +109,8 @@
       if (s.regionEffort) g.regionEffort = s.regionEffort;
       if (s.activeCrisis) g.activeCrisis = s.activeCrisis;
       if (s.crisisHistory) g.crisisHistory = s.crisisHistory;
+      if (s.milestones) g.milestones = s.milestones;
+      if (s.promoteCount) g.promoteCount = s.promoteCount;
       g.dilemmaHistory = s.dilemmaHistory || [];
       g.history = s.history && s.history.length ? s.history : g.history;
       if (opp) { g.oppHistory = s.oppHistory && s.oppHistory.length ? s.oppHistory : g.oppHistory; }
@@ -882,7 +885,15 @@
       ? '<div class="panel news-panel" style="margin-bottom:16px"><h3>📰 Today\'s Headlines</h3>' +
           '<ul class="news-list">' + heads.map(function (h) { return '<li>' + U.esc(h) + '</li>'; }).join("") + '</ul></div>'
       : "";
-    return crisisBanner + headPanel + '<div class="panel" style="margin-bottom:16px"><h3>Cabinet Briefing</h3>' +
+    var milesPanel = "";
+    if (g.milestones && g.milestones.length) {
+      var ms = g.milestones.map(function (id) {
+        var def = (window.UKGAME.ENGINE.MILESTONES || []).filter(function (x) { return x.id === id; })[0];
+        return def ? '<span class="pill" style="background:rgba(201,162,39,.18);color:var(--gold);font-weight:800">' + U.esc(def.name) + '</span>' : "";
+      }).join(" ");
+      milesPanel = '<div class="panel" style="margin-bottom:16px"><h3>Milestones Achieved</h3><div style="display:flex;gap:6px;flex-wrap:wrap">' + ms + '</div></div>';
+    }
+    return crisisBanner + headPanel + milesPanel + '<div class="panel" style="margin-bottom:16px"><h3>Cabinet Briefing</h3>' +
       '<p>' + mood + ' ' + fin + ' On today\'s numbers you would ' +
       (live.won ? govType + " (" + live.playerSeats + " seats)" : "lose office, falling to " + live.playerSeats + " seats") + '.</p></div>' +
       '<div class="panel" style="margin-bottom:16px"><h3>Manifesto Pledges</h3>' + pledges +
@@ -1270,6 +1281,8 @@
           if (res.midterm === "local") E.runLocalElections(g); else E.runByElection(g);
           go("midterm"); return;
         }
+        var newMiles = E.checkMilestones(g);
+        if (newMiles.length) setTimeout(function () { toast(newMiles[0] + " achieved!"); }, 250);
         render();
         if (g.leadershipChallenge === "survived") toast("You survived a leadership challenge — for now.");
         else if (!g.pendingDilemma) toast("Month ended — " + dateLabel(g));
