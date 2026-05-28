@@ -2399,7 +2399,10 @@
     bindPolicySliders();
 
     // first paint of the live simulator results panel
-    if (S.screen === "simulator") { var sr = $("#sim-results"); if (sr) sr.innerHTML = simResults(); }
+    if (S.screen === "simulator") {
+      var sr = $("#sim-results"); if (sr) sr.innerHTML = simResults();
+      bindSeatsExplorer(); // wire the just-rendered explorer controls
+    }
   }
 
   function refreshShareResults() {
@@ -2864,7 +2867,7 @@
       var seat = e.target.closest("[data-seat]");
       if (seat) {
         S.selectedSeat = seat.getAttribute("data-seat");
-        if (S.screen === "simulator") $("#sim-results").innerHTML = simResults();
+        if (S.screen === "simulator") { $("#sim-results").innerHTML = simResults(); bindSeatsExplorer(); }
         else if (S.screen === "election" || S.screen === "midterm") render();
       }
     });
