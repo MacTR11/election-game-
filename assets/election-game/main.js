@@ -25,6 +25,8 @@
     reshufflePost: null,
     shadowReshufflePost: null,
     policyPending: {},   // { polId: pendingValue } — staged changes awaiting Confirm
+    pendingVote: null,   // { source: 'bulk'|'single', polId, newVal, totalCost, billTitle } awaiting a Commons vote
+    lastVoteResult: null, // { passed, prob, billTitle } shown to the player after a vote
     statDetail: null,    // stat id whose cause-and-effect modal is open
     groupDetail: null,   // voter group id whose modal is open
     compareA: "approval",
@@ -87,6 +89,7 @@
         scheduledFiredYear: g.scheduledFiredYear,
         oppositionLeader: g.oppositionLeader,
         persona: g.persona,
+        voteRecord: g.voteRecord,
         milestones: g.milestones, promoteCount: g.promoteCount,
         oppShare: g.oppShare, govApproval: g.govApproval, energy: g.energy, maxEnergy: g.maxEnergy,
         momentum: g.momentum, oppHistory: g.oppHistory,
@@ -122,6 +125,7 @@
       if (s.scheduledFiredYear) g.scheduledFiredYear = s.scheduledFiredYear;
       if (s.oppositionLeader) g.oppositionLeader = s.oppositionLeader;
       if (s.persona) g.persona = s.persona;
+      if (s.voteRecord) g.voteRecord = s.voteRecord;
       if (s.milestones) g.milestones = s.milestones;
       if (s.promoteCount) g.promoteCount = s.promoteCount;
       g.dilemmaHistory = s.dilemmaHistory || [];
@@ -632,7 +636,7 @@
         '<br><span class="faint">Every figure here is a band, not a forecast — normal polling uncertainty.</span>' +
       '</div></div></div>';
 
-    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + statDetailModal() + groupDetailModal() + endTurnFab(g);
+    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + statDetailModal() + groupDetailModal() + commonsVoteModal() + voteResultModal() + endTurnFab(g);
   }
   function trend(cur, prev, goodHigh) {
     if (prev == null) return "";
@@ -641,6 +645,56 @@
     var up = d > 0, good = goodHigh ? up : !up;
     return ' <span style="font-size:12px;color:' + (good ? "var(--good)" : "var(--bad)") + '">' + (up ? "▲" : "▼") + "</span>";
   }
+  // Commons Vote modal — shown when a bill above E.VOTE_THRESHOLD is queued.
+  // Lets the player whip hard (extra capital), push it as-is, or withdraw.
+  function commonsVoteModal() {
+    var g = S.govern, pv = S.pendingVote; if (!pv || !g) return "";
+    var probBase = E.computeVoteOdds(g, pv.totalCost, false) * 100;
+    var probWhipped = E.computeVoteOdds(g, pv.totalCost, true) * 100;
+    var canWhip = (g.capital - pv.totalCost) >= 2;
+    var probLabel = function (p) {
+      if (p > 75) return '<span style="color:var(--good)">Comfortable</span>';
+      if (p > 60) return '<span style="color:var(--good)">Likely</span>';
+      if (p > 45) return '<span style="color:var(--warn)">Knife-edge</span>';
+      if (p > 30) return '<span style="color:var(--bad)">Unlikely</span>';
+      return '<span style="color:var(--bad)">Long shot</span>';
+    };
+    var whipBtn = '<button class="dilemma-opt" data-act="votewhip"' + (canWhip ? "" : " disabled") +
+      '><b>🥃 Whip the vote hard <span class="faint" style="font-weight:500">· +2 ⚡</span></b>' +
+      '<span>Late-night calls, marginal seats, deputy whips on the phones. Pass odds <b>' + probWhipped.toFixed(0) + '%</b> (' + probLabel(probWhipped) + ').' +
+      (canWhip ? "" : " <i>Not enough capital — need 2 spare.</i>") + '</span></button>';
+    var pushBtn = '<button class="dilemma-opt" data-act="votepush"><b>📣 Push it through</b>' +
+      '<span>Trust your majority and the front bench. Pass odds <b>' + probBase.toFixed(0) + '%</b> (' + probLabel(probBase) + ').</span></button>';
+    var withdrawBtn = '<button class="dilemma-opt" data-act="votewithdraw"><b>📕 Withdraw the bill</b>' +
+      '<span>Pull it before the vote. No capital wasted, but the back benches notice the climb-down.</span></button>';
+    var defeatCost = Math.max(1, Math.round(pv.totalCost * 0.4));
+    return '<div class="modal-overlay"><div class="modal commons-vote">' +
+      '<div class="modal-tag" style="color:var(--gold)">🏛 Commons Vote · ' + U.esc(pv.billTitle) + '</div>' +
+      '<h2>The whips need a steer</h2>' +
+      '<p class="muted" style="margin-bottom:6px">A bill of this size needs a Commons vote. Party unity is <b>' + Math.round(g.unity * 100) + '%</b>; your Chief Whip is ' +
+      (g.cabinet && g.cabinet.chair ? '<b>' + U.esc(g.cabinet.chair.name) + '</b>' : 'unassigned') + '.</p>' +
+      '<p class="muted" style="margin-bottom:14px">Cost to pass: <b>' + pv.totalCost + ' ⚡</b>. If the vote fails you forfeit <b>' + defeatCost + ' ⚡</b> and unity slumps.</p>' +
+      '<div class="dilemma-opts">' + whipBtn + pushBtn + withdrawBtn + '</div>' +
+      '</div></div>';
+  }
+  // Post-vote result modal — passes/fails are shown with a short verdict.
+  function voteResultModal() {
+    var r = S.lastVoteResult; if (!r) return "";
+    var label = r.passed ? "Bill passed" : "Bill defeated";
+    var col = r.passed ? "var(--good)" : "var(--bad)";
+    var verdict = r.passed
+      ? (r.whipped ? "The whips got it home, just." : "Cleared the lobbies cleanly.")
+      : (r.whipped ? "Even a hard whip couldn't deliver. Brutal headlines incoming." : "The bill is dead. The back benches noticed.");
+    return '<div class="modal-overlay"><div class="modal" style="max-width:380px">' +
+      '<div class="modal-tag" style="color:' + col + '">🏛 ' + label + '</div>' +
+      '<h2 style="color:' + col + '">' + (r.passed ? "Ayes have it" : "Government defeated") + '</h2>' +
+      '<p>' + U.esc(verdict) + '</p>' +
+      '<p class="muted" style="font-size:12px">' + U.esc(r.billTitle) + ' · projected pass odds were ' + Math.round(r.prob * 100) + '%.</p>' +
+      '<div class="row" style="justify-content:flex-end;margin-top:10px">' +
+      '<button class="btn primary" data-act="closevoteresult">Continue</button></div>' +
+      '</div></div>';
+  }
+
   function dilemmaModal() {
     var g = S.govern, d = g.pendingDilemma;
     if (!d) return "";
@@ -1277,6 +1331,27 @@
       });
     });
   }
+  // Apply a batch of pending policy changes, spending capital and triggering
+  // any minister resignations. Shared by the small-bill confirm path and the
+  // post-vote "bill passes" path.
+  function applyPolicyBatch(pendingObj, totalCost) {
+    var g = S.govern; if (!g || !pendingObj) return;
+    var ids = Object.keys(pendingObj); if (!ids.length) return;
+    var hard = g.difficulty && g.difficulty.id === "hard";
+    var resignedAny = null;
+    ids.forEach(function (pid) {
+      var pp = D.POLICIES.filter(function (x) { return x.id === pid; })[0]; if (!pp) return;
+      var cost = E.changeCost(pp, g.policies[pid], pendingObj[pid]);
+      g.capital -= cost;
+      g.policies[pid] = pendingObj[pid];
+      var r = E.maybeMinisterResign(g, pid, cost); if (r && !resignedAny) resignedAny = r;
+    });
+    S.policyPending = {};
+    E.computeFiscal(g);
+    render(); flashKpis();
+    if (!hard) toast("Confirmed " + ids.length + " change" + (ids.length === 1 ? "" : "s") + " · spent " + totalCost + " ⚡");
+    if (resignedAny) setTimeout(function () { toast("💼 " + resignedAny.outgoing.name + " resigns in protest — " + resignedAny.incoming.name + " takes the brief.", 4200); }, 250);
+  }
   // Compact pledge tracker for the sidebar so the player doesn't have to
   // switch to the Briefing tab to see how the manifesto is going.
   function pledgesMini(g) {
@@ -1293,7 +1368,7 @@
   function endTurnFab(g) {
     // Don't render the FAB at all while a modal is open — it would just sit
     // disabled and overlap the modal's controls.
-    if (g.pendingDilemma || S.policyDetail || S.reshufflePost || S.shadowReshufflePost || S.selectedSeat || S.statDetail || S.groupDetail) return "";
+    if (g.pendingDilemma || S.policyDetail || S.reshufflePost || S.shadowReshufflePost || S.selectedSeat || S.statDetail || S.groupDetail || S.pendingVote || S.lastVoteResult) return "";
     var disabled = g.gameOver;
     return '<div class="fab-cluster">' +
       '<button class="fab-endturn" data-act="endturn"' + (disabled ? " disabled" : "") + ' title="End the month — ' + U.esc(dateLabel(g)) + '">' +
@@ -1467,6 +1542,7 @@
       '<p class="notice">Keeping your pledges by the next election earns a trust dividend at the ballot box; breaking them costs you.</p></div>' +
       '<div class="panel" style="margin-bottom:16px"><h3>In the In-Tray</h3>' + events + '</div>' +
       initiativesPanel(g) +
+      voteRecordPanel(g) +
       decisionsJournal(g) +
       politicalCompass(g) +
       '<div class="panel"><h3>Electoral Map — if an election were held today</h3>' +
@@ -1496,6 +1572,23 @@
     return '<div class="panel" style="margin-bottom:16px"><h3>PM\'s Initiatives <small style="font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px">' + headerNote + '</small></h3>' +
       '<div class="init-grid">' + cards + '</div>' +
       '<p class="notice">Set the agenda — speeches, tours, meetings. Each one costs political capital and lands an immediate effect plus a headline. One per month.</p></div>';
+  }
+  // Commons voting record — shown only once the player has fought at least one
+  // whipped vote. Pass / defeat tally + the pass rate as a confidence reading.
+  function voteRecordPanel(g) {
+    var vr = g.voteRecord; if (!vr || (vr.passed + vr.failed) === 0) return "";
+    var total = vr.passed + vr.failed;
+    var rate = Math.round(vr.passed / total * 100);
+    var col = rate >= 75 ? "var(--good)" : rate >= 50 ? "var(--warn)" : "var(--bad)";
+    var verdict = rate >= 80 ? "The whips have it in hand."
+      : rate >= 60 ? "Mostly delivering — but the back benches are a force."
+      : rate >= 40 ? "Trouble in the lobbies. The Chief Whip is sweating."
+      : "A government that can't whip — defeat after defeat.";
+    return '<div class="panel" style="margin-bottom:16px"><h3>🏛 Commons voting record</h3>' +
+      '<div style="display:flex;gap:14px;align-items:baseline;margin-bottom:6px"><div><b style="font-size:22px;color:var(--good)">' + vr.passed + '</b> <span class="faint">passed</span></div>' +
+      '<div><b style="font-size:22px;color:var(--bad)">' + vr.failed + '</b> <span class="faint">defeated</span></div>' +
+      '<div><b style="font-size:22px;color:' + col + '">' + rate + '%</b> <span class="faint">whip rate</span></div></div>' +
+      '<p class="muted" style="margin:0;font-size:12.5px">' + U.esc(verdict) + '</p></div>';
   }
   function decisionsJournal(g) {
     var log = (g.decisionLog || []).slice().reverse();
@@ -1911,9 +2004,14 @@
         var cost = E.changeCost(pol, oldVal, newVal);
         if (newVal === oldVal) return;
         if (cost > g.capital) { toast("Not enough political capital."); return; }
+        // Big single-policy moves go through a Commons vote too
+        if (cost >= E.VOTE_THRESHOLD) {
+          S.pendingVote = { source: "single", polId: id, newVal: newVal, totalCost: cost, billTitle: pol.name + " Bill" };
+          S.policyDetail = null; // close the policy detail modal under the vote modal
+          render(); return;
+        }
         g.capital -= cost;
         g.policies[id] = newVal;
-        // Clear any conflicting pending nudge for this lever and refresh fiscal
         if (S.policyPending && S.policyPending[id] != null) delete S.policyPending[id];
         E.computeFiscal(g);
         var resigned = E.maybeMinisterResign(g, id, cost);
@@ -2188,23 +2286,55 @@
           totalCost += E.changeCost(pp, g.policies[pid], pending[pid]);
         });
         if (totalCost > g.capital) { toast("Not enough political capital."); return; }
-        var hard = g.difficulty && g.difficulty.id === "hard";
-        var resignedAny = null;
-        ids.forEach(function (pid) {
-          var pp = D.POLICIES.filter(function (x) { return x.id === pid; })[0]; if (!pp) return;
-          var cost = E.changeCost(pp, g.policies[pid], pending[pid]);
-          g.capital -= cost;
-          g.policies[pid] = pending[pid];
-          var r = E.maybeMinisterResign(g, pid, cost); if (r && !resignedAny) resignedAny = r;
-        });
-        S.policyPending = {};
-        // refresh fiscal so deficit / receipts / spending KPIs update immediately
-        E.computeFiscal(g);
-        render(); flashKpis();
-        if (!hard) toast("Confirmed " + ids.length + " change" + (ids.length === 1 ? "" : "s") + " · spent " + totalCost + " ⚡");
-        if (resignedAny) setTimeout(function () { toast("💼 " + resignedAny.outgoing.name + " resigns in protest — " + resignedAny.incoming.name + " takes the brief.", 4200); }, 250);
+        // Big bills face a Commons vote (intercept before we spend / apply)
+        if (totalCost >= E.VOTE_THRESHOLD) {
+          var billTitle = ids.length === 1
+            ? (D.POLICIES.filter(function (x) { return x.id === ids[0]; })[0] || {}).name || "the Bill"
+            : ids.length + "-clause Bill";
+          S.pendingVote = { source: "bulk", totalCost: totalCost, billTitle: billTitle };
+          render(); break;
+        }
+        applyPolicyBatch(pending, totalCost);
         break;
       }
+      case "votewhip": case "votepush": {
+        var pv = S.pendingVote; if (!pv) return;
+        var extraWhip = act === "votewhip";
+        if (extraWhip && (g.capital - pv.totalCost) < 2) { toast("Not enough capital to whip — need an extra 2."); return; }
+        // Roll the dice
+        var res = E.resolveCommonsVote(g, pv.totalCost, extraWhip);
+        var pendingObj = pv.source === "bulk" ? S.policyPending : null;
+        var ids2 = pendingObj ? Object.keys(pendingObj) : (pv.polId ? [pv.polId] : []);
+        if (res.passed) {
+          if (pv.source === "bulk") applyPolicyBatch(pendingObj, pv.totalCost);
+          else applyPolicyBatch((function () { var m = {}; m[pv.polId] = pv.newVal; return m; })(), pv.totalCost);
+        } else {
+          // bill defeated: forfeit the staked capital (the whipping effort itself
+          // has been spent) but DON'T move the policy lever or charge the bill
+          // price — Commons defeats are humiliating, not free.
+          g.capital = Math.max(0, g.capital - Math.max(1, Math.round(pv.totalCost * 0.4)));
+          S.policyPending = {}; // clear the bill — it's dead
+          // record a "defeat" in the decision log so the briefing shows it
+          g.decisionLog = g.decisionLog || [];
+          g.decisionLog.push({ id: "vote-defeat-" + g.turn, title: "Commons defeat: " + pv.billTitle,
+            optionLabel: extraWhip ? "Whipped hard — and lost" : "Pushed the vote — and lost",
+            result: "The whips couldn't deliver. The bill is dead and the lobby is brutal.",
+            year: g.year, month: g.month, isPmq: false, isCrisis: false });
+          if (g.decisionLog.length > 30) g.decisionLog.shift();
+        }
+        S.lastVoteResult = { passed: res.passed, prob: res.prob, billTitle: pv.billTitle, whipped: extraWhip };
+        S.pendingVote = null;
+        render();
+        break;
+      }
+      case "votewithdraw": {
+        // No capital cost — the bill never reached the chamber.
+        if (S.pendingVote && S.pendingVote.source === "bulk") S.policyPending = {};
+        S.pendingVote = null;
+        toast("Bill withdrawn.");
+        render(); break;
+      }
+      case "closevoteresult": S.lastVoteResult = null; render(); break;
       case "closeshadowreshuffle": S.shadowReshufflePost = null; render(); break;
       case "continuesave": if (loadGame()) go(S.loadedRole === "opposition" ? "opposition" : "govern"); break;
       case "discardsave": clearSave(); render(); break;
@@ -2326,6 +2456,8 @@
     // Esc closes whichever modal is open (standard browser-friendly UX).
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;
+      if (S.lastVoteResult) { S.lastVoteResult = null; render(); e.preventDefault(); return; }
+      if (S.pendingVote) { /* don't allow Esc on the vote modal — it's a decision; the player must pick Whip/Push/Withdraw */ e.preventDefault(); return; }
       if (S.groupDetail) { S.groupDetail = null; render(); e.preventDefault(); return; }
       if (S.statDetail) { S.statDetail = null; render(); e.preventDefault(); return; }
       if (S.policyDetail) { S.policyDetail = null; render(); e.preventDefault(); return; }

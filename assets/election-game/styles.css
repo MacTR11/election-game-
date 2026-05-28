@@ -625,6 +625,7 @@ select.sel { background: var(--bg-2); color: var(--ink); border: 1px solid var(-
   max-width: 560px; width: 100%; padding: 22px; max-height: 90vh; overflow-y: auto;
 }
 .modal .modal-tag { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); font-weight: 800; }
+.modal.commons-vote { border-top: 4px solid var(--gold); }
 .modal h2 { margin: 8px 0 8px; font-size: 22px; }
 .modal p { margin: 0 0 16px; font-size: 14px; }
 .dilemma-opts { display: grid; gap: 10px; }

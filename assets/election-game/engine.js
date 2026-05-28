@@ -1123,6 +1123,48 @@
     return Math.max(1, Math.round(frac * 14));
   }
 
+  // ---------------------------------------------------------------------------
+  // COMMONS VOTES — for big bills (total capital cost above VOTE_THRESHOLD),
+  // the player has to whip a Commons vote. Pass probability is shaped by party
+  // unity, the Chief Whip's competence, the player's persona, the size of the
+  // bill, and whether the player chose to whip hard (an extra capital spend).
+  // A defeat costs unity and discontent and writes a "defeated" entry to the
+  // record; a win nudges unity up by a hair.
+  // ---------------------------------------------------------------------------
+  var VOTE_THRESHOLD = 5; // bills costing fewer than this many capital don't need a vote
+  function computeVoteOdds(state, costStaked, extraWhip) {
+    var unity = state.unity == null ? 0.5 : state.unity;
+    var p = 0.58 + 0.34 * (unity - 0.5);
+    var personaBump = { unifier: 0.10, statesman: 0.05, technocrat: 0.03,
+                        populist: 0.0, firebrand: -0.05, reformer: -0.08 };
+    if (state.persona && personaBump[state.persona.id] != null) p += personaBump[state.persona.id];
+    // Chief Whip is bundled into the Party Chair post — competence matters.
+    if (state.cabinet && state.cabinet.chair && state.cabinet.chair.competence != null) {
+      p += (state.cabinet.chair.competence - 3) * 0.045;
+    }
+    // controversy: bills above the threshold get harder fast
+    p -= Math.max(0, costStaked - VOTE_THRESHOLD) * 0.035;
+    if (extraWhip) p += 0.20;
+    if (p < 0.05) p = 0.05; if (p > 0.95) p = 0.95;
+    return p;
+  }
+  // Resolve a Commons vote. Returns {passed, prob, roll}. The capital staked
+  // is NOT deducted here — the caller already did that for a passing bill, or
+  // forfeits it on a defeat. Extra-whip cost (2) IS deducted here.
+  function resolveCommonsVote(state, costStaked, extraWhip) {
+    var prob = computeVoteOdds(state, costStaked, extraWhip);
+    var roll = Math.random(), passed = roll < prob;
+    state.voteRecord = state.voteRecord || { passed: 0, failed: 0 };
+    if (passed) state.voteRecord.passed += 1; else state.voteRecord.failed += 1;
+    if (extraWhip) state.capital = Math.max(0, state.capital - 2);
+    if (passed) state.unity = clamp01((state.unity || 0.5) + 0.015);
+    else {
+      state.unity = clamp01((state.unity || 0.5) - 0.06);
+      state.discontent = (state.discontent || 0) + 0.5;
+    }
+    return { passed: passed, prob: prob, roll: roll };
+  }
+
   // Political capital regenerated each month: a popular, united government gets
   // more done; an unpopular, divided one is paralysed.
   function capitalRegen(state) {
@@ -1630,6 +1672,9 @@
     generateHeadlines: generateHeadlines,
     changeCost: changeCost,
     capitalRegen: capitalRegen,
+    VOTE_THRESHOLD: VOTE_THRESHOLD,
+    computeVoteOdds: computeVoteOdds,
+    resolveCommonsVote: resolveCommonsVote,
     maxCapitalFor: maxCapitalFor,
     campaignBoost: campaignBoost,
     campaignAdj: campaignAdj,
