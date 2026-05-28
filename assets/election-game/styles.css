@@ -424,6 +424,24 @@ svg.dualchart { width: 100%; height: 150px; display: block; }
   .tr-dec-row { grid-template-columns: 1fr; gap: 2px; }
   .tr-dec-date { padding-top: 0; }
 }
+/* PM Initiatives — proactive monthly actions */
+.init-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.init-card { text-align: left; background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; cursor: pointer; color: var(--ink); display: flex; flex-direction: column; gap: 4px;
+  transition: border-color .15s, transform .12s; }
+.init-card:hover:not(:disabled) { border-color: var(--gold); transform: translateY(-1px); }
+.init-card:active:not(:disabled) { transform: translateY(0); }
+.init-card.off, .init-card:disabled { opacity: .42; cursor: not-allowed; }
+.init-head { display: flex; justify-content: space-between; align-items: center; }
+.init-icon { font-size: 22px; }
+.init-cost { font-size: 11px; font-weight: 800; background: rgba(201,162,39,0.18); color: var(--gold);
+  padding: 2px 8px; border-radius: 999px; }
+.init-name { font-weight: 800; font-size: 13.5px; }
+.init-desc { font-size: 12px; color: var(--ink-dim); line-height: 1.35; }
+.init-warn { font-size: 11px; color: var(--bad); margin-top: 4px; font-weight: 700; }
+.init-status { font-size: 11.5px; letter-spacing: .3px; text-transform: none; }
+.init-status.ready { color: var(--commons-l); }
+.init-status.used { color: var(--gold); }
 /* Decisions journal */
 .dj-list { display: flex; flex-direction: column; gap: 10px; }
 .dj-row { padding: 10px 12px; background: var(--bg-2); border: 1px solid var(--border); border-left: 3px solid var(--commons-l); border-radius: 8px; }

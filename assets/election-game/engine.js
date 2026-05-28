@@ -1033,6 +1033,57 @@
     { id: "twoterms",  name: "🏆 Re-elected!",         cond: function (s) { return s.termsWon >= 2; } },
     { id: "threeterms",name: "🏆 Three-Term PM",       cond: function (s) { return s.termsWon >= 3; } }
   ];
+  // PM INITIATIVES — proactive monthly actions. One per month (gated by turn).
+  function usePMInitiative(state, id) {
+    var INIT = D.INITIATIVES || [];
+    var it = null;
+    for (var i = 0; i < INIT.length; i++) if (INIT[i].id === id) { it = INIT[i]; break; }
+    if (!it) return { ok: false, why: "Unknown initiative" };
+    if (state.initiativeUsedTurn === state.turn) return { ok: false, why: "You've already used this month's initiative." };
+    if ((state.capital || 0) < it.cost) return { ok: false, why: "Not enough political capital." };
+    state.capital -= it.cost;
+    state.initiativeUsedTurn = state.turn;
+    // primary effects
+    var e = it.effects || {}, key;
+    if (e.unity != null) state.unity = clamp01(state.unity + e.unity);
+    if (e.macro) for (key in e.macro) if (state.macro[key] != null) state.macro[key] += e.macro[key];
+    if (e.stats) for (key in e.stats) if (state.stats[key] != null) state.stats[key] = clamp01(state.stats[key] + e.stats[key]);
+    if (e.groups) for (key in e.groups) if (state.groups[key] != null) state.groups[key] = clamp01(state.groups[key] + e.groups[key]);
+    if (e.all != null) for (key in state.groups) state.groups[key] = clamp01(state.groups[key] + e.all);
+    // gaffe chance (TV interview)
+    var gaffed = false;
+    if (it.gaffeChance && Math.random() < it.gaffeChance && it.gaffeEffects) {
+      gaffed = true;
+      var ge = it.gaffeEffects;
+      if (ge.unity != null) state.unity = clamp01(state.unity + ge.unity);
+      if (ge.all != null) for (key in state.groups) state.groups[key] = clamp01(state.groups[key] + ge.all);
+      if (ge.groups) for (key in ge.groups) if (state.groups[key] != null) state.groups[key] = clamp01(state.groups[key] + ge.groups[key]);
+    }
+    // cabinet performance boost for Whitehall reset
+    if (it.cabinetBoost && state.cabinet) {
+      var posts = Object.keys(state.cabinet);
+      var pick = state.cabinet[posts[Math.floor(Math.random() * posts.length)]];
+      if (pick) pick.competence = Math.min(5, pick.competence + 1);
+    }
+    state.approval = computeApproval(state);
+    state.decisionLog = state.decisionLog || [];
+    state.decisionLog.push({ id: "init-" + it.id, title: it.name, optionLabel: gaffed ? "Took the initiative — and it backfired" : "Took the initiative",
+      result: gaffed ? "A bad week of headlines undid much of the goodwill." : it.headline || "",
+      year: state.year, month: state.month, isPmq: false, isCrisis: false });
+    if (state.decisionLog.length > 30) state.decisionLog.shift();
+    return { ok: true, gaffed: gaffed, headline: it.headline };
+  }
+  // Pick a random flavour event (or nothing) each month — pure atmosphere.
+  function pickFlavour(state) {
+    if (Math.random() > 0.40) return null;             // 40% chance of a flavour event
+    var L = D.FLAVOUR || []; if (!L.length) return null;
+    var f = L[Math.floor(Math.random() * L.length)];
+    if (f.effect) {
+      if (f.effect.unity != null) state.unity = clamp01(state.unity + f.effect.unity);
+      if (f.effect.all != null) for (var key in state.groups) state.groups[key] = clamp01(state.groups[key] + f.effect.all);
+    }
+    return f;
+  }
   function checkMilestones(state) {
     state.milestones = state.milestones || [];
     var fired = [];
@@ -1330,6 +1381,8 @@
     runLocalElections: runLocalElections,
     runByElection: runByElection,
     checkMilestones: checkMilestones,
+    usePMInitiative: usePMInitiative,
+    pickFlavour: pickFlavour,
     MILESTONES: MILESTONES,
     reshuffleCabinet: reshuffleCabinet,
     maybeMinisterResign: maybeMinisterResign,

@@ -1229,6 +1229,70 @@
   };
 
   // ---------------------------------------------------------------------------
+  // PM INITIATIVES — proactive actions the player can take ONCE a month to
+  // drive the narrative instead of just reacting to dilemmas. Each costs
+  // political capital and applies an immediate effect shaped like a dilemma
+  // option (groups / stats / macro / policy / all). Variety + agency.
+  // ---------------------------------------------------------------------------
+  var INITIATIVES = [
+    { id: "speech_nhs", name: "Major speech · the NHS", icon: "🏥", cost: 2,
+      desc: "Stand on a hospital ward and pledge to fix waiting lists.",
+      effects: { groups: { publicsector: 0.06, pensioners: 0.05, parents: 0.04 }, all: 0.01, stats: { nhs: 0.015 } },
+      headline: "PM stakes career on saving the NHS" },
+    { id: "speech_economy", name: "Major speech · growth & jobs", icon: "📈", cost: 2,
+      desc: "Address business leaders on the plan for prosperity.",
+      effects: { groups: { capitalists: 0.05, privatesector: 0.05, selfemployed: 0.03 }, all: 0.01, macro: { realGrowth: 0.1 } },
+      headline: "PM pitches Britain as the place to invest" },
+    { id: "speech_borders", name: "Major speech · borders", icon: "🛂", cost: 2,
+      desc: "Hard-line border address — applause from the right, alarm from the liberals.",
+      effects: { groups: { patriots: 0.07, workingclass: 0.03, liberals: -0.04, minorities: -0.03 }, all: 0.005 },
+      headline: "PM vows to take back control of the borders" },
+    { id: "speech_future", name: "Major speech · the next generation", icon: "🎓", cost: 2,
+      desc: "A vision speech aimed at younger voters — schools, jobs, climate.",
+      effects: { groups: { young: 0.06, students: 0.05, environment: 0.04 }, all: 0.01, stats: { education: 0.012 } },
+      headline: "PM tells young Britain: \"This is your future\"" },
+    { id: "backbench", name: "Backbench charm offensive", icon: "🍷", cost: 1,
+      desc: "A long evening of one-to-ones with restive MPs. Boring, vital.",
+      effects: { unity: 0.07 },
+      headline: "PM dines with the backbenches" },
+    { id: "tv_interview", name: "Primetime TV interview", icon: "📺", cost: 2,
+      desc: "Big sit-down with the nation's interviewer. Bold — and one slip can derail a week.",
+      effects: { all: 0.03 }, gaffeChance: 0.22, gaffeEffects: { all: -0.04, unity: -0.03 },
+      headline: "PM submits to a primetime grilling" },
+    { id: "whitehall_reset", name: "Whitehall reset", icon: "📋", cost: 2,
+      desc: "Snap meeting with senior officials to unstick a department.",
+      effects: { unity: 0.03 }, cabinetBoost: 0.4,
+      headline: "PM demands Whitehall sharpen up" },
+    { id: "diplomatic_summit", name: "Diplomatic summit", icon: "🌐", cost: 2,
+      desc: "Host or attend a major international meeting — looks statesmanlike.",
+      effects: { groups: { capitalists: 0.04, patriots: 0.04, liberals: 0.03 }, macro: { realGrowth: 0.08 } },
+      headline: "PM cuts a deal on the world stage" },
+    { id: "regional_tour", name: "Regional listening tour", icon: "🚌", cost: 1,
+      desc: "Tea, biscuits and selfies in town halls across a region.",
+      effects: { groups: { workingclass: 0.03, middleclass: 0.02 }, all: 0.01 },
+      headline: "PM hits the road for a listening tour" }
+  ];
+
+  // FLAVOUR — small atmospheric events that fire randomly each month. Pure
+  // narrative pings with tiny effects, just to make quiet months feel alive.
+  var FLAVOUR = [
+    { id: "mp_defects",   text: "Opposition MP defects to the government benches.", effect: { unity: 0.02 } },
+    { id: "tory_leak",    text: "Cabinet leak in the Financial Times rattles ministers.", effect: { unity: -0.03 } },
+    { id: "royal_visit",  text: "A royal visit lifts the national mood briefly.", effect: { all: 0.01 } },
+    { id: "sport_win",    text: "Home nations win a major sporting tournament.", effect: { all: 0.015 } },
+    { id: "opp_bad_week", text: "Opposition leader endures a disastrous week of headlines." },
+    { id: "junior_minister", text: "A junior minister puts their foot in it on Question Time.", effect: { unity: -0.02 } },
+    { id: "donor_drama",  text: "A big donor row drags on in the Sundays.", effect: { unity: -0.02 } },
+    { id: "polldrop_opp", text: "A surprise poll has the opposition slipping back." },
+    { id: "rally_swell",  text: "Activists swell party rallies up and down the country.", effect: { unity: 0.025 } },
+    { id: "tabloid_love", text: "The tabloids run uncharacteristically warm front pages.", effect: { all: 0.012 } },
+    { id: "celebrity_dis", text: "A famous celebrity loudly attacks the government.", effect: { all: -0.005 } },
+    { id: "rebellion_threat", text: "Backbench rebellion brewing over an upcoming bill.", effect: { unity: -0.04 } },
+    { id: "constituency_party", text: "Letters from constituency parties demand bolder action.", effect: { unity: -0.015 } },
+    { id: "civil_service_praise", text: "Senior civil servants briefing positively to the lobby.", effect: { unity: 0.02 } }
+  ];
+
+  // ---------------------------------------------------------------------------
   // SCENARIOS — alternative opening positions, applied on top of the settled
   // 2024 baseline. macro fields are absolute overrides; stats/groups are deltas.
   // ---------------------------------------------------------------------------
@@ -1593,6 +1657,8 @@
     DIFFICULTY: DIFFICULTY,
     CRISES: CRISES,
     HEADLINES: HEADLINES,
+    INITIATIVES: INITIATIVES,
+    FLAVOUR: FLAVOUR,
     // ordered list of the main GB parties for charts/legends
     MAIN_PARTIES: ["lab", "con", "reform", "restore", "ld", "green", "snp", "pc", "oth"]
   };

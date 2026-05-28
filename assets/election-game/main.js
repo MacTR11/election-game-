@@ -82,6 +82,7 @@
         cabinet: g.cabinet, talentPool: g.talentPool,
         shadowCabinet: g.shadowCabinet, shadowPool: g.shadowPool, regionEffort: g.regionEffort,
         activeCrisis: g.activeCrisis, crisisHistory: g.crisisHistory,
+        initiativeUsedTurn: g.initiativeUsedTurn,
         milestones: g.milestones, promoteCount: g.promoteCount,
         oppShare: g.oppShare, govApproval: g.govApproval, energy: g.energy, maxEnergy: g.maxEnergy,
         momentum: g.momentum, oppHistory: g.oppHistory,
@@ -98,7 +99,7 @@
       var opp = s.role === "opposition";
       var g = opp ? E.newOppositionState(s.party) : E.newGovernState(s.party);
       ["turn", "year", "month", "capital", "maxCapital", "pressure", "unity", "discontent", "termsWon", "approval",
-       "oppShare", "govApproval", "energy", "maxEnergy", "momentum", "incumbent"]
+       "oppShare", "govApproval", "energy", "maxEnergy", "momentum", "incumbent", "initiativeUsedTurn"]
         .forEach(function (k) { if (s[k] != null) g[k] = s[k]; });
       if (s.policies) g.policies = s.policies;
       if (s.stats) g.stats = s.stats;
@@ -1410,6 +1411,7 @@
       '<div class="panel" style="margin-bottom:16px"><h3>Manifesto Pledges</h3>' + pledges +
       '<p class="notice">Keeping your pledges by the next election earns a trust dividend at the ballot box; breaking them costs you.</p></div>' +
       '<div class="panel" style="margin-bottom:16px"><h3>In the In-Tray</h3>' + events + '</div>' +
+      initiativesPanel(g) +
       decisionsJournal(g) +
       politicalCompass(g) +
       '<div class="panel"><h3>Electoral Map — if an election were held today</h3>' +
@@ -1418,6 +1420,28 @@
 
   // Recent-decisions journal for the briefing tab — surfaces the running
   // narrative of what the player has chosen this term.
+  // PM's Initiatives — proactive monthly action panel. One per month so the
+  // player has agency between the dilemmas / events that land on the desk.
+  function initiativesPanel(g) {
+    var used = g.initiativeUsedTurn === g.turn;
+    var cards = (D.INITIATIVES || []).map(function (it) {
+      var afford = (g.capital || 0) >= it.cost;
+      var disabled = used || !afford;
+      return '<button class="init-card' + (disabled ? " off" : "") + '" data-initiative="' + it.id + '"' + (disabled ? " disabled" : "") + '>' +
+        '<div class="init-head"><span class="init-icon">' + it.icon + '</span>' +
+          '<span class="init-cost">' + it.cost + ' ⚡</span></div>' +
+        '<div class="init-name">' + U.esc(it.name) + '</div>' +
+        '<div class="init-desc">' + U.esc(it.desc) + '</div>' +
+        (it.gaffeChance ? '<div class="init-warn">Gaffe risk · ' + Math.round(it.gaffeChance * 100) + '%</div>' : '') +
+      '</button>';
+    }).join("");
+    var headerNote = used
+      ? '<span class="init-status used">Initiative used this month — wait for next</span>'
+      : '<span class="init-status ready">Pick one to drive the political agenda this month.</span>';
+    return '<div class="panel" style="margin-bottom:16px"><h3>PM\'s Initiatives <small style="font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px">' + headerNote + '</small></h3>' +
+      '<div class="init-grid">' + cards + '</div>' +
+      '<p class="notice">Set the agenda — speeches, tours, meetings. Each one costs political capital and lands an immediate effect plus a headline. One per month.</p></div>';
+  }
   function decisionsJournal(g) {
     var log = (g.decisionLog || []).slice().reverse();
     if (!log.length) return "";
@@ -1882,6 +1906,16 @@
     app.querySelectorAll("[data-statdetail]").forEach(function (el) {
       el.addEventListener("click", function () { S.statDetail = el.getAttribute("data-statdetail"); render(); });
     });
+    app.querySelectorAll("[data-initiative]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-initiative");
+        var r = E.usePMInitiative(S.govern, id);
+        if (!r.ok) { toast(r.why); return; }
+        if (r.gaffed) toast("💥 The interview went badly — headlines turn against you.", 3600);
+        else if (r.headline) toast("📰 " + r.headline, 3200);
+        render(); flashKpis();
+      });
+    });
     app.querySelectorAll("[data-groupdetail]").forEach(function (el) {
       el.addEventListener("click", function () { S.groupDetail = el.getAttribute("data-groupdetail"); render(); });
     });
@@ -2021,8 +2055,11 @@
         if (g.role === "opposition") {
           var ro = E.simulateOppositionTurn(g);
           if (ro.electionDue) { startCampaign(); go("campaign"); return; }
+          var flavO = E.pickFlavour(g);
           render(); flashKpis();
-          toast("Month ended — " + dateLabel(g)); break;
+          if (flavO) toast("📰 " + flavO.text, 3200);
+          else toast("Month ended — " + dateLabel(g));
+          break;
         }
         var res = E.simulateTurn(g);
         if (g.gameOver) { render(); return; }
@@ -2033,8 +2070,11 @@
         }
         var newMiles = E.checkMilestones(g);
         if (newMiles.length) setTimeout(function () { toast(newMiles[0] + " achieved!"); }, 250);
+        // a random atmospheric event fires ~40% of months — pure flavour
+        var flav = E.pickFlavour(g);
         render(); flashKpis();
         if (g.leadershipChallenge === "survived") toast("You survived a leadership challenge — for now.");
+        else if (flav) toast("📰 " + flav.text, 3200);
         else if (!g.pendingDilemma) toast("Month ended — " + dateLabel(g));
         break;
       }
