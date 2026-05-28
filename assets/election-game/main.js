@@ -388,7 +388,7 @@
     if (g.gameOver) return viewGameOver();
     var party = D.PARTIES[g.party], inc = D.PARTIES[g.incumbent];
     var govShare = E.govShareFrom(g);
-    var live = E.runOppositionElection(g);
+    var live = E.seatRange(g, true);
     var termPct = Math.min(100, g.turn / E.TERM_TURNS * 100);
     var head = '<div class="headline">' +
       '<span class="sw" style="width:34px;height:34px;border-radius:8px;background:' + party.color + '"></span>' +
@@ -399,7 +399,7 @@
       kpi("You (" + party.short + ")", g.oppShare.toFixed(1) + "<small>%</small>", party.color) +
       kpi(inc.short + " govt", govShare.toFixed(1) + "<small>%</small>", inc.color) +
       kpi("Govt approval", (g.govApproval * 100).toFixed(0) + "<small>%</small>", g.govApproval < 0.42 ? "var(--good)" : "var(--warn)") +
-      kpi("Seats if voted today", live.playerSeats + "<small>/650</small>", live.won ? "var(--good)" : "var(--bad)") +
+      kpi("Seats if voted today", live.low + "–" + live.high + "<small>/650</small>", live.won ? "var(--good)" : "var(--bad)") +
       kpi("Govt seats", (live.totals[g.incumbent] || 0) + "<small>/650</small>") +
       '</div>';
     // poll chart
@@ -501,7 +501,7 @@
     var g = S.govern;
     if (g.gameOver) return viewGameOver();
     var party = D.PARTIES[g.party];
-    var live = E.runGeneralElection(g);
+    var live = E.seatRange(g);
     var approvalPct = (g.approval * 100).toFixed(1);
     var termPct = Math.min(100, g.turn / E.TERM_TURNS * 100);
 
@@ -520,7 +520,7 @@
       kpi("Unemployment", m.unemployment.toFixed(1) + "<small>%</small>" + trend(m.unemployment, pv && pv.unemployment, false), m.unemployment < 4.5 ? "var(--good)" : m.unemployment < 6 ? "var(--warn)" : "var(--bad)") +
       kpi("Deficit / yr", fmtMoney(m.deficit) + trend(m.deficit, pv && pv.deficit, false), m.deficit > 180 ? "var(--bad)" : m.deficit > 120 ? "var(--warn)" : "var(--good)") +
       kpi("National debt", m.debtPct + "<small>% GDP</small>" + trend(m.debtPct, pv && pv.debtPct, false), m.debtPct > 105 ? "var(--bad)" : m.debtPct > 97 ? "var(--warn)" : "var(--good)") +
-      kpi("Seats today", live.playerSeats + "<small>/650</small>", live.won ? "var(--good)" : "var(--bad)") +
+      kpi("Seats today", live.low + "–" + live.high + "<small>/650</small>", live.won ? "var(--good)" : "var(--bad)") +
       '</div>';
 
     var tabs = '<div class="tabs">' + [["policies", "Policies"], ["economy", "Economy"], ["voters", "Voters"], ["cabinet", "Cabinet"], ["briefing", "Briefing"]]
@@ -553,9 +553,9 @@
       U.seatBar(live.totals) + U.legend(live.totals) +
       '<div class="muted" style="font-size:12px;margin-top:8px">' +
         (live.won
-          ? 'You hold power with <b style="color:var(--good)">' + live.playerSeats + '</b> seats.'
-          : 'You lose power — <b style="color:var(--bad)">' + (U.pname(live.winner) || "the opposition") + '</b> would form the next government.') +
-        '<br><span class="faint">A long-serving government faces a growing "time for a change" mood — keep approval high to overcome it.</span>' +
+          ? 'You hold power on the central projection — <b style="color:var(--good)">' + live.central + '</b> seats (range <b>' + live.low + '–' + live.high + '</b>).'
+          : 'You lose power — <b style="color:var(--bad)">' + (U.pname(live.winner) || "the opposition") + '</b> would form the next government (range <b>' + live.low + '–' + live.high + '</b> seats).') +
+        '<br><span class="faint">Range reflects normal polling uncertainty. A long-serving government faces a growing "time for a change" mood.</span>' +
       '</div></div></div>';
 
     return head + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal();
@@ -571,8 +571,10 @@
     var g = S.govern, d = g.pendingDilemma;
     if (!d) return "";
     var opts = d.options.map(function (o, i) {
+      var preview = decisionSummary(o);
+      var previewHtml = preview ? '<span class="opt-preview">📊 ' + U.esc(preview) + '</span>' : "";
       return '<button class="dilemma-opt" data-dilemma="' + i + '"><b>' + U.esc(o.label) + '</b>' +
-        '<span>' + U.esc(o.result) + '</span></button>';
+        '<span>' + U.esc(o.result) + '</span>' + previewHtml + '</button>';
     }).join("");
     return '<div class="modal-overlay"><div class="modal">' +
       '<div class="modal-tag">Decision on your desk · ' + dateLabel(g) + '</div>' +
@@ -769,24 +771,42 @@
   }
 
   // Build a one-line summary of a dilemma option's biggest effects, so the
-  // player gets immediate "this is what just changed" feedback.
+  // player gets immediate "this is what just changed" feedback — and an
+  // identical preview shown inside each option button BEFORE they choose.
   function decisionSummary(opt) {
     if (!opt || !opt.effects) return null;
-    var e = opt.effects, parts = [], grpLookup = {};
+    var e = opt.effects, parts = [], grpLookup = {}, polLookup = {};
     D.GROUPS.forEach(function (gr) { grpLookup[gr.id] = gr.name; });
-    function add(label, val, fmtFn) {
+    D.POLICIES.forEach(function (p) { polLookup[p.id] = p; });
+    function add(label, val, fmtFn, magOverride) {
       if (val == null || Math.abs(val) < 0.005) return;
-      parts.push({ label: label, mag: Math.abs(val), txt: (val > 0 ? "▲" : "▼") + " " + label + " " + (fmtFn ? fmtFn(val) : Math.abs(val).toFixed(2)) });
+      parts.push({ label: label, mag: magOverride != null ? magOverride : Math.abs(val),
+        txt: (val > 0 ? "▲" : "▼") + " " + label + " " + (fmtFn ? fmtFn(val) : Math.abs(val).toFixed(2)) });
     }
     if (e.all) add("all groups", e.all, function (v) { return (v > 0 ? "+" : "") + (v * 100).toFixed(1) + "pts"; });
     if (e.unity) add("unity", e.unity, function (v) { return (v > 0 ? "+" : "") + (v * 100).toFixed(0) + "pts"; });
     if (e.capital) add("capital", e.capital, function (v) { return (v > 0 ? "+" : "") + v; });
     if (e.macro) {
       Object.keys(e.macro).forEach(function (k) {
-        if (k === "deficit") add("deficit", e.macro[k], function (v) { return (v > 0 ? "+£" : "−£") + Math.abs(Math.round(v)) + "bn"; });
+        if (k === "deficit") add("deficit", e.macro[k], function (v) { return (v > 0 ? "+£" : "−£") + Math.abs(Math.round(v)) + "bn"; }, Math.abs(e.macro[k]) / 5);
+        else if (k === "realGrowth") add("growth", e.macro[k], function (v) { return (v > 0 ? "+" : "") + v.toFixed(2) + "%"; }, Math.abs(e.macro[k]) * 4);
+        else if (k === "inflation") add("inflation", e.macro[k], function (v) { return (v > 0 ? "+" : "") + v.toFixed(2) + "%"; }, Math.abs(e.macro[k]) * 4);
+        else if (k === "unemployment") add("unemp.", e.macro[k], function (v) { return (v > 0 ? "+" : "") + v.toFixed(2) + "%"; }, Math.abs(e.macro[k]) * 4);
         else add(k, e.macro[k], function (v) { return (v > 0 ? "+" : "") + v.toFixed(2); });
       });
     }
+    if (e.policy) Object.keys(e.policy).forEach(function (pid) {
+      var pol = polLookup[pid]; if (!pol) return;
+      var v = e.policy[pid]; if (!v) return;
+      // £bn impact for direct fiscal lines; otherwise just an arrow with the lever name
+      var label = pol.name.replace(/ ?\(.*\)/, "");
+      var realDelta = v * (pol.max - pol.min);
+      var fmt;
+      if (pol.fiscal && pol.fiscal.mode === "direct") fmt = function (val) { return (val > 0 ? "+£" : "−£") + Math.abs(Math.round(realDelta)) + "bn"; };
+      else if (pol.unit) fmt = function (val) { return (val > 0 ? "+" : "−") + Math.abs(realDelta).toFixed(pol.step && pol.step < 1 ? 1 : 0) + (pol.unit === "%" ? "%" : pol.unit === "£bn" ? "bn" : ""); };
+      else fmt = function (val) { return val > 0 ? "raise" : "cut"; };
+      add(label, v, fmt, Math.abs(v));
+    });
     if (e.groups) Object.keys(e.groups).forEach(function (gid) {
       var name = grpLookup[gid] || gid;
       add(name, e.groups[gid], function (v) { return (v > 0 ? "+" : "") + (v * 100).toFixed(0) + "pts"; });

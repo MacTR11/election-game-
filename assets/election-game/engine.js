@@ -917,6 +917,28 @@
     return rivals[party] || "con";
   }
 
+  // A seat "range" projection — central plus how the seat count moves if
+  // approval is a couple of points higher or lower. Reflects polling
+  // uncertainty so the UI can show a credible band rather than a single number.
+  function seatRange(state, isOpp) {
+    var run = function () { return isOpp ? runOppositionElection(state) : runGeneralElection(state); };
+    var central = run();
+    var key = isOpp ? "oppShare" : "approval";
+    var orig = state[key];
+    var step = isOpp ? 2.5 : 0.025; // 2.5pt swing in poll share, or 2.5pt of approval
+    state[key] = isOpp ? clamp(orig + step, 3, 60) : clamp(orig + step, 0, 1);
+    var hi = run();
+    state[key] = isOpp ? clamp(orig - step, 3, 60) : clamp(orig - step, 0, 1);
+    var lo = run();
+    state[key] = orig;
+    var seats = [lo.playerSeats, central.playerSeats, hi.playerSeats];
+    return { central: central.playerSeats, playerSeats: central.playerSeats,
+             low: Math.min.apply(null, seats), high: Math.max.apply(null, seats),
+             won: central.won, winner: central.winner, totals: central.totals, government: central.government,
+             shares: central.shares, seatWinners: central.seatWinners, byRegion: central.byRegion,
+             playerParty: central.playerParty, playerMajority: central.playerMajority };
+  }
+
   function applyElectionResult(state, result) {
     state.lastElection = result;
     if (result.won) {
@@ -1244,6 +1266,7 @@
     computeFiscal: computeFiscal,
     computeTargets: computeTargets,
     runGeneralElection: runGeneralElection,
+    seatRange: seatRange,
     applyElectionResult: applyElectionResult,
     runLocalElections: runLocalElections,
     runByElection: runByElection,
