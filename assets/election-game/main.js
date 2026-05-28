@@ -897,7 +897,9 @@
       '<div class="modal-tag">Quick reference</div><h2>How to play, fast</h2>' +
       '<div class="help-sec"><div class="lab2">Keyboard shortcuts</div>' +
         '<div class="kbd-row"><kbd>Space</kbd><span>End the month</span></div>' +
+        '<div class="kbd-row"><kbd>F</kbd><span>Fast-forward until something happens (max 6 months)</span></div>' +
         '<div class="kbd-row"><kbd>1</kbd>–<kbd>9</kbd><span>Pick a decision option</span></div>' +
+        '<div class="kbd-row"><kbd>?</kbd><span>Toggle this help</span></div>' +
         '<div class="kbd-row"><kbd>Esc</kbd><span>Close any modal</span></div>' +
       '</div>' +
       '<div class="help-sec"><div class="lab2">Tips</div>' +
@@ -914,12 +916,15 @@
   function endTurnFab(g) {
     // Don't render the FAB at all while a modal is open — it would just sit
     // disabled and overlap the modal's controls.
-    if (g.pendingDilemma || S.policyDetail || S.reshufflePost || S.shadowReshufflePost || S.selectedSeat) return "";
+    if (g.pendingDilemma || S.policyDetail || S.reshufflePost || S.shadowReshufflePost || S.selectedSeat || S.helpOpen) return "";
     var hint = dateLabel(g);
     var disabled = g.gameOver;
-    return '<button class="fab-endturn" data-act="endturn"' + (disabled ? " disabled" : "") + ' title="End the month (Space)">' +
+    return '<div class="fab-cluster">' +
+      '<button class="fab-ff" data-act="fastforward"' + (disabled ? " disabled" : "") + ' title="Fast-forward until something happens (F)">⏭</button>' +
+      '<button class="fab-endturn" data-act="endturn"' + (disabled ? " disabled" : "") + ' title="End the month (Space)">' +
       '<span class="fab-label">End Month ▶</span>' +
-      '<span class="fab-hint">' + U.esc(hint) + '</span></button>';
+      '<span class="fab-hint">' + U.esc(hint) + '</span></button>' +
+      '</div>';
   }
   // A compact "what's happening this month" strip — surfaces active crisis,
   // a top headline and any pending decision, so context is never a tab away.
@@ -1534,6 +1539,25 @@
       case "closereshuffle": S.reshufflePost = null; render(); break;
       case "openhelp": S.helpOpen = true; render(); break;
       case "closehelp": S.helpOpen = false; render(); break;
+      case "fastforward": {
+        if (g.pendingDilemma || g.gameOver) return;
+        var advanced = 0, MAX = 6;
+        while (advanced < MAX) {
+          var res = g.role === "opposition" ? E.simulateOppositionTurn(g) : E.simulateTurn(g);
+          advanced++;
+          if (g.gameOver) break;
+          if (res.electionDue) { startCampaign(); go("campaign"); return; }
+          if (res.midterm) {
+            if (res.midterm === "local") E.runLocalElections(g); else E.runByElection(g);
+            go("midterm"); return;
+          }
+          if (g.pendingDilemma) break;
+        }
+        E.checkMilestones(g);
+        render(); flashKpis();
+        toast("Fast-forwarded " + advanced + " month" + (advanced === 1 ? "" : "s") + " — " + dateLabel(g) + (g.pendingDilemma ? " · decision waiting" : ""));
+        break;
+      }
       case "closeshadowreshuffle": S.shadowReshufflePost = null; render(); break;
       case "continuesave": if (loadGame()) go(S.loadedRole === "opposition" ? "opposition" : "govern"); break;
       case "discardsave": clearSave(); render(); break;
@@ -1682,10 +1706,16 @@
         return;
       }
       // Space = end month (when on govern/opposition with no modal open)
-      if (e.key === " " && !g.pendingDilemma && !S.policyDetail && !S.reshufflePost && !S.shadowReshufflePost && !S.selectedSeat) {
+      if (e.key === " " && !g.pendingDilemma && !S.policyDetail && !S.reshufflePost && !S.shadowReshufflePost && !S.selectedSeat && !S.helpOpen) {
         if (S.screen === "govern" || S.screen === "opposition") {
           var fab = document.querySelector(".fab-endturn");
           if (fab && !fab.disabled) { fab.click(); e.preventDefault(); }
+        }
+      }
+      // F = fast-forward
+      if ((e.key === "f" || e.key === "F") && !g.pendingDilemma && !S.policyDetail && !S.reshufflePost && !S.shadowReshufflePost && !S.selectedSeat && !S.helpOpen) {
+        if (S.screen === "govern" || S.screen === "opposition") {
+          action("fastforward"); e.preventDefault();
         }
       }
     });

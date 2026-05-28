@@ -239,9 +239,9 @@ a { color: var(--commons-l); }
 .flip-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .flip-row:last-child { border-bottom: 0; }
 .flip-seat { font-weight: 600; }
-/* Floating End Month button — always reachable */
+/* Floating End Month FAB cluster — always reachable */
+.fab-cluster { position: fixed; right: 22px; bottom: 22px; z-index: 50; display: flex; align-items: center; gap: 10px; }
 .fab-endturn {
-  position: fixed; right: 22px; bottom: 22px; z-index: 50;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 12px 22px; border: none; border-radius: 999px; cursor: pointer;
   background: var(--commons); color: #f3f8ee; font-weight: 800;
@@ -253,6 +253,11 @@ a { color: var(--commons-l); }
 .fab-endturn:disabled { opacity: .45; cursor: not-allowed; }
 .fab-endturn .fab-label { font-size: 14.5px; letter-spacing: .3px; }
 .fab-endturn .fab-hint { font-size: 11px; font-weight: 500; color: rgba(243,248,238,.7); }
+.fab-ff { width: 44px; height: 44px; padding: 0; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg-2); color: var(--ink); cursor: pointer; font-size: 18px; font-weight: 800;
+  box-shadow: 0 6px 18px rgba(0,0,0,.35); transition: transform .12s, border-color .12s; }
+.fab-ff:hover { border-color: var(--gold); color: var(--gold); transform: translateY(-1px); }
+.fab-ff:disabled { opacity: .45; cursor: not-allowed; }
 /* "What's happening this month" strip */
 .now-strip { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; margin: 10px 0 0;
   background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; font-size: 12.5px; }
@@ -449,10 +454,12 @@ tr.clickrow:hover td { background: var(--panel-2); }
   .now-pill { padding: 3px 9px; font-size: 11.5px; }
   .now-head { font-size: 11.5px; }
 
-  /* FAB: smaller on mobile so it doesn't dominate */
-  .fab-endturn { right: 12px; bottom: 12px; padding: 9px 16px; gap: 0; }
+  /* FAB cluster: smaller on mobile so it doesn't dominate */
+  .fab-cluster { right: 12px; bottom: 12px; gap: 8px; }
+  .fab-endturn { padding: 9px 16px; gap: 0; }
   .fab-endturn .fab-label { font-size: 13px; }
   .fab-endturn .fab-hint { font-size: 10px; }
+  .fab-ff { width: 38px; height: 38px; font-size: 15px; }
 
   /* toast: dock to top of viewport on mobile (mobile Safari's "bottom"
      anchors render mid-visual-viewport because layout viewport is taller) */
