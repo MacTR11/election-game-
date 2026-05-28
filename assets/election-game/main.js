@@ -163,6 +163,7 @@
       case "opposition":  html = viewOpposition(); break;
       case "govern":      html = viewGovern(); break;
       case "midterm":     html = viewMidterm(); break;
+      case "termreview":  html = viewTermReview(); break;
       case "election":    html = viewElectionNight(); break;
       default:            html = viewHome();
     }
@@ -1631,6 +1632,80 @@
       '</div>';
   }
 
+  // End-of-term retrospective — shows the player's record before the campaign
+  // begins. Compares headline stats then vs now, scores the pledges, lists
+  // milestones earned and surfaces the most recent major decisions.
+  function viewTermReview() {
+    var g = S.govern;
+    var hist = g.history || [];
+    var start = hist[0] || { approval: g.approval, growth: g.macro.realGrowth, inflation: g.macro.inflation,
+      unemployment: g.macro.unemployment, deficit: g.macro.deficit, debtPct: g.macro.debtPct };
+    var party = D.PARTIES[g.party];
+    var startDate = "Sep 2024";
+    // Pledges scorecard
+    var plRows = (g.pledges || []).map(function (id) {
+      var pl = D.PLEDGES.filter(function (x) { return x.id === id; })[0]; if (!pl) return "";
+      var done = pl.ok(g);
+      var col = done ? "var(--good)" : "var(--bad)";
+      var cur = pl.metric ? pl.metric(g) : null;
+      var detail = pl.metric ? (pl.fmt ? pl.fmt(cur) : cur) + " · target " + (pl.hi ? "≥" : "≤") + " " + (pl.fmt ? pl.fmt(pl.target) : pl.target) : "";
+      return '<div class="tr-pl-row" style="border-color:' + col + '">' +
+        '<div class="tr-pl-tick" style="color:' + col + '">' + (done ? "✓" : "✗") + '</div>' +
+        '<div class="tr-pl-body"><div class="tr-pl-text" style="color:' + (done ? "var(--good)" : "var(--ink)") + '">' + U.esc(pl.text) + '</div>' +
+        '<div class="tr-pl-detail" style="color:' + col + '">' + U.esc(detail) + '</div></div></div>';
+    }).join("");
+    var keptCount = (g.pledges || []).filter(function (id) { var pl = D.PLEDGES.filter(function (x) { return x.id === id; })[0]; return pl && pl.ok(g); }).length;
+    // Headline stats then vs now
+    var deltas = [
+      { label: "Approval", s: (start.approval || g.approval) * 100, n: g.approval * 100, fmt: function (v) { return v.toFixed(0) + "%"; }, hi: true },
+      { label: "GDP growth", s: start.growth != null ? start.growth : g.macro.realGrowth, n: g.macro.realGrowth, fmt: function (v) { return v.toFixed(1) + "%"; }, hi: true },
+      { label: "Inflation", s: start.inflation != null ? start.inflation : g.macro.inflation, n: g.macro.inflation, fmt: function (v) { return v.toFixed(1) + "%"; }, hi: false },
+      { label: "Unemployment", s: start.unemployment != null ? start.unemployment : g.macro.unemployment, n: g.macro.unemployment, fmt: function (v) { return v.toFixed(1) + "%"; }, hi: false },
+      { label: "Deficit", s: start.deficit != null ? start.deficit : g.macro.deficit, n: g.macro.deficit, fmt: function (v) { return "£" + Math.round(v) + "bn"; }, hi: false },
+      { label: "Debt / GDP", s: start.debtPct != null ? start.debtPct : g.macro.debtPct, n: g.macro.debtPct, fmt: function (v) { return Math.round(v) + "%"; }, hi: false }
+    ];
+    var statRows = deltas.map(function (d) {
+      var diff = d.n - d.s;
+      var changed = Math.abs(diff) > (d.label === "Deficit" ? 1 : 0.05);
+      var good = changed ? (d.hi ? diff > 0 : diff < 0) : null;
+      var col = good == null ? "var(--ink-dim)" : (good ? "var(--good)" : "var(--bad)");
+      var arrow = !changed ? "·" : (diff > 0 ? "▲" : "▼");
+      var diffTxt = changed ? d.fmt(Math.abs(diff)) : "no change";
+      return '<div class="tr-stat-row">' +
+        '<div class="tr-stat-name">' + d.label + '</div>' +
+        '<div class="tr-stat-then">' + d.fmt(d.s) + '</div>' +
+        '<div class="tr-stat-arrow" style="color:' + col + '">→</div>' +
+        '<div class="tr-stat-now" style="color:' + col + '">' + d.fmt(d.n) + '</div>' +
+        '<div class="tr-stat-diff" style="color:' + col + '">' + arrow + " " + diffTxt + '</div>' +
+      '</div>';
+    }).join("");
+    // Milestones earned
+    var milesIds = g.milestones || [];
+    var milesRow = milesIds.length
+      ? milesIds.map(function (id) {
+          var m = (E.MILESTONES || []).filter(function (x) { return x.id === id; })[0];
+          return m ? '<span class="pill" style="background:rgba(201,162,39,.16);color:var(--gold);font-weight:800">' + U.esc(m.name) + '</span>' : "";
+        }).join(" ")
+      : '<span class="faint">No milestones earned this term.</span>';
+    // Last 5 major decisions (skip PMQs for the recap)
+    var bigOnes = (g.decisionLog || []).filter(function (d) { return !d.isPmq; }).slice(-5).reverse();
+    var decRows = bigOnes.length ? bigOnes.map(function (d) {
+      var when = (MONTHS[d.month] || "") + " " + d.year;
+      return '<div class="tr-dec-row"><div class="tr-dec-date">' + when + '</div>' +
+        '<div class="tr-dec-body"><b>' + U.esc(d.title) + '</b><span class="tr-dec-choice">▸ ' + U.esc(d.optionLabel) + '</span></div></div>';
+    }).join("") : '<p class="muted">No major decisions logged.</p>';
+
+    return '<h2 class="section-title">Term in Review</h2>' +
+      '<p class="subtitle">' + startDate + ' → ' + dateLabel(g) + '. ' + U.esc(party.name) + ' goes to the country. Here is your record.</p>' +
+      '<div class="panel" style="margin-bottom:16px"><h3>Manifesto pledges · <b style="color:' + (keptCount === (g.pledges || []).length ? "var(--good)" : keptCount > 0 ? "var(--warn)" : "var(--bad)") + '">' + keptCount + ' / ' + (g.pledges || []).length + ' kept</b></h3>' + plRows + '</div>' +
+      '<div class="panel" style="margin-bottom:16px"><h3>Where the country is now · then vs now</h3>' + statRows + '</div>' +
+      '<div class="panel" style="margin-bottom:16px"><h3>Milestones</h3>' + milesRow + '</div>' +
+      '<div class="panel" style="margin-bottom:16px"><h3>Biggest decisions</h3>' + decRows + '</div>' +
+      '<div class="row" style="justify-content:center;margin-top:18px;gap:8px">' +
+        '<button class="btn primary" data-act="tocampaign">On to the Campaign ▶</button>' +
+      '</div>';
+  }
+
   function viewElectionNight() {
     var g = S.govern, r = g.lastElection, won = r.won, gv = r.government;
     var isOpp = g.role === "opposition";
@@ -1926,7 +2001,7 @@
         }
         var res = E.simulateTurn(g);
         if (g.gameOver) { render(); return; }
-        if (res.electionDue) { startCampaign(); go("campaign"); return; }
+        if (res.electionDue) { go("termreview"); return; }
         if (res.midterm) {
           if (res.midterm === "local") E.runLocalElections(g); else E.runByElection(g);
           go("midterm"); return;
@@ -2019,7 +2094,8 @@
         else toast("Scenario saved to the URL — copy from the address bar");
         break;
       }
-      case "callelection": startCampaign(); go("campaign"); break;
+      case "callelection": go("termreview"); break;
+      case "tocampaign": startCampaign(); go("campaign"); break;
       case "continueterm":
         if (g.choosePledges) { S.pledgeSel = []; go("pledges"); } else go("govern");
         break;
