@@ -1551,7 +1551,8 @@
     var doc = new DOMParser().parseFromString(html, "text/html");
     var tables = doc.querySelectorAll("table.wikitable"), t, i;
     var want = { con: ["con"], lab: ["lab"], reform: ["reform", "ref", "ruk"],
-                 ld: ["lib dem", "ld", "libdem"], green: ["green", "grn"], snp: ["snp"] };
+                 ld: ["lib dem", "ld", "libdem"], green: ["green", "grn"], snp: ["snp"],
+                 restore: ["restore", "rest", "rstr", "rst", "rb"] };
     for (t = 0; t < tables.length; t++) {
       var rows = tables[t].querySelectorAll("tr");
       if (rows.length < 2) continue;
