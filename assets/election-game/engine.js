@@ -946,12 +946,23 @@
     state[key] = isOpp ? clamp(orig - step, 3, 60) : clamp(orig - step, 0, 1);
     var lo = run();
     state[key] = orig;
+    // per-party seat range across the three runs (gives every party a credible
+    // low–high band rather than a deterministic central number)
+    var byParty = {};
+    function note(t) { for (var p in t) { var n = t[p] || 0; if (!byParty[p]) byParty[p] = { low: n, high: n }; else { if (n < byParty[p].low) byParty[p].low = n; if (n > byParty[p].high) byParty[p].high = n; } } }
+    note(central.totals); note(hi.totals); note(lo.totals);
     var seats = [lo.playerSeats, central.playerSeats, hi.playerSeats];
+    // outcome uncertainty: do the three runs all give the same winner?
+    var winners = {}; winners[lo.winner] = (winners[lo.winner]||0)+1; winners[central.winner] = (winners[central.winner]||0)+1; winners[hi.winner] = (winners[hi.winner]||0)+1;
+    var wons = (lo.won?1:0) + (central.won?1:0) + (hi.won?1:0);
+    var allWon = wons === 3, allLost = wons === 0;
     return { central: central.playerSeats, playerSeats: central.playerSeats,
              low: Math.min.apply(null, seats), high: Math.max.apply(null, seats),
              won: central.won, winner: central.winner, totals: central.totals, government: central.government,
              shares: central.shares, seatWinners: central.seatWinners, byRegion: central.byRegion,
-             playerParty: central.playerParty, playerMajority: central.playerMajority };
+             playerParty: central.playerParty, playerMajority: central.playerMajority,
+             byParty: byParty, knifeEdge: !allWon && !allLost,
+             winners: winners };
   }
 
   function applyElectionResult(state, result) {

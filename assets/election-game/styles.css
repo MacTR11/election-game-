@@ -260,6 +260,14 @@ a { color: var(--commons-l); }
 .now-pill.bad  { background: rgba(231,76,60,.18); color: var(--bad); }
 .now-pill.warn { background: rgba(201,162,39,.18); color: var(--gold); }
 .now-head { font-family: Georgia, "Times New Roman", serif; color: var(--ink-dim); }
+@keyframes kpiPulse {
+  0%   { background-color: rgba(201,162,39,0.00); transform: translateY(0); }
+  30%  { background-color: rgba(201,162,39,0.22); transform: translateY(-1px); }
+  100% { background-color: rgba(201,162,39,0.00); transform: translateY(0); }
+}
+.kpi-pulse { animation: kpiPulse .8s ease-out; border-radius: 6px; padding: 0 4px; margin: 0 -4px; }
+.now-pill[data-tab] { cursor: pointer; }
+.now-pill[data-tab]:hover { filter: brightness(1.15); }
 /* Inline policy ± nudge buttons (no modal needed for small steps) */
 .pol-nudge-cell { display: inline-flex; gap: 3px; }
 .pol-nudge { width: 26px; height: 26px; padding: 0; line-height: 1; border-radius: 6px;

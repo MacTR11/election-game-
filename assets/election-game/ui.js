@@ -157,10 +157,22 @@
   function legend(totals, opts) {
     opts = opts || {};
     var order = orderedParties(totals).slice().sort(function (a, b) { return (totals[b] || 0) - (totals[a] || 0); });
+    // also surface any party with a material vote share (e.g. Restore at 6%
+    // and 0 seats) so the player can see the right vote being split.
+    if (opts.shares) {
+      for (var sp in opts.shares) if ((opts.shares[sp] || 0) > 1 && order.indexOf(sp) < 0) order.push(sp);
+    }
     return '<div class="legend">' + order.map(function (p) {
       var extra = opts.shares && opts.shares[p] != null ? ' <span class="faint">' + opts.shares[p].toFixed(1) + '%</span>' : "";
+      // when a per-party range is supplied, render "lo–hi" instead of a deterministic number
+      var label;
+      if (opts.byParty && opts.byParty[p] && opts.byParty[p].low !== opts.byParty[p].high) {
+        label = '<b>' + opts.byParty[p].low + '–' + opts.byParty[p].high + '</b>';
+      } else {
+        label = '<b>' + (totals[p] || 0) + '</b>';
+      }
       return '<span class="item"><span class="sw" style="background:' + pcolor(p) + '"></span>' +
-        esc(pshort(p)) + ' <b>' + (totals[p] || 0) + '</b>' + extra + '</span>';
+        esc(pshort(p)) + ' ' + label + extra + '</span>';
     }).join("") + '</div>';
   }
 

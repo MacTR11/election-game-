@@ -470,7 +470,9 @@
       '<button class="btn" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Force an Election</button>' +
       '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Stand down</button>' +
       '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
-      U.seatBar(live.totals) + U.legend(live.totals) + '</div></div>';
+      U.seatBar(live.totals) + U.legend(live.totals, { byParty: live.byParty, shares: live.shares }) +
+      '<div class="muted" style="font-size:11.5px;margin-top:6px"><span class="faint">Every figure is a band — polling uncertainty.</span></div>' +
+      '</div></div>';
     return head + kpis + chart + headPanel +
       '<div class="dash" style="margin-top:16px"><div>' + scorecard + '<div style="height:16px"></div>' + promote + tour + shadow + '</div>' + sidebar + '</div>' +
       dilemmaModal() + shadowReshuffleModal() + endTurnFab(g);
@@ -550,12 +552,14 @@
       '<button class="btn" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Call General Election</button>' +
       '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Resign</button>' +
       '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
-      U.seatBar(live.totals) + U.legend(live.totals) +
+      U.seatBar(live.totals) + U.legend(live.totals, { byParty: live.byParty, shares: live.shares }) +
       '<div class="muted" style="font-size:12px;margin-top:8px">' +
-        (live.won
-          ? 'You hold power on the central projection — <b style="color:var(--good)">' + live.central + '</b> seats (range <b>' + live.low + '–' + live.high + '</b>).'
-          : 'You lose power — <b style="color:var(--bad)">' + (U.pname(live.winner) || "the opposition") + '</b> would form the next government (range <b>' + live.low + '–' + live.high + '</b> seats).') +
-        '<br><span class="faint">Range reflects normal polling uncertainty. A long-serving government faces a growing "time for a change" mood.</span>' +
+        (live.knifeEdge
+          ? '<b style="color:var(--gold)">⚖ Knife-edge</b> — the result could go either way. Your range: <b>' + live.low + '–' + live.high + '</b> seats (central ' + live.central + ').'
+          : live.won
+          ? 'You hold power — <b style="color:var(--good)">' + live.low + '–' + live.high + '</b> seats (central ' + live.central + ').'
+          : 'You lose power — <b style="color:var(--bad)">' + (U.pname(live.winner) || "the opposition") + '</b> would form the next government. Your range: <b>' + live.low + '–' + live.high + '</b> seats.') +
+        '<br><span class="faint">Every figure here is a band, not a forecast — normal polling uncertainty.</span>' +
       '</div></div></div>';
 
     return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + endTurnFab(g);
@@ -861,6 +865,18 @@
 
   // Always-visible floating End Month button so you never have to scroll to advance.
   // It greys itself out while a decision modal is up and shows the current date.
+  // Brief pulse on the KPI values right after an end-of-turn render — gives
+  // a tactile sense that the numbers have just moved.
+  function flashKpis() {
+    requestAnimationFrame(function () {
+      document.querySelectorAll(".kpis .v").forEach(function (el) {
+        el.classList.remove("kpi-pulse");
+        // force reflow so the animation restarts when the class is re-added
+        void el.offsetWidth;
+        el.classList.add("kpi-pulse");
+      });
+    });
+  }
   function endTurnFab(g) {
     // Don't render the FAB at all while a modal is open — it would just sit
     // disabled and overlap the modal's controls.
@@ -881,6 +897,15 @@
     }
     if (g.pendingDilemma) {
       bits.push('<span class="now-pill warn">📋 Decision on your desk</span>');
+    }
+    // surface a struggling cabinet minister so you know when to reshuffle
+    if (g.cabinet) {
+      var weak = null;
+      E.CABINET_POSTS.forEach(function (post) {
+        var m = g.cabinet[post.id];
+        if (m && m.competence <= 2 && (!weak || m.competence < weak.minister.competence)) weak = { post: post, minister: m };
+      });
+      if (weak) bits.push('<span class="now-pill warn" data-tab="cabinet">💼 ' + U.esc(weak.minister.name) + ' is struggling at ' + U.esc(weak.post.title) + '</span>');
     }
     var heads = E.generateHeadlines ? E.generateHeadlines(g, 1) : [];
     if (heads.length) bits.push('<span class="now-head">📰 ' + U.esc(heads[0]) + '</span>');
@@ -1417,7 +1442,8 @@
         if (g.role === "opposition") {
           var ro = E.simulateOppositionTurn(g);
           if (ro.electionDue) { startCampaign(); go("campaign"); return; }
-          render(); toast("Month ended — " + dateLabel(g)); break;
+          render(); flashKpis();
+          toast("Month ended — " + dateLabel(g)); break;
         }
         var res = E.simulateTurn(g);
         if (g.gameOver) { render(); return; }
@@ -1428,7 +1454,7 @@
         }
         var newMiles = E.checkMilestones(g);
         if (newMiles.length) setTimeout(function () { toast(newMiles[0] + " achieved!"); }, 250);
-        render();
+        render(); flashKpis();
         if (g.leadershipChallenge === "survived") toast("You survived a leadership challenge — for now.");
         else if (!g.pendingDilemma) toast("Month ended — " + dateLabel(g));
         break;
