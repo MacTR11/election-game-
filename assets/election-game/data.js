@@ -1129,7 +1129,367 @@
           effects: { macro: { deficit: -4, realGrowth: 0.2 }, groups: { capitalists: 0.06, publicsector: -0.10, unions: -0.08 } } },
         { label: "Adopt it slowly with safeguards", result: "Jobs protected for now; the savings are modest.",
           effects: { groups: { publicsector: 0.04, unions: 0.03 } } }
+      ] },
+
+    // ---- FOREIGN AFFAIRS ----
+    { id: "us_tariffs", title: "Washington Slaps Tariffs on British Steel",
+      desc: "A new administration in DC imposes 25% tariffs on UK steel and cars. Manufacturers are screaming for action.",
+      options: [
+        { label: "Retaliate with counter-tariffs", result: "Defiant — and prices on Bourbon and Harley-Davidsons climb on British shelves.",
+          effects: { macro: { inflation: 0.2, realGrowth: -0.15 }, groups: { patriots: 0.05, capitalists: -0.04, workingclass: 0.04 } } },
+        { label: "Fly to Washington and cut a deal", result: "A grin-and-bear-it transatlantic photo-op; some carve-outs are won.",
+          effects: { macro: { realGrowth: -0.05 }, groups: { capitalists: 0.04, liberals: 0.03, patriots: -0.04 }, capital: -1 } },
+        { label: "State-back affected industries", result: "Plants kept open with subsidy; the bill ends up on the deficit.",
+          effects: { macro: { deficit: 4 }, policy: { businessreg: 0.04 }, groups: { workingclass: 0.06, unions: 0.06, capitalists: -0.02 } } }
+      ] },
+    { id: "eu_vet_deal", title: "Brussels Offers a Veterinary Deal",
+      desc: "The Commission tables an SPS / veterinary agreement: smoother farm exports in exchange for dynamic alignment.",
+      options: [
+        { label: "Sign the deal", result: "Lorry queues at Dover shrink overnight; Brexiteers cry betrayal.",
+          effects: { macro: { realGrowth: 0.15 }, groups: { liberals: 0.07, capitalists: 0.05, patriots: -0.08, reformvoters: -0.06 } } },
+        { label: "Reject — defend sovereignty", result: "Patriots cheer; farmers tear up forms.",
+          effects: { groups: { patriots: 0.06, reformvoters: 0.05, liberals: -0.05, capitalists: -0.04 } } },
+        { label: "Counter-propose a thinner agreement", result: "A long fudge — talks roll on.",
+          effects: { groups: { liberals: 0.02 }, capital: -1 } }
+      ] },
+    { id: "ukraine_aid", title: "Ukraine Asks for Long-Range Missiles",
+      desc: "Kyiv requests another tranche of long-range systems and air-defence kit. Allies are watching London.",
+      options: [
+        { label: "Send the full package", result: "Kyiv salutes; the MoD's stockpiles take a hit.",
+          effects: { policy: { defence: 0.10, foreignaid: 0.06 }, macro: { deficit: 3 }, groups: { patriots: 0.07, liberals: 0.06 } } },
+        { label: "Limit to defensive systems", result: "A calibrated message; nobody quite cheers.",
+          effects: { policy: { defence: 0.04 }, groups: { patriots: 0.02, liberals: 0.02 } } },
+        { label: "Quietly slow the pipeline", result: "The Treasury sighs in relief; allies notice the silence.",
+          effects: { groups: { patriots: -0.06, capitalists: 0.02, liberals: -0.04 } } }
+      ] },
+    { id: "gaza_arms", title: "Arms Exports to a Middle East Ally",
+      desc: "A judicial review challenges arms export licences after fresh civilian casualties. The streets, courts and Commons are loud.",
+      options: [
+        { label: "Suspend the licences", result: "Liberals applaud; allies and defence firms fume.",
+          effects: { policy: { defence: -0.05 }, groups: { liberals: 0.08, minorities: 0.06, capitalists: -0.06, patriots: -0.04 } } },
+        { label: "Keep licences, demand restraint", result: "A diplomatic balancing act; the protests grow.",
+          effects: { groups: { liberals: -0.05, capitalists: 0.03, religious: 0.02 } } },
+        { label: "Defend the policy in full", result: "Steadfast for the ally; lawyers, students and faith groups disagree.",
+          effects: { policy: { defence: 0.04 }, groups: { patriots: 0.05, capitalists: 0.05, liberals: -0.10, minorities: -0.08, students: -0.06 } } }
+      ] },
+    { id: "china_huawei", title: "Chinese Bid for a Critical Tech Firm",
+      desc: "A Chinese-linked consortium offers a huge premium for a UK semiconductor firm. Security agencies have concerns.",
+      options: [
+        { label: "Block under national security", result: "GCHQ exhales; some in the City say London is closed for business.",
+          effects: { groups: { patriots: 0.05, capitalists: -0.05 }, macro: { realGrowth: -0.05 } } },
+        { label: "Approve with conditions", result: "Money flows in; commentators wonder which crown jewels are next.",
+          effects: { macro: { realGrowth: 0.15 }, groups: { capitalists: 0.07, patriots: -0.07 } } },
+        { label: "Underwrite a UK counter-bid", result: "British ownership preserved; the Treasury bears the risk.",
+          effects: { macro: { deficit: 3 }, policy: { science: 0.06 }, groups: { patriots: 0.06, capitalists: 0.02 } } }
+      ] },
+    { id: "commonwealth", title: "Commonwealth Summit Speech",
+      desc: "A Commonwealth Heads of Government Meeting is dominated by demands for slavery reparations.",
+      options: [
+        { label: "Offer a formal apology", result: "Moral leadership noted abroad; tabloids erupt at home.",
+          effects: { groups: { liberals: 0.07, minorities: 0.07, religious: 0.04, patriots: -0.08, reformvoters: -0.06 } } },
+        { label: "Refuse but offer development partnership", result: "A middle road; both sides leave grumbling.",
+          effects: { policy: { foreignaid: 0.08 }, groups: { liberals: 0.02, patriots: -0.02 } } },
+        { label: "Defend Britain's history robustly", result: "The right cheers; allies brief the press unhappily.",
+          effects: { groups: { patriots: 0.07, reformvoters: 0.06, liberals: -0.08, minorities: -0.07 } } }
+      ] },
+    { id: "aukus_pillar", title: "AUKUS Pillar Two",
+      desc: "Australia and the US want Britain in deeper on AI, quantum and undersea systems. The bill is jaw-dropping.",
+      options: [
+        { label: "Sign up at full ambition", result: "A generation-defining defence-tech pact; the Treasury swallows hard.",
+          effects: { policy: { defence: 0.15, science: 0.06 }, macro: { deficit: 5 }, groups: { patriots: 0.08, capitalists: 0.04 } } },
+        { label: "Sign with a scaled-back UK contribution", result: "We're in the club, just not in the front row.",
+          effects: { policy: { defence: 0.06 }, groups: { patriots: 0.02 } } },
+        { label: "Walk away from Pillar Two", result: "Allies briefed against, loudly. The deficit is a little safer.",
+          effects: { macro: { deficit: -2 }, groups: { patriots: -0.08, capitalists: -0.03 } } }
+      ] },
+
+    // ---- TECH / FUTURE ----
+    { id: "ai_safety_bill", title: "AI Safety Bill",
+      desc: "Officials draft tough new rules on frontier AI labs — licensing, model evals, criminal sanctions for unsafe deployment.",
+      options: [
+        { label: "Push the bill hard", result: "Britain leads the world on AI governance — labs threaten to relocate.",
+          effects: { policy: { businessreg: 0.10, science: 0.04 }, groups: { liberals: 0.06, environment: 0.04, capitalists: -0.08 } } },
+        { label: "Voluntary code of practice", result: "The labs nod and carry on; ministers claim a global first.",
+          effects: { groups: { capitalists: 0.05, liberals: -0.03 } } },
+        { label: "Pause and study", result: "Britain falls behind Brussels and Washington on the rule book.",
+          effects: { groups: { liberals: -0.04, environment: -0.03 }, capital: -1 } }
+      ] },
+    { id: "social_media_under16", title: "Phone Ban for Under-16s",
+      desc: "Following a wave of teen-mental-health stories, campaigners want under-16s blocked from major social media.",
+      options: [
+        { label: "Legislate a hard ban", result: "Parents cheer; teenagers and tech firms storm out.",
+          effects: { policy: { businessreg: 0.08 }, groups: { parents: 0.08, religious: 0.04, young: -0.10, students: -0.08 } } },
+        { label: "Mandate age verification only", result: "A workable middle path with predictable workarounds.",
+          effects: { policy: { businessreg: 0.04 }, groups: { parents: 0.04, capitalists: -0.02 } } },
+        { label: "Reject — keep it parental choice", result: "Tech-friendly; campaigners label it cowardly.",
+          effects: { groups: { parents: -0.04, capitalists: 0.03, liberals: 0.02 } } }
+      ] },
+    { id: "encryption", title: "End-to-End Encryption Showdown",
+      desc: "Security services say child safety probes are going dark. Tech firms threaten to leave the UK rather than weaken encryption.",
+      options: [
+        { label: "Force back doors into law", result: "Police get the keys; the security community is in revolt.",
+          effects: { policy: { police: 0.08, businessreg: 0.06 }, groups: { patriots: 0.06, parents: 0.05, liberals: -0.10, capitalists: -0.08 } } },
+        { label: "Drop the demand", result: "Tech sector breathes; victim groups feel abandoned.",
+          effects: { groups: { liberals: 0.06, capitalists: 0.05, parents: -0.05 } } }
+      ] },
+    { id: "crypto", title: "Crypto Becomes Mainstream",
+      desc: "Adoption is surging — and so are scams. Pressure builds for a regime of regulation, ban, or embrace.",
+      options: [
+        { label: "Regulate and tax it", result: "A new revenue line; the libertarian crowd grumbles.",
+          effects: { macro: { deficit: -2 }, policy: { businessreg: 0.08 }, groups: { capitalists: -0.02, young: -0.02 } } },
+        { label: "Ban retail trading outright", result: "Scams collapse; an entire scene moves offshore.",
+          effects: { policy: { businessreg: 0.12 }, groups: { capitalists: -0.06, young: -0.06 } } },
+        { label: "Make Britain a crypto hub", result: "Hot money flows in; so does risk.",
+          effects: { macro: { realGrowth: 0.1 }, groups: { capitalists: 0.06, young: 0.04, socialists: -0.04 } } }
+      ] },
+
+    // ---- CONSTITUTIONAL ----
+    { id: "lords_reform", title: "Abolish the Lords?",
+      desc: "A flagship Lords-reform package would replace the upper chamber with an elected Senate. Tradition vs democracy.",
+      options: [
+        { label: "Replace with an elected Senate", result: "A constitutional revolution — and a parliamentary mess for years.",
+          effects: { groups: { liberals: 0.08, young: 0.05, socialists: 0.05, patriots: -0.06, pensioners: -0.05 }, capital: -2 } },
+        { label: "Cap numbers and end hereditaries", result: "A modest, manageable reform that bores everyone equally.",
+          effects: { groups: { liberals: 0.03 } } },
+        { label: "Leave it alone", result: "The Lords purrs; reformers seethe.",
+          effects: { groups: { patriots: 0.04, pensioners: 0.04, liberals: -0.05, young: -0.04 } } }
+      ] },
+    { id: "votes16", title: "Votes at 16",
+      desc: "A bill to lower the voting age to 16 for UK elections moves to second reading.",
+      options: [
+        { label: "Whip it through", result: "Young Britain gets a voice; the right calls it gerrymandering.",
+          effects: { groups: { young: 0.10, students: 0.08, patriots: -0.05, pensioners: -0.03 } } },
+        { label: "Allow a free vote", result: "Genuine debate; the bill stumbles or strolls on its own.",
+          effects: { groups: { liberals: 0.03 }, capital: -1 } },
+        { label: "Block it", result: "Pensioners reassured; campaigners radicalised.",
+          effects: { groups: { young: -0.07, students: -0.06, pensioners: 0.04 } } }
+      ] },
+    { id: "indyref_2", title: "Holyrood Demands Indyref2",
+      desc: "Edinburgh formally requests a Section 30 order for another independence referendum.",
+      cond: function (s) { return s.turn > 8; },
+      options: [
+        { label: "Refuse — once-in-a-generation", result: "Westminster firm; Scotland furious.",
+          effects: { groups: { patriots: 0.07, pensioners: 0.03 }, unity: 0.02 } },
+        { label: "Offer it on tough conditions", result: "A live political grenade is handed back to Holyrood.",
+          effects: { groups: { liberals: 0.03 }, unity: -0.05 } },
+        { label: "Grant it outright", result: "A constitutional showdown begins; opinion splits sharply.",
+          effects: { groups: { liberals: 0.05, patriots: -0.10 }, unity: -0.08, capital: -2 } }
+      ] },
+    { id: "ni_protocol", title: "Stormont Threatens to Collapse",
+      desc: "The DUP and Sinn Féin threaten to walk over a fresh row about the Windsor Framework's east-west checks.",
+      options: [
+        { label: "Renegotiate with Brussels", result: "Talks reopen; the Foreign Office groans.",
+          effects: { groups: { liberals: 0.04 }, macro: { realGrowth: -0.05 }, capital: -2 } },
+        { label: "Direct rule contingency", result: "Stormont collapses; the Province is governed from London again.",
+          effects: { groups: { patriots: 0.04, liberals: -0.06 }, unity: -0.04, all: -0.02 } },
+        { label: "Cash deal to restore powersharing", result: "Money — lots of it — keeps the Assembly alive.",
+          effects: { macro: { deficit: 3 }, groups: { liberals: 0.04 } } }
+      ] },
+
+    // ---- SOCIAL / CULTURE ----
+    { id: "assisted_dying", title: "Assisted Dying Bill",
+      desc: "A free-vote bill on assisted dying is back, with terminally-ill campaigners on the green outside.",
+      options: [
+        { label: "Personally back legalisation", result: "Liberals are moved; some faith groups break with the government.",
+          effects: { groups: { liberals: 0.08, young: 0.04, religious: -0.08, pensioners: -0.03 } } },
+        { label: "Personally oppose", result: "Pulpits relieved; the campaign vows to fight on.",
+          effects: { groups: { religious: 0.07, pensioners: 0.04, liberals: -0.07 } } },
+        { label: "Stay neutral, free vote", result: "A statesmanlike non-answer; both sides feel let down.",
+          effects: { groups: { liberals: 0.01, religious: 0.01 }, unity: -0.02 } }
+      ] },
+    { id: "drugs_decrim", title: "Decriminalise Cannabis Possession?",
+      desc: "A Royal Commission concludes that low-level cannabis enforcement wastes police time and ruins lives.",
+      options: [
+        { label: "Decriminalise possession", result: "The young and the liberal cheer; the tabloids declare war.",
+          effects: { policy: { police: -0.04, sintax: 0.04 }, stats: { crime: -0.04 }, groups: { young: 0.07, liberals: 0.07, students: 0.06, religious: -0.05, pensioners: -0.06 } } },
+        { label: "Licence and tax it like alcohol", result: "A new sin-tax line; Daily Mail apoplexy guaranteed.",
+          effects: { policy: { sintax: 0.10 }, macro: { deficit: -2 }, groups: { young: 0.08, liberals: 0.06, religious: -0.07, pensioners: -0.06 } } },
+        { label: "Tougher enforcement instead", result: "Tradition reaffirmed; reformers and police chiefs split on the line.",
+          effects: { policy: { police: 0.06, prisons: 0.05 }, groups: { patriots: 0.04, pensioners: 0.04, young: -0.05, liberals: -0.05 } } }
+      ] },
+    { id: "smoking_gen", title: "Generational Smoking Ban",
+      desc: "A bill to phase out tobacco sales by raising the legal age each year is back on the order paper.",
+      options: [
+        { label: "Press ahead", result: "Health charities applaud; the libertarian wing erupts.",
+          effects: { policy: { sintax: 0.06 }, stats: { nhs: 0.03 }, groups: { liberals: 0.05, parents: 0.05, capitalists: -0.04, workingclass: -0.03 } } },
+        { label: "Higher tax instead of a ban", result: "A market-friendly compromise — and a quiet revenue rise.",
+          effects: { policy: { sintax: 0.10 }, macro: { deficit: -2 }, groups: { workingclass: -0.04 } } },
+        { label: "Drop it", result: "Choice trumps health, says the right; campaigners despair.",
+          effects: { groups: { liberals: -0.04, parents: -0.03, capitalists: 0.03 } } }
+      ] },
+    { id: "trans_sport", title: "Trans Athletes in Elite Sport",
+      desc: "Sporting bodies have asked for clear government guidance after a series of high-profile rows.",
+      options: [
+        { label: "Restrict to female-at-birth in elite female sport", result: "A culture-war flashpoint; some praise, many in the LGBT community furious.",
+          effects: { groups: { patriots: 0.05, religious: 0.03, pensioners: 0.03, liberals: -0.08, young: -0.05 } } },
+        { label: "Leave it to individual sports", result: "Ministers wash their hands; both sides feel unheard.",
+          effects: { unity: -0.02 } },
+        { label: "Affirm inclusion in policy", result: "Liberals and progressives cheer; tabloids and campaigners attack.",
+          effects: { groups: { liberals: 0.06, young: 0.05, religious: -0.05, patriots: -0.06 } } }
+      ] },
+
+    // ---- ECONOMY / LABOUR ----
+    { id: "northsea", title: "North Sea Oil Licences",
+      desc: "A new licensing round is on the desk. Climate campaigners and energy security hawks are at war.",
+      options: [
+        { label: "Approve fresh licences", result: "Aberdeen cheers; COP commitments wobble.",
+          effects: { policy: { netzero: -0.05 }, macro: { deficit: -2, realGrowth: 0.1 }, groups: { capitalists: 0.06, workingclass: 0.04, environment: -0.10 } } },
+        { label: "Block all new exploration", result: "Climate goal credible; sector slowly shrinks.",
+          effects: { policy: { netzero: 0.08 }, stats: { environment: 0.04 }, groups: { environment: 0.10, capitalists: -0.06, workingclass: -0.03 } } },
+        { label: "Approve with a windfall tax", result: "Money in, drilling done; both sides irritated.",
+          effects: { policy: { banklevy: 0.06 }, macro: { deficit: -3 }, groups: { socialists: 0.04, capitalists: -0.03 } } }
+      ] },
+    { id: "sovereign_wealth", title: "A British Sovereign Wealth Fund",
+      desc: "A Treasury paper proposes a £100bn fund seeded by gilts, to invest in UK strategic sectors.",
+      options: [
+        { label: "Launch at full scale", result: "Industrial strategy with real money; the deficit and gilt yields tick up.",
+          effects: { macro: { deficit: 6 }, policy: { infra: 0.08, science: 0.05 }, groups: { capitalists: 0.05, workingclass: 0.04 } } },
+        { label: "Smaller pilot fund", result: "A measured start. Critics call it gesture politics.",
+          effects: { macro: { deficit: 2 }, policy: { science: 0.03 } } },
+        { label: "Scrap the idea", result: "Treasury orthodoxy reaffirmed.",
+          effects: { groups: { capitalists: 0.03, socialists: -0.04 } } }
+      ] },
+    { id: "ev_mandate", title: "Slow the EV Mandate",
+      desc: "Carmakers are lobbying hard to soften the date by which all new cars must be zero-emission.",
+      options: [
+        { label: "Push the date back", result: "Industry cheers; the green commitments slip.",
+          effects: { policy: { netzero: -0.06 }, groups: { capitalists: 0.06, motorists: 0.05, environment: -0.08 } } },
+        { label: "Hold the line on the deadline", result: "A bet on the British EV industry. Some plants threaten to close.",
+          effects: { macro: { unemployment: 0.1 }, groups: { environment: 0.06, capitalists: -0.04 } } },
+        { label: "Hold the line with subsidies", result: "Best of both worlds — at a cost.",
+          effects: { policy: { netzero: 0.05 }, macro: { deficit: 3 }, groups: { environment: 0.05, capitalists: 0.03 } } }
+      ] },
+    { id: "uc_reform", title: "Universal Credit: a Generosity Question",
+      desc: "Backbenchers, charities and Treasury fly into a row about UC taper rates and standard allowances.",
+      options: [
+        { label: "Raise the standard allowance", result: "Poverty bites less; the bill rises.",
+          effects: { policy: { welfare: 0.10 }, macro: { deficit: 4 }, groups: { poor: 0.10, socialists: 0.05, workingclass: 0.04 } } },
+        { label: "Sharpen the work incentives", result: "Conditionality returns; some on the edge tip into hardship.",
+          effects: { groups: { capitalists: 0.04, patriots: 0.03, poor: -0.06, socialists: -0.05 } } },
+        { label: "Keep the system as is", result: "Stability — and a perpetually angry debate.",
+          effects: { } }
+      ] },
+    { id: "triple_lock", title: "Pensions Triple Lock Under Strain",
+      desc: "A heated row in cabinet over whether the triple lock can survive another inflation shock.",
+      options: [
+        { label: "Defend the lock", result: "Pensioners delighted; the OBR's projections wail.",
+          effects: { policy: { pension: 0.08 }, macro: { deficit: 5 }, groups: { pensioners: 0.10, capitalists: -0.05 } } },
+        { label: "Swap for a 'double lock'", result: "A subtle climb-down; pensioners notice.",
+          effects: { macro: { deficit: -2 }, groups: { pensioners: -0.06, young: 0.03 } } },
+        { label: "Break the lock outright", result: "Young people cheer; pensioners revolt at the polls.",
+          effects: { policy: { pension: -0.06 }, macro: { deficit: -5 }, groups: { pensioners: -0.14, young: 0.06, workingclass: 0.03 } } }
+      ] },
+
+    // ---- CRIME / SECURITY ----
+    { id: "knife_crime", title: "A Wave of Teen Knife Crime",
+      desc: "Three teenagers killed in a week. Town centres are in panic and the front pages are merciless.",
+      options: [
+        { label: "Mandatory minimum sentences", result: "The right cheers; civil-liberty groups warn of overreach.",
+          effects: { policy: { prisons: 0.10, police: 0.06 }, stats: { crime: -0.04 }, groups: { patriots: 0.08, pensioners: 0.05, liberals: -0.06, minorities: -0.05 } } },
+        { label: "Surge youth-services funding", result: "A longer-term bet; tabloids call it soft.",
+          effects: { policy: { childcare: 0.10, education: 0.06 }, macro: { deficit: 3 }, groups: { parents: 0.05, liberals: 0.05, patriots: -0.04 } } },
+        { label: "More stop & search", result: "Crime stats nudge down; communities feel targeted.",
+          effects: { policy: { police: 0.08 }, stats: { crime: -0.03 }, groups: { patriots: 0.05, minorities: -0.10, liberals: -0.06 } } }
+      ] },
+    { id: "jury_reform", title: "Scrap Some Jury Trials?",
+      desc: "Court backlogs are years deep. Ministers float scrapping juries in lesser Crown Court cases.",
+      options: [
+        { label: "Push the reform", result: "Backlogs ease; civil-liberty groups go to war.",
+          effects: { policy: { prisons: 0.05 }, groups: { capitalists: 0.03, liberals: -0.10, religious: -0.03 } } },
+        { label: "Hire more judges instead", result: "Slow, dignified, expensive.",
+          effects: { policy: { prisons: 0.08 }, macro: { deficit: 2 }, groups: { liberals: 0.04 } } }
+      ] },
+
+    // ---- ENVIRONMENT / RURAL ----
+    { id: "farmer_iht", title: "Farmer Protests Roll Into Whitehall",
+      desc: "Tractors block Whitehall over inheritance-tax reliefs being trimmed for large estates.",
+      options: [
+        { label: "U-turn on the change", result: "The lobby cheers; the deficit grumbles.",
+          effects: { macro: { deficit: 2 }, groups: { workingclass: 0.03, capitalists: 0.04, patriots: 0.05, socialists: -0.03 } } },
+        { label: "Hold the line", result: "Defiant — the protests rumble on.",
+          effects: { policy: { inheritance: 0.04 }, groups: { socialists: 0.04, patriots: -0.07, capitalists: -0.04 } } },
+        { label: "Carve-out for working farms", result: "A precise compromise; both sides claim partial wins.",
+          effects: { groups: { patriots: 0.03, socialists: 0.02 } } }
+      ] },
+    { id: "onshore_wind", title: "End the Onshore-Wind Ban",
+      desc: "Officials want to scrap the de-facto ban on onshore wind in England, easing planning rules.",
+      options: [
+        { label: "Lift the ban", result: "Cheap green power flows; some shires erupt.",
+          effects: { policy: { netzero: 0.10 }, stats: { environment: 0.04 }, groups: { environment: 0.10, young: 0.04, homeowners: -0.04 } } },
+        { label: "Keep the ban but offer subsidies for offshore", result: "Cosmetic — the wind keeps blowing offshore at higher cost.",
+          effects: { policy: { netzero: 0.05 }, macro: { deficit: 2 } } }
+      ] },
+
+    // ---- SCANDAL / PERSONAL ----
+    { id: "donor_row", title: "A Donor's Suspicious Largesse",
+      desc: "A major party donor turns out to have unhelpful overseas connections. The lobby is ravenous.",
+      options: [
+        { label: "Return the money and apologise", result: "Damage limited; the war chest is lighter.",
+          effects: { capital: -1, all: 0.005, groups: { liberals: 0.02 } } },
+        { label: "Defend the donor", result: "Loyal — and the story drags for weeks.",
+          effects: { all: -0.03, unity: -0.04 } },
+        { label: "Quietly distance the party", result: "A modern fudge; nobody is happy or angry.",
+          effects: { all: -0.01 } }
+      ] },
+    { id: "leak_inquiry", title: "A Cabinet Leak",
+      desc: "Verbatim minutes of a fractious cabinet meeting end up in a Sunday paper. The leaker is in the room.",
+      options: [
+        { label: "Launch a leak inquiry", result: "Discipline reasserted; an icy atmosphere lingers for months.",
+          effects: { unity: -0.04, all: -0.005 } },
+        { label: "Public reshuffle to flush them out", result: "Bold and disruptive — and a minister or two ends up gone.",
+          effects: { unity: -0.06, capital: -1, all: -0.01 } },
+        { label: "Let it blow over", result: "The pages turn; the team knows you noticed.",
+          effects: { all: -0.005 } }
+      ] },
+    { id: "spouse_business", title: "The First Spouse's Business Dealings",
+      desc: "A weekend exposé into your spouse's tax affairs sets the lobby buzzing.",
+      options: [
+        { label: "Full transparency, publish the lot", result: "Discipline applauded; some details bruise.",
+          effects: { all: -0.005, groups: { liberals: 0.04 } } },
+        { label: "Robust personal defence", result: "A heated press conference. The story runs and runs.",
+          effects: { all: -0.025, unity: -0.02 } },
+        { label: "Refuse to discuss family", result: "Principled — and the questions don't stop.",
+          effects: { all: -0.015 } }
+      ] },
+
+    // ---- ROYAL / SOFT POWER ----
+    { id: "olympics_bid", title: "Bid for the Olympics?",
+      desc: "Treasury asks whether to back a fresh UK Olympics bid for an upcoming Games.",
+      options: [
+        { label: "Bid and back it big", result: "National pride swells; the bills won't.",
+          effects: { policy: { arts: 0.06, infra: 0.05 }, macro: { deficit: 3 }, groups: { young: 0.05, patriots: 0.07, capitalists: 0.03 } } },
+        { label: "Pass on the bid", result: "Boring, prudent — and uninspiring.",
+          effects: { groups: { capitalists: 0.02 } } }
+      ] },
+    { id: "honours_row", title: "A Controversial Honours List",
+      desc: "Your latest honours list has a name on it the press finds impossible to swallow.",
+      options: [
+        { label: "Stand by every name", result: "Defiant and damaging in equal measure.",
+          effects: { all: -0.02 } },
+        { label: "Quietly withdraw the worst", result: "A grubby climb-down — drama subsides.",
+          effects: { unity: -0.02, all: -0.005 } }
+      ] },
+
+    // ---- REGIONAL ----
+    { id: "barnett", title: "Holyrood Demands More Cash",
+      desc: "Scotland and Wales jointly demand a Barnett uplift to cover health and devolved services.",
+      options: [
+        { label: "Grant the uplift", result: "Devolved nations smile; the deficit doesn't.",
+          effects: { policy: { localgov: 0.08 }, macro: { deficit: 4 }, groups: { publicsector: 0.04 } } },
+        { label: "Refuse", result: "London-knows-best — devolved leaders rage.",
+          effects: { unity: -0.03, groups: { patriots: 0.04 } } },
+        { label: "Tie new cash to reform", result: "A clever compromise — devolved leaders fume but accept.",
+          effects: { policy: { localgov: 0.04 }, macro: { deficit: 2 } } }
+      ] },
+    { id: "welsh_schools", title: "Welsh-Language Schools Funding",
+      desc: "Cardiff asks Westminster to fund a major expansion of Welsh-medium education.",
+      options: [
+        { label: "Fund the expansion", result: "A quiet, popular win in Wales.",
+          effects: { policy: { education: 0.04 }, macro: { deficit: 1 } } },
+        { label: "Defer to the devolved budget", result: "A constitutional shrug; Cardiff is unimpressed.",
+          effects: { } }
       ] }
+
   ];
 
   // ---------------------------------------------------------------------------
@@ -1270,7 +1630,32 @@
     { id: "regional_tour", name: "Regional listening tour", icon: "🚌", cost: 1,
       desc: "Tea, biscuits and selfies in town halls across a region.",
       effects: { groups: { workingclass: 0.03, middleclass: 0.02 }, all: 0.01 },
-      headline: "PM hits the road for a listening tour" }
+      headline: "PM hits the road for a listening tour" },
+    { id: "council_estate", name: "Estate-walkabout & housing pledge", icon: "🏘️", cost: 2,
+      desc: "Visit a flagship social-housing estate and announce a Build-Britain pledge.",
+      effects: { policy: { housing: 0.06 }, groups: { renters: 0.05, young: 0.04, workingclass: 0.04 } },
+      headline: "PM pledges to fix Britain's housing crisis" },
+    { id: "factory_visit", name: "Factory floor & industrial pitch", icon: "🏭", cost: 1,
+      desc: "Hard hat, hi-vis, and an industrial-strategy speech to engineers.",
+      effects: { groups: { workingclass: 0.04, unions: 0.03, capitalists: 0.03 }, macro: { realGrowth: 0.05 } },
+      headline: "PM rallies British industry" },
+    { id: "schools_tour", name: "School-gates listening tour", icon: "🎒", cost: 1,
+      desc: "Stand outside primary schools and listen to parents at the gates.",
+      effects: { groups: { parents: 0.05, young: 0.02 }, stats: { education: 0.01 } },
+      headline: "PM listens at the school gates" },
+    { id: "reset_relaunch", name: "The Relaunch", icon: "🔄", cost: 3,
+      desc: "A formal Number 10 relaunch: a fresh story, fresh team, fresh logo.",
+      effects: { all: 0.04, unity: 0.04 }, gaffeChance: 0.18,
+      gaffeEffects: { all: -0.04, unity: -0.05 },
+      headline: "PM unveils a 'fresh chapter' for the government" },
+    { id: "veterans_event", name: "Veterans' & Armed Forces day", icon: "🎖️", cost: 1,
+      desc: "Wreath-laying, RAF flypast, a moving speech.",
+      effects: { groups: { patriots: 0.05, pensioners: 0.03 }, policy: { defence: 0.02 } },
+      headline: "PM honours Britain's armed forces" },
+    { id: "diaspora_event", name: "Multi-faith Downing Street reception", icon: "🕊️", cost: 1,
+      desc: "Host community leaders from across Britain's faiths and diaspora groups.",
+      effects: { groups: { religious: 0.04, minorities: 0.05, liberals: 0.02 } },
+      headline: "PM hosts inter-faith reception at Number 10" }
   ];
 
   // FLAVOUR — small atmospheric events that fire randomly each month. Pure
@@ -1289,7 +1674,22 @@
     { id: "celebrity_dis", text: "A famous celebrity loudly attacks the government.", effect: { all: -0.005 } },
     { id: "rebellion_threat", text: "Backbench rebellion brewing over an upcoming bill.", effect: { unity: -0.04 } },
     { id: "constituency_party", text: "Letters from constituency parties demand bolder action.", effect: { unity: -0.015 } },
-    { id: "civil_service_praise", text: "Senior civil servants briefing positively to the lobby.", effect: { unity: 0.02 } }
+    { id: "civil_service_praise", text: "Senior civil servants briefing positively to the lobby.", effect: { unity: 0.02 } },
+    { id: "byelection_hold", text: "A by-election holds your seat with a healthy majority.", effect: { unity: 0.04 } },
+    { id: "byelection_loss", text: "A junior by-election loss spooks the parliamentary party.", effect: { unity: -0.05 } },
+    { id: "speaker_rebuke", text: "Speaker rebukes the front bench for ducking a question.", effect: { unity: -0.02 } },
+    { id: "viral_moment", text: "A clip of the PM at a school visit goes viral for the right reasons.", effect: { all: 0.02 } },
+    { id: "wrong_lectern", text: "PM walks to the wrong lectern at a press event. The clip is everywhere.", effect: { all: -0.012 } },
+    { id: "podcast_appearance", text: "PM does a long-form podcast that lands surprisingly well with younger voters.", effect: { groups: { young: 0.04, students: 0.03 } } },
+    { id: "intelligence_brief", text: "A grim Five Eyes briefing leaks into the Sundays.", effect: { unity: -0.02 } },
+    { id: "obr_warning", text: "The OBR slips a sceptical note into a routine publication.", effect: { unity: -0.02 } },
+    { id: "popstar_endorses", text: "A massive popstar publicly backs the government's youth-housing plan.", effect: { groups: { young: 0.03 } } },
+    { id: "footy_pic", text: "PM is pictured at the football, scarf and all.", effect: { groups: { workingclass: 0.03, patriots: 0.02 } } },
+    { id: "deputy_briefing", text: "The Deputy PM is caught briefing against the leadership.", effect: { unity: -0.06 } },
+    { id: "ambassador_resigns", text: "A senior ambassador resigns in public protest at policy.", effect: { unity: -0.03, all: -0.01 } },
+    { id: "weather_event", text: "Severe weather hits a Tory shire — relief efforts shine.", effect: { all: 0.01 } },
+    { id: "open_letter", text: "Open letter from 200 economists savages the government's plan.", effect: { groups: { capitalists: -0.03 } } },
+    { id: "first_dog", text: "A new dog at Number 10 takes over the social media feed.", effect: { all: 0.008 } }
   ];
 
   // ---------------------------------------------------------------------------
@@ -1488,6 +1888,103 @@
               effects: { groups: { workingclass: 0.05, patriots: -0.04 } }, next: null }
           ] }
       ] },
+    { id: "terror", name: "Major Terror Attack",
+      trigger: function (s) { return s.turn > 6 && Math.random() < 0.018; },
+      drag: { stats: { crime: 0.010 }, groups: { patriots: 0.006, liberals: -0.006, minorities: -0.008 } },
+      stages: [
+        { title: "Atrocity in a City Centre", desc: "A coordinated attack on a major UK city has killed dozens. The country is in shock and the lobby demands a response.",
+          options: [
+            { label: "Emergency security legislation", result: "Powers expanded; civil-liberty groups in revolt.",
+              effects: { policy: { police: 0.08, prisons: 0.06 }, groups: { patriots: 0.08, pensioners: 0.05, liberals: -0.08 }, capital: -1 }, next: 1, in: 3 },
+            { label: "Statement of unity, calm response", result: "Statesmanlike — and to some, weak.",
+              effects: { all: 0.01, groups: { liberals: 0.05, patriots: -0.04 } }, next: 1, in: 3 },
+            { label: "Mass community-level raids", result: "Arrests headline the next day; communities targeted feel besieged.",
+              effects: { stats: { crime: -0.03 }, groups: { patriots: 0.06, minorities: -0.10, liberals: -0.08 } }, next: 1, in: 3 }
+          ] },
+        { title: "The Inquiry Begins", desc: "Survivors and bereaved families demand answers and a public inquiry into intelligence failings.",
+          options: [
+            { label: "Full statutory inquiry", result: "Painful, slow, necessary.",
+              effects: { capital: -1, all: 0.015, groups: { liberals: 0.05 } }, next: 2, in: 3 },
+            { label: "Tightly-scoped review", result: "Quicker — and seen as a stitch-up by victims' groups.",
+              effects: { all: -0.01, groups: { liberals: -0.04 } }, next: 2, in: 3 },
+            { label: "Sack the spy chief", result: "A scapegoat is found; the agencies seethe.",
+              effects: { groups: { patriots: 0.04 }, unity: -0.04, capital: -2 }, next: 2, in: 3 }
+          ] },
+        { title: "After the Funerals", desc: "The country is moving on; the policy debate is just beginning.",
+          options: [
+            { label: "New counter-terror powers in law", result: "A long, lasting tightening of the rule book.",
+              effects: { policy: { police: 0.10, prisons: 0.05 }, groups: { patriots: 0.06, liberals: -0.06 } }, next: null },
+            { label: "Pour money into community resilience", result: "Quiet, durable work; very little headline.",
+              effects: { policy: { childcare: 0.04, education: 0.04 }, groups: { liberals: 0.04, minorities: 0.05 } }, next: null },
+            { label: "Move on", result: "Voters notice you have moved on. Not all of them have.",
+              effects: { all: -0.01 }, next: null }
+          ] }
+      ] },
+    { id: "cyber", name: "National Cyber Attack",
+      trigger: function (s) { return s.turn > 8 && Math.random() < 0.022; },
+      drag: { macro: { realGrowth: -0.04 }, groups: { capitalists: -0.010, publicsector: -0.008 } },
+      stages: [
+        { title: "Critical Infrastructure Goes Dark", desc: "A coordinated cyber attack takes down NHS systems, energy grid controls and parts of the railway.",
+          options: [
+            { label: "Public attribution and sanctions", result: "Allies line up behind Britain; the named state retaliates with bots and noise.",
+              effects: { groups: { patriots: 0.06, capitalists: 0.04 }, capital: -1 }, next: 1, in: 3 },
+            { label: "Pay the ransom quietly", result: "Systems come back; ministers wince at every leak.",
+              effects: { macro: { deficit: 2 }, groups: { capitalists: 0.03, liberals: -0.04 } }, next: 1, in: 3 },
+            { label: "Order a hard digital lockdown", result: "Services freeze; chaos spreads.",
+              effects: { macro: { realGrowth: -0.2 }, all: -0.02 }, next: 1, in: 3 }
+          ] },
+        { title: "Hospitals on Pen and Paper", desc: "Hospitals cancel non-urgent care; courts halt. The economic cost is climbing by the hour.",
+          options: [
+            { label: "Major investment in cyber defence", result: "Future-proofed and dear.",
+              effects: { policy: { defence: 0.06, science: 0.05 }, macro: { deficit: 4 }, groups: { capitalists: 0.04 } }, next: 2, in: 3 },
+            { label: "Conscript private-sector help", result: "Big tech to the rescue; conditions on data trouble lawyers.",
+              effects: { groups: { capitalists: 0.06, liberals: -0.05 } }, next: 2, in: 3 },
+            { label: "Power-through with the existing teams", result: "Recovery takes weeks longer than it should.",
+              effects: { stats: { nhs: -0.04 }, all: -0.02 }, next: 2, in: 3 }
+          ] },
+        { title: "A Cyber-Resilience Bill", desc: "Officials want a comprehensive new cyber-security law for critical national infrastructure.",
+          options: [
+            { label: "Pass with teeth", result: "Britain leads the rule book; firms grumble at cost.",
+              effects: { policy: { businessreg: 0.08, science: 0.04 }, groups: { capitalists: -0.04, liberals: 0.04 } }, next: null },
+            { label: "A voluntary code", result: "Industry-friendly; campaigners say it's a fig leaf.",
+              effects: { groups: { capitalists: 0.05 } }, next: null },
+            { label: "Park the bill", result: "Inertia wins; the next attack looms.",
+              effects: { all: -0.015 }, next: null }
+          ] }
+      ] },
+    { id: "constitution", name: "Constitutional Crisis",
+      trigger: function (s) { return s.turn > 12 && s.unity < 0.4 && Math.random() < 0.02; },
+      drag: { groups: { liberals: -0.008, patriots: -0.005 }, macro: { realGrowth: -0.03 } },
+      stages: [
+        { title: "Supreme Court vs Whitehall", desc: "The Supreme Court rules a flagship policy unlawful. Right-wing papers howl about \"judicial overreach\".",
+          options: [
+            { label: "Legislate to override the ruling", result: "Defiant — and a row about the rule of law begins.",
+              effects: { groups: { patriots: 0.06, liberals: -0.10 }, unity: -0.03 }, next: 1, in: 3 },
+            { label: "Accept the ruling, rewrite the policy", result: "The grown-up choice; the right calls it surrender.",
+              effects: { groups: { liberals: 0.06, patriots: -0.05 }, capital: -1 }, next: 1, in: 3 },
+            { label: "Personal attacks on the judges", result: "An unprecedented breach. The lobby is appalled.",
+              effects: { groups: { liberals: -0.12, patriots: 0.03 }, unity: -0.06, all: -0.02 }, next: 1, in: 3 }
+          ] },
+        { title: "Devolved Standoff", desc: "Holyrood passes a competing bill; Cardiff threatens to do the same. Whitehall lawyers reach for the constitution.",
+          options: [
+            { label: "Refer to Supreme Court", result: "A slow, dignified contest of statutes.",
+              effects: { capital: -1, groups: { liberals: 0.03 } }, next: 2, in: 3 },
+            { label: "Reform the Sewel convention by law", result: "A constitutional shake-up — devolved nations are furious.",
+              effects: { groups: { patriots: 0.05, liberals: -0.06 }, unity: -0.04 }, next: 2, in: 3 },
+            { label: "Negotiate a joint settlement", result: "A grand bargain at last. Costs concessions on tax and budgets.",
+              effects: { policy: { localgov: 0.06 }, macro: { deficit: 2 }, groups: { liberals: 0.04 } }, next: 2, in: 3 }
+          ] },
+        { title: "A New Constitutional Settlement", desc: "Pressure builds for a written constitution or a major settlement of powers.",
+          options: [
+            { label: "Convene a citizens' assembly", result: "A long democratic experiment; nothing settles fast.",
+              effects: { groups: { liberals: 0.07, young: 0.04 }, capital: -1 }, next: null },
+            { label: "Codify the current settlement", result: "Clarity at last; many on the right hate the moment.",
+              effects: { groups: { liberals: 0.06, patriots: -0.05 } }, next: null },
+            { label: "Leave it to the next government", result: "Can-kicking with style.",
+              effects: { all: -0.005 }, next: null }
+          ] }
+      ] },
+
     { id: "housing", name: "Housing-Market Crash",
       trigger: function (s) { return s.turn > 9 && (s.stats.housing < 0.30 || s.macro.inflation > 5) && Math.random() < 0.025; },
       drag: { stats: { housing: -0.010 }, groups: { homeowners: -0.014, renters: -0.005, capitalists: -0.010 }, macro: { realGrowth: -0.04 } },
@@ -1625,7 +2122,54 @@
         "Channel crossings keep a place on the front pages"] },
     { id: "warStage", cond: function (s) { return s.activeCrisis && s.activeCrisis.id === "war"; },
       lines: ["Conflict latest: refugees arrive, sanctions tightened",
-        "Energy bills surge as the conflict abroad bites at home"] }
+        "Energy bills surge as the conflict abroad bites at home"] },
+    { id: "terrorStage", cond: function (s) { return s.activeCrisis && s.activeCrisis.id === "terror"; },
+      lines: ["Security threat level remains 'severe' as inquiry begins",
+        "Counter-terror sweeps continue across affected cities"] },
+    { id: "cyberStage", cond: function (s) { return s.activeCrisis && s.activeCrisis.id === "cyber"; },
+      lines: ["NHS systems still patchy as recovery effort grinds on",
+        "Critical infrastructure firms ordered to harden defences"] },
+    { id: "constitutionStage", cond: function (s) { return s.activeCrisis && s.activeCrisis.id === "constitution"; },
+      lines: ["Constitutional row deepens: Holyrood and Whitehall trade blows",
+        "Lawyers and judges fume as ministers attack the bench"] },
+    // Atmospheric / lobby gossip — broader templates so the page rotates
+    { id: "westminsterAir",   cond: function () { return true; },
+      lines: ["Lobby buzz: ministers brief, allies brief back",
+        "Westminster talks of reshuffles that may never come",
+        "Conferences, charters and committees — another Westminster week",
+        "Press gallery weighs the mood music from Number 10",
+        "Whitehall officials warn of \"unforced errors\" creeping in",
+        "Off-the-record: a hot tea-room conversation has the lobby chasing"] },
+    { id: "polling",          cond: function () { return true; },
+      lines: ["Latest tracker: voters split on key issues, undecideds rising",
+        "Crossbreaks suggest a quiet realignment underway",
+        "Pollsters caution against reading too much into a single number",
+        "Focus groups in marginals reveal a wary, watchful country"] },
+    { id: "globalbg",         cond: function () { return true; },
+      lines: ["World news: leaders gather, communiqué imminent",
+        "Markets nervy as a far-off election dominates the screens",
+        "FCDO briefs ministers ahead of UN week"] },
+    { id: "approvalMid",      cond: function (s) { return s.approval >= 0.4 && s.approval <= 0.58; },
+      lines: ["Government 'in the middle of the road', say analysts",
+        "Voters not yet ready to write off the PM, polls suggest"] },
+    { id: "growthOK",         cond: function (s) { return s.macro.realGrowth >= 0 && s.macro.realGrowth < 1.4; },
+      lines: ["Sluggish growth tests the Chancellor's optimism",
+        "Recovery in low gear — economists urge patience"] },
+    { id: "weatherCold",      cond: function (s) { return s.month === 12 || s.month === 1 || s.month === 2; },
+      lines: ["Cold snap brings energy bills and rail chaos back to the front pages",
+        "Winter pressures bite: NHS, transport and care all under strain"] },
+    { id: "weatherHot",       cond: function (s) { return s.month === 7 || s.month === 8; },
+      lines: ["Heatwave forecasts make for August silly-season news",
+        "Drought worries return as a hot summer drags on"] },
+    { id: "summerRecess",     cond: function (s) { return s.month === 8; },
+      lines: ["Westminster on recess — political stories thin on the ground",
+        "Silly season: ministers tour the constituencies, journalists tour pubs"] },
+    { id: "post_conference",  cond: function (s) { return s.month === 10; },
+      lines: ["Conference rolls on — fringes, late-night drinks and policy briefings",
+        "Activists return from the seaside in a buoyant — or bruised — mood"] },
+    { id: "nye",              cond: function (s) { return s.month === 12; },
+      lines: ["Year-in-review specials dominate the front pages",
+        "Westminster looks back — and forward to a noisy January"] }
   ];
 
   // DIFFICULTY — antiInc: anti-incumbency points at an election; regen: capital

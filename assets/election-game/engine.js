@@ -292,6 +292,41 @@
     for (var k = 0; k < 3 && pool.length; k++) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0].id);
     return out;
   }
+  // The Leader of the Opposition — a named character so PMQs feel populated.
+  // Picked from the biggest rival party at game start.
+  function pickOppositionLeader(playerParty) {
+    var rivals = {
+      lab: "con", con: "lab", reform: "lab", ld: "con", green: "lab",
+      snp: "lab", pc: "lab", restore: "lab"
+    };
+    var oppId = rivals[playerParty] || "con";
+    var pool = {
+      con:     [{ first: "Kemi",    last: "Badenoch", style: "combative" },
+                { first: "Robert",  last: "Jenrick",  style: "sharp"     },
+                { first: "James",   last: "Cleverly", style: "wry"       },
+                { first: "Priti",   last: "Patel",    style: "hardline"  }],
+      lab:     [{ first: "Angela",  last: "Rayner",   style: "barbed"    },
+                { first: "Wes",     last: "Streeting",style: "polished"  },
+                { first: "Yvette",  last: "Cooper",   style: "forensic"  },
+                { first: "Bridget", last: "Phillipson", style: "steady"  }],
+      reform:  [{ first: "Nigel",   last: "Farage",   style: "showman"   },
+                { first: "Richard", last: "Tice",     style: "blunt"     },
+                { first: "Lee",     last: "Anderson", style: "fiery"     }],
+      ld:      [{ first: "Daisy",   last: "Cooper",   style: "earnest"   },
+                { first: "Ed",      last: "Davey",    style: "warm"      }],
+      green:   [{ first: "Carla",   last: "Denyer",   style: "principled"},
+                { first: "Adrian",  last: "Ramsay",   style: "measured"  }]
+    };
+    var arr = pool[oppId] || pool.con;
+    var pick = arr[Math.floor(Math.random() * arr.length)];
+    var parties = D.PARTIES || {};
+    return {
+      partyId: oppId,
+      partyName: (parties[oppId] && parties[oppId].name) || oppId,
+      name: pick.first + " " + pick.last,
+      style: pick.style
+    };
+  }
   function pledgeById(id) { for (var i = 0; i < D.PLEDGES.length; i++) if (D.PLEDGES[i].id === id) return D.PLEDGES[i]; return null; }
   function pledgesKept(state) {
     var kept = 0;
@@ -478,7 +513,8 @@
               pressure: 0, pendingDilemma: null, dilemmaHistory: [], decisionLog: [], history: [],
               activeCrisis: null, crisisHistory: [],
               unity: 0.7, discontent: 0, pledges: pickPledges(),
-              approval: 0.5, lastElection: null, termsWon: 0, gameOver: false, oustedBy: null, log: [] };
+              approval: 0.5, lastElection: null, termsWon: 0, gameOver: false, oustedBy: null, log: [],
+              oppositionLeader: pickOppositionLeader(party) };
     var i;
     for (i = 0; i < D.POLICIES.length; i++) s.policies[D.POLICIES[i].id] = D.POLICIES[i].def;
     for (i = 0; i < D.STATS.length; i++) s.stats[D.STATS[i].id] = D.STATS[i].base;
@@ -770,7 +806,7 @@
       } else if (state.month === 5 && state.turn >= 7) state.pendingMidterm = "local";
       else if (state.turn > 4 && Math.random() < 0.05) state.pendingMidterm = "by";
       else if (state.turn % 3 === 0) state.pendingDilemma = buildPMQ(state);
-      else if (Math.random() < 0.34) state.pendingDilemma = pickDilemma(state);
+      else if (Math.random() < 0.55) state.pendingDilemma = pickDilemma(state);
     }
     return { electionDue: electionDue, midterm: state.pendingMidterm || null };
   }
@@ -803,17 +839,30 @@
         state.scheduledFiredYear[key] = true;
         dilemma = buildBudgetDilemma(state, "spring");
       }
+    } else if (state.month === 7) {           // G7 / NATO summer summit
+      key = "summit_" + state.year;
+      if (!state.scheduledFiredYear[key]) {
+        state.scheduledFiredYear[key] = true;
+        dilemma = buildSummitDilemma(state);
+      }
     } else if (state.month === 10) {          // Party Conference season
       key = "conference_" + state.year;
       if (!state.scheduledFiredYear[key]) {
         state.scheduledFiredYear[key] = true;
         dilemma = buildConferenceDilemma(state);
       }
-    } else if (state.month === 11) {          // Autumn Statement
-      key = "autumn_" + state.year;
+    } else if (state.month === 11) {          // King's Speech (odd years) or Autumn Statement (even)
+      var odd = (state.year % 2) === 1;
+      key = (odd ? "kingspeech_" : "autumn_") + state.year;
       if (!state.scheduledFiredYear[key]) {
         state.scheduledFiredYear[key] = true;
-        dilemma = buildAutumnStatementDilemma(state);
+        dilemma = odd ? buildKingsSpeechDilemma(state) : buildAutumnStatementDilemma(state);
+      }
+    } else if (state.month === 12) {          // Year-end review — every December
+      key = "yearend_" + state.year;
+      if (!state.scheduledFiredYear[key]) {
+        state.scheduledFiredYear[key] = true;
+        dilemma = buildYearEndDilemma(state);
       }
     }
     return dilemma;
@@ -871,6 +920,64 @@
         { label: "Targeted measures only",
           result: "A mid-table mini-Budget. Nobody storms out, nobody cheers.",
           effects: { groups: { middleclass: 0.02, pensioners: 0.02 } } }
+      ]
+    };
+  }
+  function buildSummitDilemma(state) {
+    return {
+      id: "sched-summit-" + state.year, scheduled: true,
+      title: "G7 / NATO Summer Summit",
+      desc: "The big summer summit lands. Trump, the EU leaders and a Nordic prime minister all want a piece. What is Britain's posture?",
+      options: [
+        { label: "Lead a transatlantic alliance",
+          result: "A statesman moment in the photograph; defence and aid spending rise.",
+          effects: { policy: { defence: 0.06, foreignaid: 0.04 }, macro: { deficit: 2 },
+            groups: { patriots: 0.06, liberals: 0.05, capitalists: 0.03 } } },
+        { label: "Pivot to Europe, mend bridges",
+          result: "Berlin and Paris purr; the right calls it surrender.",
+          effects: { groups: { liberals: 0.07, capitalists: 0.05, patriots: -0.06 }, macro: { realGrowth: 0.1 } } },
+        { label: "Britain alone — bilateral deals",
+          result: "Plenty of handshakes; few real wins.",
+          effects: { groups: { patriots: 0.05, reformvoters: 0.04, liberals: -0.03 } } }
+      ]
+    };
+  }
+  function buildKingsSpeechDilemma(state) {
+    return {
+      id: "sched-kingspeech-" + state.year, scheduled: true,
+      title: "The King's Speech",
+      desc: "State Opening of Parliament. The Sovereign reads the government's legislative programme. What headlines the session?",
+      options: [
+        { label: "A reforming, ambitious programme",
+          result: "A blockbuster session — and a year of parliamentary trench warfare.",
+          effects: { groups: { liberals: 0.06, young: 0.05, socialists: 0.04, patriots: -0.03 }, unity: -0.03, capital: -1 } },
+        { label: "Steady stewardship, modest bills",
+          result: "Boring and credible.",
+          effects: { groups: { middleclass: 0.04, pensioners: 0.04, capitalists: 0.03 }, unity: 0.04 } },
+        { label: "Tough-on-crime, tough-on-borders package",
+          result: "Tabloids cheer; liberal Britain warns of a culture-war session.",
+          effects: { policy: { police: 0.06, immigration: 0.06 }, groups: { patriots: 0.07, pensioners: 0.04, liberals: -0.07, minorities: -0.05 } } }
+      ]
+    };
+  }
+  function buildYearEndDilemma(state) {
+    // Adapt the framing based on roughly how the year has gone
+    var goodYear = state.approval > 0.52, badYear = state.approval < 0.40;
+    var lead = goodYear ? "A surprisingly strong year" : badYear ? "A bruising year" : "A year of mixed signals";
+    return {
+      id: "sched-yearend-" + state.year, scheduled: true,
+      title: "The Year in Westminster",
+      desc: lead + " ends. Editors are filing their year-in-review pieces; you have a chance to set the narrative for next year.",
+      options: [
+        { label: "A New Year speech of optimism",
+          result: "A confident pitch; the country wants to believe.",
+          effects: { all: 0.02, groups: { young: 0.03, capitalists: 0.02 } } },
+        { label: "Acknowledge what hasn't worked",
+          result: "Honesty buys a little credit; opponents call it weakness.",
+          effects: { unity: 0.04, all: 0.005 } },
+        { label: "Reframe and pick a fight for January",
+          result: "Pick a target, set the news agenda — for better or worse.",
+          effects: { unity: -0.02, groups: { patriots: 0.04, workingclass: 0.03 }, all: 0.005 } }
       ]
     };
   }
@@ -932,9 +1039,13 @@
     if (action.macro) actEffects.macro = action.macro;
     if (action.all != null) actEffects.all = action.all;
     if (action.group) { actEffects.groups = {}; actEffects.groups[action.group] = 0.08; }
+    var opp = state.oppositionLeader, oppName = opp ? opp.name : "The Leader of the Opposition";
+    var oppDesc = opp
+      ? opp.name + " (" + opp.partyName + ") rises and, in their best " + opp.style + " manner, lets fly: “" + line + "”"
+      : "The Leader of the Opposition rises: “" + line + "”";
     return {
       id: "pmq-" + state.turn, title: "Prime Minister's Questions",
-      desc: "The Leader of the Opposition rises: “" + line + "” " + intros[v % intros.length] + " How do you respond?",
+      desc: oppDesc + " " + intros[v % intros.length] + " How do you respond?",
       options: [
         { label: "Defend your record at the dispatch box", result: defendTxt,
           effects: { all: 0.06 - s * 0.13, unity: 0.05 } },

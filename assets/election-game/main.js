@@ -84,6 +84,7 @@
         activeCrisis: g.activeCrisis, crisisHistory: g.crisisHistory,
         initiativeUsedTurn: g.initiativeUsedTurn,
         scheduledFiredYear: g.scheduledFiredYear,
+        oppositionLeader: g.oppositionLeader,
         milestones: g.milestones, promoteCount: g.promoteCount,
         oppShare: g.oppShare, govApproval: g.govApproval, energy: g.energy, maxEnergy: g.maxEnergy,
         momentum: g.momentum, oppHistory: g.oppHistory,
@@ -117,6 +118,7 @@
       if (s.activeCrisis) g.activeCrisis = s.activeCrisis;
       if (s.crisisHistory) g.crisisHistory = s.crisisHistory;
       if (s.scheduledFiredYear) g.scheduledFiredYear = s.scheduledFiredYear;
+      if (s.oppositionLeader) g.oppositionLeader = s.oppositionLeader;
       if (s.milestones) g.milestones = s.milestones;
       if (s.promoteCount) g.promoteCount = s.promoteCount;
       g.dilemmaHistory = s.dilemmaHistory || [];
@@ -584,6 +586,11 @@
       '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center;margin-bottom:8px">End Month ▶</button>' +
       '<button class="btn sm" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Call General Election</button>' +
       '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Resign</button>' +
+      (g.oppositionLeader
+        ? '<div class="opp-leader" style="margin-top:14px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-2)"><div class="lab2" style="margin-bottom:4px">Leader of the Opposition</div>' +
+          '<div style="font-weight:700">' + U.esc(g.oppositionLeader.name) + '</div>' +
+          '<div class="muted" style="font-size:12px">' + U.esc(g.oppositionLeader.partyName) + ' · ' + U.esc(g.oppositionLeader.style) + ' style</div></div>'
+        : "") +
       '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
       U.seatBar(live.totals) + U.legend(live.totals, { byParty: live.byParty, shares: live.shares }) +
       '<div class="muted" style="font-size:12px;margin-top:8px">' +
@@ -1285,11 +1292,23 @@
     }
 
     // Front-page newspaper banner — one lead headline + 2 secondary lines.
+    // Cycle through several mastheads so each turn LOOKS different. The
+    // chosen masthead also tints a slogan strap-line and the date colour.
     var heads = E.generateHeadlines ? E.generateHeadlines(g, 3) : [];
     var lead = heads[0] || "Westminster looks ahead";
     var secondary = heads.slice(1, 3).map(function (h) { return '<li>' + U.esc(h) + '</li>'; }).join("");
-    var paper = '<div class="newspaper">' +
-      '<div class="np-mast"><span>The Number 10 Gazette</span><span class="np-date">' + dateLabel(g) + '</span></div>' +
+    var mastheads = [
+      { name: "The Number 10 Gazette",   slogan: "The paper of record on Downing Street.", cls: "mast-gazette" },
+      { name: "The Westminster Times",   slogan: "Politics first.",                        cls: "mast-times" },
+      { name: "The Lobby Telegraph",     slogan: "From the press gallery — every day.",     cls: "mast-tele" },
+      { name: "The Whitehall Chronicle", slogan: "Civil service. Civic life. Power.",      cls: "mast-chron" },
+      { name: "The Sunday Tribune",      slogan: "The week in Britain.",                   cls: "mast-trib" },
+      { name: "The Britannia Standard",  slogan: "Britain, on its own terms.",             cls: "mast-stand" }
+    ];
+    var mast = mastheads[(g.turn || 0) % mastheads.length];
+    var paper = '<div class="newspaper ' + mast.cls + '">' +
+      '<div class="np-mast"><span>' + U.esc(mast.name) + '</span><span class="np-date">' + dateLabel(g) + '</span></div>' +
+      '<div class="np-slogan">' + U.esc(mast.slogan) + '</div>' +
       '<h3 class="np-headline">' + U.esc(lead) + '</h3>' +
       (secondary ? '<ul class="np-secondary">' + secondary + '</ul>' : '') +
       '<div class="np-pills">' + pills.join("") + '</div>' +

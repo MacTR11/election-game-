@@ -284,12 +284,29 @@ a { color: var(--commons-l); }
   font-family: Georgia, "Times New Roman", serif; font-size: 13px; color: var(--ink-dim); }
 .np-secondary li { padding: 3px 0 3px 14px; position: relative; line-height: 1.4; }
 .np-secondary li::before { content: "▸"; position: absolute; left: 0; color: var(--commons-l); }
+.np-slogan { font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 11.5px;
+  color: var(--ink-dim); margin: -4px 0 8px; opacity: 0.9; }
 .np-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+/* Masthead variants — same layout, different left-stripe colour & accent. */
+.newspaper.mast-gazette { border-left-color: var(--commons-l); }
+.newspaper.mast-times   { border-left-color: var(--gold); }
+.newspaper.mast-times .np-mast span:first-child { color: var(--gold); }
+.newspaper.mast-tele    { border-left-color: #6ec1ff; }
+.newspaper.mast-tele .np-mast span:first-child { color: #cfe6ff; }
+.newspaper.mast-chron   { border-left-color: #c47bff; }
+.newspaper.mast-chron .np-mast span:first-child { color: #e5c8ff; }
+.newspaper.mast-trib    { border-left-color: #ff9b6e; }
+.newspaper.mast-trib .np-mast span:first-child { color: #ffd5be; }
+.newspaper.mast-stand   { border-left-color: #ff5d5d; }
+.newspaper.mast-stand .np-mast span:first-child { color: #ffc8c8; }
+
 @media (max-width: 620px) {
   .newspaper { padding: 12px 14px 10px; }
   .np-headline { font-size: 18px; }
   .np-mast { font-size: 10px; letter-spacing: 1.8px; }
   .np-secondary { font-size: 12.5px; }
+  .np-slogan { font-size: 11px; }
 }
 .pl-mini-row { display: grid; grid-template-columns: 18px 1fr; gap: 6px; font-size: 12px; padding: 2px 0; line-height: 1.4; }
 .pl-mini-tick { color: var(--good); font-weight: 800; text-align: center; }
