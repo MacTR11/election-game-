@@ -143,6 +143,11 @@
     document.querySelectorAll(".nav-btn").forEach(function (b) {
       b.classList.toggle("active", b.getAttribute("data-nav") === S.screen);
     });
+    // preserve scroll position when re-rendering the same screen (e.g. after a
+    // policy nudge) so the player doesn't get bounced to the top mid-edit
+    var preserveScroll = (S.screen === S.lastScreen) && (S.screen === "govern" || S.screen === "opposition");
+    var sy = preserveScroll ? (document.scrollingElement || document.documentElement).scrollTop : 0;
+    S.lastScreen = S.screen;
     var html;
     switch (S.screen) {
       case "home":        html = viewHome(); break;
@@ -157,6 +162,9 @@
       default:            html = viewHome();
     }
     app.innerHTML = html;
+    if (preserveScroll && sy > 0) {
+      requestAnimationFrame(function () { (document.scrollingElement || document.documentElement).scrollTop = sy; });
+    }
     if ((S.screen === "govern" || S.screen === "opposition") && S.govern) autosave();
     afterRender();
   }
