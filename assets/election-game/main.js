@@ -22,6 +22,7 @@
     policyCat: "Taxation",
     policyDetail: null,
     reshufflePost: null,
+    shadowReshufflePost: null,
     pledgeSel: [],
     campaign: null,
     byseat: null,
@@ -74,6 +75,7 @@
         dilemmaHistory: g.dilemmaHistory, termsWon: g.termsWon, approval: g.approval,
         difficulty: g.difficulty, scenarioId: g.scenarioId,
         cabinet: g.cabinet, talentPool: g.talentPool,
+        shadowCabinet: g.shadowCabinet, shadowPool: g.shadowPool, regionEffort: g.regionEffort,
         activeCrisis: g.activeCrisis, crisisHistory: g.crisisHistory,
         oppShare: g.oppShare, govApproval: g.govApproval, energy: g.energy, maxEnergy: g.maxEnergy,
         momentum: g.momentum, oppHistory: g.oppHistory,
@@ -101,6 +103,9 @@
       if (s.scenarioId) g.scenarioId = s.scenarioId;
       if (s.cabinet) g.cabinet = s.cabinet;
       if (s.talentPool) g.talentPool = s.talentPool;
+      if (s.shadowCabinet) g.shadowCabinet = s.shadowCabinet;
+      if (s.shadowPool) g.shadowPool = s.shadowPool;
+      if (s.regionEffort) g.regionEffort = s.regionEffort;
       if (s.activeCrisis) g.activeCrisis = s.activeCrisis;
       if (s.crisisHistory) g.crisisHistory = s.crisisHistory;
       g.dilemmaHistory = s.dilemmaHistory || [];
@@ -429,6 +434,23 @@
     var tour = '<div class="panel" style="margin-top:16px"><h3>Tour the Country</h3>' +
       '<div class="tour-grid">' + tourCells + '</div>' +
       '<p class="notice">Banks ground-game effort in each region (' + (totalEffort > 0 ? "banked: " + totalEffort + " visits" : "no visits yet") + '). It pays off as a vote-share boost in that region when polling day arrives.</p></div>';
+    // shadow cabinet — opposition parity with the government's cabinet
+    var shadow = "";
+    if (g.shadowCabinet) {
+      var sCards = E.SHADOW_POSTS.map(function (post) {
+        var m = g.shadowCabinet[post.id]; if (!m) return "";
+        var perf = ministerPerf(m.competence);
+        return '<div class="min-card">' +
+          '<div class="min-top"><div><div class="lab2">' + U.esc(post.title) + '</div>' +
+          '<div class="min-name">' + U.esc(m.name) + '</div></div>' +
+          '<button class="btn sm" data-shadowreshuffle="' + post.id + '"' + (g.energy < 3 ? " disabled" : "") + '>Reshuffle (3)</button></div>' +
+          '<div class="min-meta">' + stars(m.competence) + ' <span style="color:' + perf.col + '">' + perf.t + '</span></div>' +
+          '<div class="min-trait">“' + U.esc(m.trait) + '” · ' + post.area + '</div></div>';
+      }).join("");
+      shadow = '<div class="panel" style="margin-top:16px"><h3>Your Shadow Cabinet</h3>' +
+        '<p class="notice" style="margin-top:0">A strong shadow team makes your campaign actions hit harder. The Shadow Chancellor boosts economy attacks, the Shadow Home Secretary boosts crime and migration attacks, and so on. The Campaign Chief speeds up energy regen and protects your momentum. Reshuffles cost <b>3</b> campaign energy.</p>' +
+        '<div class="min-grid">' + sCards + '</div></div>';
+    }
     // headlines reflect the country's mood from your vantage point
     var heads = E.generateHeadlines(g, 4);
     var headPanel = heads.length
@@ -447,8 +469,28 @@
       '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
       U.seatBar(live.totals) + U.legend(live.totals) + '</div></div>';
     return head + kpis + chart + headPanel +
-      '<div class="dash" style="margin-top:16px"><div>' + scorecard + '<div style="height:16px"></div>' + promote + tour + '</div>' + sidebar + '</div>' +
-      dilemmaModal();
+      '<div class="dash" style="margin-top:16px"><div>' + scorecard + '<div style="height:16px"></div>' + promote + tour + shadow + '</div>' + sidebar + '</div>' +
+      dilemmaModal() + shadowReshuffleModal();
+  }
+  function shadowReshuffleModal() {
+    var g = S.govern, post = S.shadowReshufflePost; if (!post || !g.shadowCabinet) return "";
+    var meta = E.SHADOW_POSTS.filter(function (p) { return p.id === post; })[0];
+    var current = g.shadowCabinet[post];
+    var rows = (g.shadowPool || []).map(function (m, i) {
+      var perf = ministerPerf(m.competence);
+      var better = m.competence > current.competence;
+      return '<button class="appoint-row" data-shadowappoint="' + post + ':' + i + '"' + (g.energy < 3 ? " disabled" : "") + '>' +
+        '<div><div class="min-name">' + U.esc(m.name) + (better ? ' <span class="pill" style="background:var(--good)22;color:var(--good)">upgrade</span>' : "") + '</div>' +
+        '<div class="min-trait">“' + U.esc(m.trait) + '”</div></div>' +
+        '<div style="text-align:right">' + stars(m.competence) + '<div class="faint" style="font-size:11px;color:' + perf.col + '">' + perf.t + '</div></div></button>';
+    }).join("");
+    return '<div class="modal-overlay"><div class="modal">' +
+      '<div class="modal-tag">Shadow reshuffle · ' + U.esc(meta.title) + '</div>' +
+      '<h2>Appoint a new ' + U.esc(meta.title) + '</h2>' +
+      '<p class="muted">Replacing <b>' + U.esc(current.name) + '</b> costs <b>3</b> campaign energy. A clear upgrade gives a small bump to momentum.</p>' +
+      '<div class="appoint-list">' + rows + '</div>' +
+      '<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" data-act="closeshadowreshuffle">Cancel</button></div>' +
+      '</div></div>';
   }
 
   // --------------------------------------------------------- govern: main
@@ -965,6 +1007,17 @@
         } else toast("Not enough political capital.");
       });
     });
+    app.querySelectorAll("[data-shadowreshuffle]").forEach(function (el) {
+      el.addEventListener("click", function () { S.shadowReshufflePost = el.getAttribute("data-shadowreshuffle"); render(); });
+    });
+    app.querySelectorAll("[data-shadowappoint]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        var parts = el.getAttribute("data-shadowappoint").split(":");
+        if (E.reshuffleShadowCabinet(S.govern, parts[0], parseInt(parts[1], 10))) {
+          S.shadowReshufflePost = null; render(); toast("Shadow team reshuffled.");
+        } else toast("Not enough campaign energy.");
+      });
+    });
     // manifesto pledge chips (max 3)
     app.querySelectorAll("[data-pledge]").forEach(function (el) {
       el.addEventListener("click", function () {
@@ -1123,6 +1176,7 @@
       case "resetcamp": startCampaign(); render(); break;
       case "closepolicy": S.policyDetail = null; render(); break;
       case "closereshuffle": S.reshufflePost = null; render(); break;
+      case "closeshadowreshuffle": S.shadowReshufflePost = null; render(); break;
       case "continuesave": if (loadGame()) go(S.loadedRole === "opposition" ? "opposition" : "govern"); break;
       case "discardsave": clearSave(); render(); break;
       case "restart": clearSave(); S.govern = null; go("govern-setup"); break;

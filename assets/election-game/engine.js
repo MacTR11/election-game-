@@ -349,6 +349,58 @@
     return true;
   }
 
+  // ---- shadow cabinet (opposition only) ----
+  var SHADOW_POSTS = [
+    { id: "schancellor", title: "Shadow Chancellor",        area: "economic credibility",       map: { attack: "economy",       promote: "capitalists" } },
+    { id: "shealth",     title: "Shadow Health Secretary",  area: "the NHS attack",             map: { attack: "nhs" } },
+    { id: "shome",       title: "Shadow Home Secretary",    area: "crime & migration attacks",  map: { attack: "crime",         promote: "patriots" } },
+    { id: "seducation",  title: "Shadow Education",         area: "the young vote",             map: { promote: "young" } },
+    { id: "sforeign",    title: "Shadow Foreign Secretary", area: "national-stage credibility", map: { blitz: true } },
+    { id: "campchief",   title: "Campaign Chief",           area: "the ground game",            map: { passive: true } }
+  ];
+  function generateShadowCabinet() {
+    var used = {}, cab = {}, pool = [], i;
+    for (i = 0; i < SHADOW_POSTS.length; i++) cab[SHADOW_POSTS[i].id] = makeMinister(used);
+    for (i = 0; i < 6; i++) pool.push(makeMinister(used));
+    return { shadowCabinet: cab, shadowPool: pool };
+  }
+  // Returns a multiplier (~0.85 to 1.30) to apply to the magnitude of an
+  // opposition action's vote-share / group effects.
+  function shadowBoost(g, type, arg) {
+    if (!g.shadowCabinet) return 1;
+    var matched = null;
+    for (var i = 0; i < SHADOW_POSTS.length; i++) {
+      var p = SHADOW_POSTS[i], mp = p.map || {};
+      if (type === "attack" && mp.attack === arg) { matched = p; break; }
+      if (type === "promote" && mp.promote === arg) { matched = p; break; }
+      if (type === "blitz" && mp.blitz) { matched = p; break; }
+    }
+    if (!matched) return 1;
+    var m = g.shadowCabinet[matched.id]; if (!m) return 1;
+    return 1 + (m.competence - 3) * 0.15;
+  }
+  function shadowChiefBonus(g) {
+    if (!g.shadowCabinet || !g.shadowCabinet.campchief) return { energy: 0, decay: 0 };
+    var c = g.shadowCabinet.campchief.competence - 3;
+    return { energy: c * 0.5, decay: c * 0.04 }; // adds to per-turn energy regen and slows momentum decay
+  }
+  function reshuffleShadowCabinet(g, post, poolIndex) {
+    if (!g.shadowCabinet || !g.shadowPool) return false;
+    var cand = g.shadowPool[poolIndex];
+    if (!cand || !g.shadowCabinet[post]) return false;
+    var cost = 3;
+    if (g.energy < cost) return false;
+    var outgoing = g.shadowCabinet[post];
+    g.energy -= cost;
+    g.shadowCabinet[post] = cand;
+    g.shadowPool.splice(poolIndex, 1);
+    g.shadowPool.push(outgoing);
+    // an upgrade brings a small momentum bump
+    var upgrade = Math.max(0, (cand.competence - outgoing.competence) * 0.4);
+    if (upgrade) g.momentum += upgrade;
+    return true;
+  }
+
   function newGovernState(party, opts) {
     opts = opts || {};
     var F = D.FISCAL;
@@ -1012,6 +1064,8 @@
     g.weak = oppWeaknesses(g);
     g.regionEffort = {};
     g.oppHistory = [];
+    var sc = generateShadowCabinet();
+    g.shadowCabinet = sc.shadowCabinet; g.shadowPool = sc.shadowPool;
     g.choosePledges = false; g.pledges = [];
     recordOppHistory(g);
     return g;
@@ -1021,19 +1075,20 @@
     var cost = type === "blitz" ? 4 : 2;
     if (g.energy < cost) return false;
     g.energy -= cost;
+    var b = shadowBoost(g, type, arg);
     if (type === "attack") {
       var w = g.weak[arg] != null ? g.weak[arg] : 0.3;
-      if (w > 0.45) { g.oppShare += 1.2 * w + 0.6; g.govApproval = clamp01(g.govApproval - 0.025); g.momentum += 1.2 * w; }
-      else { g.oppShare += 0.15; g.momentum -= 0.2; }            // attacking a strength barely lands
+      if (w > 0.45) { g.oppShare += (1.2 * w + 0.6) * b; g.govApproval = clamp01(g.govApproval - 0.025 * b); g.momentum += 1.2 * w * b; }
+      else { g.oppShare += 0.15 * b; g.momentum -= 0.2; }        // attacking a strength barely lands
       g.weak[arg] = clamp01(g.weak[arg] - 0.06);                 // point made; salience fades
     } else if (type === "promote") {
-      g.oppShare += 0.9; g.momentum += 0.8;
-      if (g.groups[arg] != null) g.groups[arg] = clamp01(g.groups[arg] + 0.04);
+      g.oppShare += 0.9 * b; g.momentum += 0.8 * b;
+      if (g.groups[arg] != null) g.groups[arg] = clamp01(g.groups[arg] + 0.04 * b);
     } else if (type === "tour") {
       g.regionEffort[arg] = (g.regionEffort[arg] || 0) + 3;      // banked ground game for polling day
       g.oppShare += 0.4;
     } else if (type === "blitz") {
-      g.oppShare += 1.6; g.momentum += 1.0;
+      g.oppShare += 1.6 * b; g.momentum += 1.0 * b;
     }
     g.oppShare = clamp(g.oppShare, 3, 60);
     return true;
@@ -1060,8 +1115,9 @@
     var target = (D.BASELINE[g.party] || 12) + (0.5 - g.govApproval) * 42 + g.momentum;
     g.oppShare += (clamp(target, 3, 60) - g.oppShare) * 0.18;
     g.oppShare = clamp(g.oppShare, 3, 60);
-    g.momentum *= 0.7;
-    g.energy = Math.min(g.maxEnergy, g.energy + 2);
+    var cb = shadowChiefBonus(g);
+    g.momentum *= Math.min(0.95, 0.7 + cb.decay);
+    g.energy = Math.min(g.maxEnergy, g.energy + 2 + cb.energy);
     g.turn += 1; g.month += 1; if (g.month > 12) { g.month = 1; g.year += 1; }
     recordOppHistory(g);
     return { electionDue: g.turn >= TERM_TURNS };
@@ -1127,6 +1183,9 @@
     reshuffleCabinet: reshuffleCabinet,
     cabinetBonus: cabinetBonus,
     CABINET_POSTS: CABINET_POSTS,
+    reshuffleShadowCabinet: reshuffleShadowCabinet,
+    shadowBoost: shadowBoost,
+    SHADOW_POSTS: SHADOW_POSTS,
     generateHeadlines: generateHeadlines,
     changeCost: changeCost,
     capitalRegen: capitalRegen,
