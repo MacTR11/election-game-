@@ -237,7 +237,7 @@
       (g.type === "coalition" ? "-led coalition" : g.type === "minority" ? " minority" : "") + '</div></div>' +
       '<div style="text-align:right"><div class="lab2">' + typeTxt + '</div>' +
       '<div class="big ' + (ok ? "outcome-maj" : "outcome-hung") + '" style="font-size:20px">' + g.seats + ' / ' + g.needed + '</div>' +
-      '<div class="faint" style="font-size:11px">working majority needs ' + g.needed + ' (SF abstain)</div></div></div>' +
+      '<div class="faint" style="font-size:11px">majority line is 326 of 650</div></div></div>' +
       '<div class="legend" style="margin-top:8px">' + members + '</div></div>';
   }
   function seatDetailPanel(shares) {

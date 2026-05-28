@@ -179,7 +179,9 @@
     snp:    ["lab", "ld", "green", "pc"]
   };
   function formGovernment(totals) {
-    var sf = totals.sf || 0, sitting = 650 - sf, needed = Math.floor(sitting / 2) + 1;
+    // Canonical UK Commons majority is 326 (half of 650 + 1) — this matches the
+    // line drawn on the seat bar and what every newsroom reports.
+    var needed = 326, sitting = 650;
     var ranked = Object.keys(totals).filter(function (p) { return totals[p] > 0 && p !== "sf"; })
       .sort(function (a, b) { return totals[b] - totals[a]; });
     if (!ranked.length) return { type: "minority", formateur: "oth", members: ["oth"], seats: 0, needed: needed, sitting: sitting };
