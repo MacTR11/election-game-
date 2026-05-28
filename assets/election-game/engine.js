@@ -472,7 +472,7 @@
                        receipts: F.receiptsTotal, spending: F.spendingTotal,
                        deficit: F.spendingTotal - F.receiptsTotal,
                        debtPct: Math.round(F.debt / F.gdp * 100) },
-              pressure: 0, pendingDilemma: null, dilemmaHistory: [], history: [],
+              pressure: 0, pendingDilemma: null, dilemmaHistory: [], decisionLog: [], history: [],
               activeCrisis: null, crisisHistory: [],
               unity: 0.7, discontent: 0, pledges: pickPledges(),
               approval: 0.5, lastElection: null, termsWon: 0, gameOver: false, oustedBy: null, log: [] };
@@ -864,6 +864,15 @@
     if (e.all != null) for (id in state.groups) state.groups[id] = clamp01(state.groups[id] + e.all);
     if (e.capital) state.capital = Math.max(0, state.capital + e.capital);
     state.dilemmaHistory.push(d.id);
+    // also keep a richer journal of decisions for the briefing tab
+    state.decisionLog = state.decisionLog || [];
+    state.decisionLog.push({
+      id: d.id, title: d.title, optionLabel: opt.label, result: opt.result,
+      year: state.year, month: state.month, optionIdx: optionIndex,
+      isPmq: d.id && d.id.indexOf("pmq-") === 0,
+      isCrisis: !!d.crisisChain
+    });
+    if (state.decisionLog.length > 30) state.decisionLog.shift();
     // crisis stage advancement (if this was a crisis-chain decision)
     if (d.crisisChain && opt.crisisAdv) advanceCrisisAfterOption(state, opt);
     state.pendingDilemma = null;
@@ -990,6 +999,7 @@
       state.unity = clamp01(state.unity + 0.15);
       state.discontent = 0;
       state.choosePledges = true;       // UI prompts a fresh manifesto for the new term
+      state.decisionLog = [];            // wipe the journal so the new term starts fresh
       // a fresh mandate buoys the groups a little
       for (var id in state.groups) state.groups[id] = clamp01(state.groups[id] + 0.04);
     } else {

@@ -77,7 +77,7 @@
         capital: g.capital, maxCapital: g.maxCapital, policies: g.policies,
         stats: g.stats, groups: g.groups, macro: g.macro, pressure: g.pressure,
         unity: g.unity, discontent: g.discontent, pledges: g.pledges, history: g.history,
-        dilemmaHistory: g.dilemmaHistory, termsWon: g.termsWon, approval: g.approval,
+        dilemmaHistory: g.dilemmaHistory, decisionLog: g.decisionLog, termsWon: g.termsWon, approval: g.approval,
         difficulty: g.difficulty, scenarioId: g.scenarioId,
         cabinet: g.cabinet, talentPool: g.talentPool,
         shadowCabinet: g.shadowCabinet, shadowPool: g.shadowPool, regionEffort: g.regionEffort,
@@ -117,6 +117,7 @@
       if (s.milestones) g.milestones = s.milestones;
       if (s.promoteCount) g.promoteCount = s.promoteCount;
       g.dilemmaHistory = s.dilemmaHistory || [];
+      g.decisionLog = s.decisionLog || [];
       g.history = s.history && s.history.length ? s.history : g.history;
       if (opp) { g.oppHistory = s.oppHistory && s.oppHistory.length ? s.oppHistory : g.oppHistory; }
       g.activeEvents = (s.activeEvents || []).map(function (id) {
@@ -1400,11 +1401,34 @@
       '<div class="panel" style="margin-bottom:16px"><h3>Manifesto Pledges</h3>' + pledges +
       '<p class="notice">Keeping your pledges by the next election earns a trust dividend at the ballot box; breaking them costs you.</p></div>' +
       '<div class="panel" style="margin-bottom:16px"><h3>In the In-Tray</h3>' + events + '</div>' +
+      decisionsJournal(g) +
       politicalCompass(g) +
       '<div class="panel"><h3>Electoral Map — if an election were held today</h3>' +
       mapView(live.seatWinners) + '</div>';
   }
 
+  // Recent-decisions journal for the briefing tab — surfaces the running
+  // narrative of what the player has chosen this term.
+  function decisionsJournal(g) {
+    var log = (g.decisionLog || []).slice().reverse();
+    if (!log.length) return "";
+    var shown = log.slice(0, 10);
+    var rows = shown.map(function (d) {
+      var tag = d.isCrisis ? '<span class="dj-tag bad">CRISIS</span>'
+              : d.isPmq ? '<span class="dj-tag warn">PMQ</span>'
+              : '<span class="dj-tag">DECISION</span>';
+      var when = (MONTHS[d.month] || "") + " " + d.year;
+      return '<div class="dj-row">' +
+        '<div class="dj-meta">' + tag + '<span class="dj-date">' + when + '</span></div>' +
+        '<div class="dj-title">' + U.esc(d.title) + '</div>' +
+        '<div class="dj-choice">▸ ' + U.esc(d.optionLabel) + '</div>' +
+        (d.result ? '<div class="dj-result">' + U.esc(d.result) + '</div>' : '') +
+      '</div>';
+    }).join("");
+    var more = log.length > 10 ? '<p class="muted" style="font-size:11.5px;margin:8px 0 0">…' + (log.length - 10) + ' earlier this term.</p>' : "";
+    return '<div class="panel" style="margin-bottom:16px"><h3>Decisions This Term</h3>' +
+      '<div class="dj-list">' + rows + '</div>' + more + '</div>';
+  }
   // Compute the player's position on a 2-D political compass — starts at their
   // party's baseline (econ left/right, social libertarian/authoritarian) and
   // drifts as their policies move away from defaults, weighted by which voter
