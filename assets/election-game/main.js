@@ -795,16 +795,39 @@
         return '<tr><td>' + U.esc(k) + '</td><td class="num">£' + Math.round(obj[k]) + 'bn</td></tr>';
       }).join("");
     }
-    var budget = '<div class="panel" style="margin-bottom:16px"><h3>The Public Finances (£bn)</h3>' +
-      '<div class="viz2"><div><table class="tbl"><thead><tr><th>Receipts</th><th class="num">£bn</th></tr></thead><tbody>' +
-        fLines(g.fiscalLines.r) + '<tr style="font-weight:800"><td>Total receipts</td><td class="num">£' + m.receipts + 'bn</td></tr></tbody></table></div>' +
+    // Visual stacked bar of receipts and spending — Democracy-style at-a-glance
+    // breakdown of where the money comes from and goes.
+    var RX_COLORS = ["#2ecc71","#27ae60","#1abc9c","#16a085","#3498db","#2980b9","#9b59b6","#8e44ad","#5d6d7e","#85929e","#7f8c8d"];
+    var SX_COLORS = ["#e74c3c","#c0392b","#e67e22","#d35400","#f39c12","#f1c40f","#16a085","#9b59b6","#8e44ad","#2980b9","#7f8c8d","#5d6d7e","#95a5a6","#bdc3c7","#a93226"];
+    function stackedBar(obj, palette, total) {
+      var keys = Object.keys(obj).sort(function (a, b) { return obj[b] - obj[a]; });
+      var segs = keys.map(function (k, i) {
+        var v = obj[k]; if (v <= 0) return "";
+        var w = (v / total) * 100;
+        return '<i class="bb-seg" style="width:' + w.toFixed(2) + '%;background:' + palette[i % palette.length] + '" title="' + U.esc(k) + ': £' + Math.round(v) + 'bn (' + w.toFixed(1) + '%)"></i>';
+      }).join("");
+      var leg = keys.map(function (k, i) {
+        var v = obj[k]; if (v <= 0) return "";
+        return '<span class="bb-key"><i style="background:' + palette[i % palette.length] + '"></i>' + U.esc(k) + ' <b>£' + Math.round(v) + 'bn</b></span>';
+      }).join("");
+      return '<div class="bb-bar">' + segs + '</div><div class="bb-legend">' + leg + '</div>';
+    }
+    var defCol = m.deficit > 0 ? "var(--bad)" : "var(--good)";
+    var budget = '<div class="panel" style="margin-bottom:16px"><h3>The Public Finances</h3>' +
+      '<div class="bb-line"><div class="bb-title">Receipts <small>· £' + m.receipts + 'bn</small></div>' + stackedBar(g.fiscalLines.r, RX_COLORS, m.receipts) + '</div>' +
+      '<div class="bb-line"><div class="bb-title">Spending <small>· £' + m.spending + 'bn</small></div>' + stackedBar(g.fiscalLines.s, SX_COLORS, m.spending) + '</div>' +
+      '<div class="bb-summary">' +
+        '<div><span class="lab2">Deficit / yr</span><b style="color:' + defCol + '">' + fmtMoney(m.deficit) + '</b></div>' +
+        '<div><span class="lab2">Net debt</span><b>£' + (m.debt / 1000).toFixed(2) + 'tn <small class="faint">' + m.debtPct + '% GDP</small></b></div>' +
+        '<div><span class="lab2">Debt interest</span><b>' + fmtMoney(m.debtInterest) + '</b></div>' +
+      '</div>' +
+      '<p class="notice">Hover any segment for the line and the £bn. Starting figures are the real 2024–25 position (OBR / ONS).</p>' +
+      '<details style="margin-top:10px"><summary class="bb-toggle">Show the full table</summary>' +
+      '<div class="viz2" style="margin-top:10px"><div><table class="tbl"><thead><tr><th>Receipts</th><th class="num">£bn</th></tr></thead><tbody>' +
+        fLines(g.fiscalLines.r) + '<tr style="font-weight:800"><td>Total</td><td class="num">£' + m.receipts + 'bn</td></tr></tbody></table></div>' +
       '<div><table class="tbl"><thead><tr><th>Spending</th><th class="num">£bn</th></tr></thead><tbody>' +
-        fLines(g.fiscalLines.s) + '<tr style="font-weight:800"><td>Total spending</td><td class="num">£' + m.spending + 'bn</td></tr></tbody></table></div></div>' +
-      '<div class="kpis" style="margin-top:10px">' +
-        kpi("Deficit / yr", fmtMoney(m.deficit), m.deficit > 150 ? "var(--bad)" : "var(--warn)") +
-        kpi("Net debt", "£" + (m.debt / 1000).toFixed(2) + "tn <small>" + m.debtPct + "% GDP</small>") +
-        kpi("Debt interest", fmtMoney(m.debtInterest)) +
-      '</div><p class="notice">Starting figures are the real UK 2024–25 position (OBR / ONS). Receipts grow with the economy; spending rises with inflation; debt interest climbs with the debt.</p></div>';
+        fLines(g.fiscalLines.s) + '<tr style="font-weight:800"><td>Total</td><td class="num">£' + m.spending + 'bn</td></tr></tbody></table></div></div>' +
+      '</details></div>';
 
     var rows = D.STATS.map(function (st) {
       var v = g.stats[st.id];
@@ -820,6 +843,36 @@
   function tabVoters() {
     var g = S.govern;
     var sorted = D.GROUPS.slice().sort(function (a, b) { return g.groups[b.id] - g.groups[a.id]; });
+    // Democracy-style voter bubble cluster — bubble size scales with group
+    // population, colour shows contentment, and a small ▲/▼ shows the delta
+    // since the term began.
+    var firstSnap = g.history.length ? g.history[0] : null;
+    var bubbles = D.GROUPS.slice().sort(function (a, b) { return b.size - a.size; }).map(function (gr) {
+      var v = g.groups[gr.id];
+      var startV = (firstSnap && firstSnap.groups && firstSnap.groups[gr.id] != null) ? firstSnap.groups[gr.id] : gr.base;
+      var delta = v - startV;
+      var col = v > 0.55 ? "var(--good)" : v > 0.42 ? "var(--warn)" : "var(--bad)";
+      var ringPct = Math.round(v * 100);
+      // bubble diameter scales smoothly with the group's share of the electorate
+      var d = Math.round(56 + Math.sqrt(gr.size) * 11);  // ~70px for size 8 → ~134px for size 50
+      var deltaTxt = Math.abs(delta) < 0.005 ? "" : (delta > 0 ? "▲" : "▼") + " " + (Math.abs(delta) * 100).toFixed(0);
+      return '<div class="vbubble" style="width:' + d + 'px;height:' + d + 'px" title="' +
+        U.esc(gr.name) + ' — ' + ringPct + '% content, ' + gr.size + '% of electorate' + (delta ? ', ' + (delta > 0 ? '+' : '') + (delta * 100).toFixed(1) + 'pts since term start' : '') + '">' +
+        '<svg viewBox="0 0 100 100" class="vbubble-ring" aria-hidden="true">' +
+          '<circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="6"></circle>' +
+          '<circle cx="50" cy="50" r="46" fill="none" stroke="' + col + '" stroke-width="6" stroke-dasharray="' +
+            (ringPct * 2.89) + ' 289" stroke-linecap="round" transform="rotate(-90 50 50)"></circle>' +
+        '</svg>' +
+        '<div class="vbubble-inner">' +
+          '<div class="vbubble-pct" style="color:' + col + '">' + ringPct + '</div>' +
+          '<div class="vbubble-name">' + U.esc(gr.name) + '</div>' +
+          (deltaTxt ? '<div class="vbubble-delta" style="color:' + (delta > 0 ? "var(--good)" : "var(--bad)") + '">' + deltaTxt + '</div>' : '') +
+        '</div></div>';
+    }).join("");
+    var bubblePanel = '<div class="panel" style="margin-bottom:16px"><h3>The Electorate</h3>' +
+      '<div class="vbubble-grid">' + bubbles + '</div>' +
+      '<p class="notice">Bubble size = share of the electorate · ring fill = contentment · arrows = movement since you took office. Approval is the size-weighted average across every bloc.</p></div>';
+    // compact list view kept below for at-a-glance reading
     var cells = sorted.map(function (gr) {
       var v = g.groups[gr.id];
       var col = v > 0.55 ? "var(--good)" : v > 0.42 ? "var(--warn)" : "var(--bad)";
@@ -847,8 +900,9 @@
       moversPanel = '<div class="panel" style="margin-top:16px"><h3>Biggest Movers Since You Took Office</h3>' + rows +
         '<p class="notice">The voter groups whose mood has shifted most — these are the blocs your policies and decisions are reaching.</p></div>';
     }
-    return '<div class="panel"><h3>Voter Groups · contentment</h3><div class="group-grid">' + cells + '</div>' +
-      '<p class="notice">Groups overlap (a renter can also be a young environmentalist), so sizes do not sum to 100%. Approval is the size-weighted average of every group.</p></div>' +
+    return bubblePanel +
+      '<div class="panel"><h3>Voter Groups · ranked</h3><div class="group-grid">' + cells + '</div>' +
+      '<p class="notice">Groups overlap (a renter can also be a young environmentalist), so sizes do not sum to 100%.</p></div>' +
       moversPanel;
   }
 

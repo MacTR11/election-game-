@@ -317,6 +317,38 @@ kbd { display: inline-block; background: var(--bg-2); border: 1px solid var(--bo
 .pending-info b { color: var(--gold); font-variant-numeric: tabular-nums; }
 .pending-bar.over .pending-info b { color: var(--bad); }
 .pending-btns { display: flex; gap: 6px; }
+/* Voter bubble cluster (Democracy-style) */
+.vbubble-grid { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; padding: 10px 6px; }
+.vbubble { position: relative; border-radius: 50%; background: rgba(255,255,255,0.02); display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: transform .15s; cursor: default; }
+.vbubble:hover { transform: scale(1.05); z-index: 1; }
+.vbubble-ring { position: absolute; inset: 0; width: 100%; height: 100%; }
+.vbubble-inner { position: relative; text-align: center; line-height: 1.05; padding: 0 8px; pointer-events: none; }
+.vbubble-pct { font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.vbubble-name { font-size: 10px; font-weight: 700; color: var(--ink-dim); letter-spacing: .2px;
+  text-transform: uppercase; line-height: 1.15; margin-top: 2px; max-width: 100%; }
+.vbubble-delta { font-size: 9.5px; font-weight: 800; margin-top: 1px; }
+/* Budget breakdown — receipts & spending stacked bars */
+.bb-line { margin-bottom: 14px; }
+.bb-title { font-size: 12px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; }
+.bb-title small { font-weight: 500; text-transform: none; letter-spacing: 0; }
+.bb-bar { display: flex; height: 26px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+.bb-bar .bb-seg { display: block; height: 100%; transition: filter .15s; }
+.bb-bar .bb-seg:hover { filter: brightness(1.25); cursor: default; }
+.bb-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; font-size: 11.5px; }
+.bb-key { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-dim); }
+.bb-key i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.bb-key b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.bb-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-top: 10px; padding: 12px;
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; }
+.bb-summary .lab2 { display: block; margin-bottom: 2px; }
+.bb-summary b { font-size: 17px; font-variant-numeric: tabular-nums; }
+.bb-toggle { cursor: pointer; color: var(--commons-l); font-size: 12.5px; font-weight: 600; }
+@media (max-width: 620px) {
+  .vbubble-grid { gap: 8px; }
+  .vbubble-pct { font-size: 16px; }
+  .vbubble-name { font-size: 9px; }
+}
 @media (max-width: 620px) {
   .fab-endturn { right: 14px; bottom: 14px; padding: 10px 18px; }
   .fab-endturn .fab-label { font-size: 13px; }
