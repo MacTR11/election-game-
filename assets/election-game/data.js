@@ -1329,7 +1329,7 @@
       ] },
 
     // ---- ECONOMY / LABOUR ----
-    { id: "northsea", title: "North Sea Oil Licences",
+    { id: "northsea_oil", title: "North Sea Oil Licences",
       desc: "A new licensing round is on the desk. Climate campaigners and energy security hawks are at war.",
       options: [
         { label: "Approve fresh licences", result: "Aberdeen cheers; COP commitments wobble.",

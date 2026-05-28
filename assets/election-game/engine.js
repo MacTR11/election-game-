@@ -101,6 +101,7 @@
         var v2 = (sw[p] || 0) + (adj && adj[p] ? adj[p] : 0); if (v2 < 0) v2 = 0;
         if (v2 > bestv) { bestv = v2; best = p; }
       }
+      if (best == null) continue; // no eligible party (shouldn't happen — every seat has GB parties)
       totals[best] = (totals[best] || 0) + 1;
       seatWinners[seat.c] = best;
       (regionTally[seat.reg] || (regionTally[seat.reg] = {}));
@@ -172,6 +173,7 @@
     return {
       totals: totals, byRegion: byRegion, winner: winner,
       winnerSeats: winnerSeats, majority: majority,
+      government: formGovernment(totals),
       majorityNeeded: 326,
       outcome: majority > 0 ? "majority"
              : winnerSeats >= 326 ? "majority" : "hung"
@@ -580,6 +582,7 @@
     var stats = {}, groups = {}, i, id;
     for (i = 0; i < D.POLICIES.length; i++) {
       var pol = D.POLICIES[i], d = polD(pol, state.policies[pol.id]);
+      if (!pol.effects) continue;
       if (pol.effects.stats) for (id in pol.effects.stats) stats[id] = (stats[id] || 0) + pol.effects.stats[id] * d;
       if (pol.effects.groups) for (id in pol.effects.groups) groups[id] = (groups[id] || 0) + pol.effects.groups[id] * d;
     }
@@ -837,7 +840,7 @@
       key = "budget_" + state.year;
       if (!state.scheduledFiredYear[key]) {
         state.scheduledFiredYear[key] = true;
-        dilemma = buildBudgetDilemma(state, "spring");
+        dilemma = buildBudgetDilemma(state);
       }
     } else if (state.month === 7) {           // G7 / NATO summer summit
       key = "summit_" + state.year;
@@ -1244,6 +1247,8 @@
     // primary effects
     var e = it.effects || {}, key;
     if (e.unity != null) state.unity = clamp01(state.unity + e.unity);
+    // policy nudges are fractions of a lever's range, applied in real units (as in resolveDilemma)
+    if (e.policy) for (key in e.policy) { var ip = polById(key); if (ip) state.policies[key] = clamp(state.policies[key] + e.policy[key] * (ip.max - ip.min), ip.min, ip.max); }
     if (e.macro) for (key in e.macro) if (state.macro[key] != null) state.macro[key] += e.macro[key];
     if (e.stats) for (key in e.stats) if (state.stats[key] != null) state.stats[key] = clamp01(state.stats[key] + e.stats[key]);
     if (e.groups) for (key in e.groups) if (state.groups[key] != null) state.groups[key] = clamp01(state.groups[key] + e.groups[key]);
@@ -1263,6 +1268,7 @@
       var pick = state.cabinet[posts[Math.floor(Math.random() * posts.length)]];
       if (pick) pick.competence = Math.min(5, pick.competence + 1);
     }
+    if (e.policy) computeFiscal(state);
     state.approval = computeApproval(state);
     state.decisionLog = state.decisionLog || [];
     state.decisionLog.push({ id: "init-" + it.id, title: it.name, optionLabel: gaffed ? "Took the initiative — and it backfired" : "Took the initiative",
