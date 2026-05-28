@@ -1196,6 +1196,15 @@
       stats: { immigration: 0.12 }, groups: { patriots: -0.12, workingclass: -0.07, liberals: -0.04 } }
   ];
 
+  // OPPOSITION SCENARIOS — starting positions for the leader of the Opposition.
+  var OPP_SCENARIOS = [
+    { id: "even", name: "Even Race", blurb: "The 2024 baseline — the contest is genuinely open." },
+    { id: "honeymoon", name: "Honeymoon Government", blurb: "The incumbent rides a wave; you must build momentum from a low base.",
+      oppShare: -5, govApproval: 0.06 },
+    { id: "wounded", name: "Wounded Government", blurb: "The government is on the ropes; the prize is closer, but everyone is hunting it.",
+      oppShare: 6, govApproval: -0.08 }
+  ];
+
   // ---------------------------------------------------------------------------
   // CRISIS CHAINS — multi-stage scripted events. Each chain has a trigger, a
   // persistent per-turn drag while it is live, and a sequence of stages. Each
@@ -1387,6 +1396,22 @@
     { id: "giltStage", cond: function (s) { return s.activeCrisis && s.activeCrisis.id === "gilt"; },
       lines: ["Gilts gyrate as markets read every Treasury comment",
         "Pound under pressure as fiscal credibility wobbles"] },
+    // a handful of gentler templates so the front pages are never empty
+    { id: "costLivingFront", cond: function (s) { return s.macro.inflation > 2.4; },
+      lines: ["Cost of living tops voters' concerns in latest tracker",
+        "Bills, bills, bills — pollsters say the squeeze still bites"] },
+    { id: "housingFront", cond: function (s) { return s.stats.housing < 0.45; },
+      lines: ["Housing crisis grips young Britain",
+        "Rents soar, deposits balloon — and homes don't get built"] },
+    { id: "nhsFront", cond: function (s) { return s.stats.nhs < 0.5; },
+      lines: ["NHS pressures dominate the news again",
+        "Waiting-list anxieties test the government's promises"] },
+    { id: "firstHundred", cond: function (s) { return s.turn >= 0 && s.turn <= 3 && s.termsWon === 0; },
+      lines: ["PM faces a packed first 100 days",
+        "Cabinet settles in as the in-tray piles up"] },
+    { id: "migrationFront", cond: function (s) { return s.stats.immigration > 0.55; },
+      lines: ["Migration row simmers on talk radio",
+        "Channel crossings keep a place on the front pages"] },
     { id: "warStage", cond: function (s) { return s.activeCrisis && s.activeCrisis.id === "war"; },
       lines: ["Conflict latest: refugees arrive, sanctions tightened",
         "Energy bills surge as the conflict abroad bites at home"] }
@@ -1416,6 +1441,7 @@
     BASELINE: BASELINE,
     LOCAL: LOCAL,
     SCENARIOS: SCENARIOS,
+    OPP_SCENARIOS: OPP_SCENARIOS,
     DIFFICULTY: DIFFICULTY,
     CRISES: CRISES,
     HEADLINES: HEADLINES,

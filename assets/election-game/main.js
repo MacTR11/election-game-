@@ -301,24 +301,22 @@
     var blurb = opp
       ? "You start out of power. Attack the government, win over voters and campaign to take office at the next election."
       : "You take charge as Prime Minister and set the country's policies from day one.";
-    var setupOpts = "";
-    if (!opp) {
-      var scenCards = D.SCENARIOS.map(function (sc) {
-        return '<button class="opt-card' + (S.scenario === sc.id ? " on" : "") + '" data-scenario="' + sc.id + '">' +
-          '<b>' + U.esc(sc.name) + '</b><span>' + U.esc(sc.blurb) + '</span></button>';
-      }).join("");
-      var diffCards = Object.keys(D.DIFFICULTY).map(function (k) {
-        var d = D.DIFFICULTY[k];
-        var desc = k === "easy" ? "Forgiving economy, generous capital, gentle voters."
-          : k === "normal" ? "A fair challenge — the intended balance."
-          : "Brutal decay, scarce capital and an unforgiving electorate.";
-        return '<button class="opt-card' + (S.difficulty === k ? " on" : "") + '" data-difficulty="' + k + '">' +
-          '<b>' + U.esc(d.name) + '</b><span>' + desc + '</span></button>';
-      }).join("");
-      setupOpts = '<div class="panel" style="margin-top:14px"><h3>Starting Scenario</h3>' +
-        '<div class="opt-grid">' + scenCards + '</div>' +
-        '<h3 style="margin-top:16px">Difficulty</h3><div class="opt-grid">' + diffCards + '</div></div>';
-    }
+    var scenList = opp ? D.OPP_SCENARIOS : D.SCENARIOS;
+    var scenCards = scenList.map(function (sc) {
+      return '<button class="opt-card' + (S.scenario === sc.id ? " on" : "") + '" data-scenario="' + sc.id + '">' +
+        '<b>' + U.esc(sc.name) + '</b><span>' + U.esc(sc.blurb) + '</span></button>';
+    }).join("");
+    var diffCards = Object.keys(D.DIFFICULTY).map(function (k) {
+      var d = D.DIFFICULTY[k];
+      var desc = k === "easy" ? "Forgiving economy, gentle voters, more capital."
+        : k === "normal" ? "A fair challenge — the intended balance."
+        : "Brutal decay, scarce capital and an unforgiving electorate.";
+      return '<button class="opt-card' + (S.difficulty === k ? " on" : "") + '" data-difficulty="' + k + '">' +
+        '<b>' + U.esc(d.name) + '</b><span>' + desc + '</span></button>';
+    }).join("");
+    var setupOpts = '<div class="panel" style="margin-top:14px"><h3>Starting Scenario</h3>' +
+      '<div class="opt-grid">' + scenCards + '</div>' +
+      '<h3 style="margin-top:16px">Difficulty</h3><div class="opt-grid">' + diffCards + '</div></div>';
     return '<h2 class="section-title">Choose Your Role</h2>' +
       '<p class="subtitle">' + blurb + '</p>' + resume + roleToggle + setupOpts +
       '<div class="modes" style="margin-top:14px">' + cards + '</div>';
@@ -420,6 +418,23 @@
       stances.map(function (s) { return '<button class="btn sm" data-opp="promote:' + s[0] + '"' + (g.energy < 2 ? " disabled" : "") + '>' + s[1] + '</button>'; }).join("") +
       '</div><div class="row" style="gap:6px;margin-top:10px"><button class="btn" data-opp="blitz"' + (g.energy < 4 ? " disabled" : "") + '>📣 National media blitz (4)</button></div>' +
       '<p class="notice">Win over a voter bloc, or spend big on a national blitz. Each move costs campaign energy.</p></div>';
+    // tour the battleground regions: banks regional effort that lands at the election
+    var totalEffort = 0; var re = g.regionEffort || {};
+    var tourCells = D.REGIONS.map(function (r) {
+      var pts = re[r.id] || 0; totalEffort += pts;
+      var pill = pts > 0 ? '<span class="pill" style="background:' + party.color + '22;color:' + party.color + '">+' + E.campaignBoost(pts).toFixed(1) + 'pts</span>' : '<span class="faint">—</span>';
+      return '<div class="tour-cell"><div class="tour-name">' + U.esc(r.name) + '<small>' + r.seats + ' seats · ' + pill + '</small></div>' +
+        '<button class="btn sm" data-opp="tour:' + r.id + '"' + (g.energy < 2 ? " disabled" : "") + '>Tour (2)</button></div>';
+    }).join("");
+    var tour = '<div class="panel" style="margin-top:16px"><h3>Tour the Country</h3>' +
+      '<div class="tour-grid">' + tourCells + '</div>' +
+      '<p class="notice">Banks ground-game effort in each region (' + (totalEffort > 0 ? "banked: " + totalEffort + " visits" : "no visits yet") + '). It pays off as a vote-share boost in that region when polling day arrives.</p></div>';
+    // headlines reflect the country's mood from your vantage point
+    var heads = E.generateHeadlines(g, 4);
+    var headPanel = heads.length
+      ? '<div class="panel news-panel" style="margin-top:16px"><h3>📰 Today\'s Headlines</h3>' +
+          '<ul class="news-list">' + heads.map(function (h) { return '<li>' + U.esc(h) + '</li>'; }).join("") + '</ul></div>'
+      : "";
     var dots = ""; for (var i = 0; i < g.maxEnergy; i++) dots += '<i class="' + (i < g.energy ? "on" : "") + '"></i>';
     var sidebar = '<div class="panel"><h3>The Parliament</h3>' +
       '<div class="statbar" style="margin-bottom:6px"><i style="width:' + termPct + '%;background:' + party.color + '"></i></div>' +
@@ -431,8 +446,8 @@
       '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Stand down</button>' +
       '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
       U.seatBar(live.totals) + U.legend(live.totals) + '</div></div>';
-    return head + kpis + chart +
-      '<div class="dash" style="margin-top:16px"><div>' + scorecard + '<div style="height:16px"></div>' + promote + '</div>' + sidebar + '</div>' +
+    return head + kpis + chart + headPanel +
+      '<div class="dash" style="margin-top:16px"><div>' + scorecard + '<div style="height:16px"></div>' + promote + tour + '</div>' + sidebar + '</div>' +
       dilemmaModal();
   }
 
@@ -902,7 +917,13 @@
     });
     // party selection
     app.querySelectorAll("[data-setuprole]").forEach(function (el) {
-      el.addEventListener("click", function () { S.setupRole = el.getAttribute("data-setuprole"); render(); });
+      el.addEventListener("click", function () {
+        S.setupRole = el.getAttribute("data-setuprole");
+        // reset scenario to that role's default if the current id isn't valid for it
+        var roleScenList = S.setupRole === "opposition" ? D.OPP_SCENARIOS : D.SCENARIOS;
+        if (!roleScenList.some(function (x) { return x.id === S.scenario; })) S.scenario = roleScenList[0].id;
+        render();
+      });
     });
     app.querySelectorAll("[data-scenario]").forEach(function (el) {
       el.addEventListener("click", function () { S.scenario = el.getAttribute("data-scenario"); render(); });
@@ -914,7 +935,7 @@
       el.addEventListener("click", function () {
         var party = el.getAttribute("data-party");
         if (S.setupRole === "opposition") {
-          S.govern = E.newOppositionState(party);
+          S.govern = E.newOppositionState(party, { scenario: S.scenario, difficulty: S.difficulty });
           go("opposition");
         } else {
           S.govern = E.newGovernState(party, { scenario: S.scenario, difficulty: S.difficulty });

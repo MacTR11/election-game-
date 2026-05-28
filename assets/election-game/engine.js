@@ -990,15 +990,24 @@
       crime: clamp01(g.stats.crime), sleaze: clamp01(1 - g.unity)
     };
   }
-  function newOppositionState(party) {
+  function newOppositionState(party, opts) {
+    opts = opts || {};
     var inc = party === "lab" ? "con" : "lab";  // the AI government you face
-    var g = newGovernState(inc);
+    var g = newGovernState(inc, { difficulty: opts.difficulty });
     g.role = "opposition";
     g.party = party;                      // YOUR party
     g.incumbent = inc;
     g.energy = 6; g.maxEnergy = 6;
     g.oppShare = D.BASELINE[party] || 12;
     g.momentum = 0;
+    // apply opposition scenario shifts
+    var oList = D.OPP_SCENARIOS || [], scen = null;
+    for (var i = 0; i < oList.length; i++) if (oList[i].id === opts.scenario) scen = oList[i];
+    g.oppScenarioId = scen ? scen.id : "even";
+    if (scen) {
+      if (scen.oppShare) g.oppShare = clamp(g.oppShare + scen.oppShare, 3, 60);
+      if (scen.govApproval) for (var gid in g.groups) g.groups[gid] = clamp01(g.groups[gid] + scen.govApproval);
+    }
     g.govApproval = computeApproval(g);
     g.weak = oppWeaknesses(g);
     g.regionEffort = {};
@@ -1067,7 +1076,18 @@
     for (var i = 0; i < others.length; i++) shares[others[i]] = remain * (D.BASELINE[others[i]] / ob);
     var sum = 0; for (p in shares) sum += shares[p];
     for (p in shares) shares[p] = shares[p] / sum * 100;
-    var result = projectSeats(shares, regionAdj);
+    // fold any banked regional effort (touring battlegrounds in office) into
+    // the per-region adjustments used by the seat projection
+    var adj = regionAdj ? JSON.parse(JSON.stringify(regionAdj)) : {};
+    if (g.regionEffort) {
+      for (var r in g.regionEffort) {
+        var pts = g.regionEffort[r] || 0;
+        if (pts <= 0) continue;
+        if (!adj[r]) adj[r] = {};
+        adj[r][g.party] = (adj[r][g.party] || 0) + campaignBoost(pts);
+      }
+    }
+    var result = projectSeats(shares, adj);
     result.shares = shares; result.playerParty = g.party;
     result.playerSeats = result.totals[g.party] || 0;
     result.won = result.government.formateur === g.party;
