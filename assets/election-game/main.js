@@ -25,6 +25,8 @@
     shadowReshufflePost: null,
     policyPending: {},   // { polId: pendingValue } — staged changes awaiting Confirm
     statDetail: null,    // stat id whose cause-and-effect modal is open
+    compareA: "approval",
+    compareB: "growth",
     pledgeSel: [],
     campaign: null,
     byseat: null,
@@ -790,6 +792,64 @@
       '<div class="chart-grid">' + cards + '</div>' +
       '<p class="notice">Each chart tracks a headline figure month by month. Shaded bands show a healthy range. Watch how your policies move them.</p></div>';
 
+    // Side-by-side overlay so you can see whether (e.g.) approval and growth
+    // are tracking each other. Each series is normalised to its own y-axis so
+    // they're comparable in shape even when the units differ wildly.
+    var cmpMetrics = charts.map(function (c) {
+      var key = c.t === "Approval" ? "approval" : c.t === "Seats if voted today" ? "seats"
+        : c.t === "GDP growth" ? "growth" : c.t === "Inflation" ? "inflation"
+        : c.t === "Unemployment" ? "unemployment" : c.t === "Deficit" ? "deficit" : c.t === "Debt" ? "debtPct" : c.t;
+      var fmt;
+      if (c.t === "Deficit") fmt = function (v) { return "£" + Math.round(v) + "bn"; };
+      else if (c.t === "Seats if voted today") fmt = function (v) { return Math.round(v) + " seats"; };
+      else if (c.t === "Debt") fmt = function (v) { return Math.round(v) + "% GDP"; };
+      else fmt = function (v) { return v.toFixed(1) + "%"; };
+      return { key: key, label: c.t, color: c.c, series: c.s, fmt: fmt };
+    });
+    function findM(k) { for (var i = 0; i < cmpMetrics.length; i++) if (cmpMetrics[i].key === k) return cmpMetrics[i]; return cmpMetrics[0]; }
+    var mA = findM(S.compareA), mB = findM(S.compareB);
+    function dualChart(A, B) {
+      var W = 480, H = 150, padL = 8, padR = 8, padT = 26, padB = 14;
+      function pathFor(series, color) {
+        var n = series.length;
+        if (!n) return "";
+        var lo = Math.min.apply(null, series), hi = Math.max.apply(null, series);
+        var marg = (hi - lo) * 0.18 || 1; lo -= marg; hi += marg;
+        if (hi === lo) hi = lo + 1;
+        var X = function (i) { return padL + (n <= 1 ? 0 : i / (n - 1) * (W - padL - padR)); };
+        var Y = function (v) { return padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB); };
+        var pts = series.map(function (v, i) { return X(i).toFixed(1) + "," + Y(v).toFixed(1); });
+        var lastIdx = n - 1, lx = X(lastIdx), ly = Y(series[lastIdx]);
+        return '<polyline points="' + pts.join(" ") + '" fill="none" stroke="' + color +
+          '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+          '<circle cx="' + lx.toFixed(1) + '" cy="' + ly.toFixed(1) + '" r="3.4" fill="' + color + '"/>';
+      }
+      var sA = A.series || [], sB = B.series || [];
+      // align lengths from the end (the most recent points are what matter)
+      var n = Math.min(sA.length, sB.length);
+      sA = sA.slice(-n); sB = sB.slice(-n);
+      var lastA = sA[n - 1], lastB = sB[n - 1];
+      return '<svg class="dualchart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img">' +
+        '<text x="8" y="16" font-size="12" fill="' + A.color + '" font-weight="800">' +
+          U.esc(A.label) + ' · ' + (lastA != null ? A.fmt(lastA) : "—") + '</text>' +
+        '<text x="' + (W - 8) + '" y="16" font-size="12" fill="' + B.color + '" font-weight="800" text-anchor="end">' +
+          U.esc(B.label) + ' · ' + (lastB != null ? B.fmt(lastB) : "—") + '</text>' +
+        pathFor(sA, A.color) + pathFor(sB, B.color) +
+        '</svg>';
+    }
+    function cmpPills(slot, current) {
+      return cmpMetrics.map(function (m) {
+        var on = m.key === current;
+        return '<button class="cmp-pill' + (on ? " on" : "") + '" data-cmp="' + slot + ':' + m.key + '"' +
+          (on ? ' style="border-color:' + m.color + ';color:' + m.color + '"' : '') + '>' + U.esc(m.label) + '</button>';
+      }).join("");
+    }
+    var comparePanel = '<div class="panel" style="margin-bottom:16px"><h3>Compare two metrics</h3>' +
+      '<div class="cmp-chart">' + dualChart(mA, mB) + '</div>' +
+      '<div class="cmp-row"><span class="lab2">Series A</span><div class="cmp-pills">' + cmpPills("a", S.compareA) + '</div></div>' +
+      '<div class="cmp-row"><span class="lab2">Series B</span><div class="cmp-pills">' + cmpPills("b", S.compareB) + '</div></div>' +
+      '<p class="notice">Each line is normalised to its own range so you can see how they move together even when the units don\'t match.</p></div>';
+
     function fLines(obj) {
       return Object.keys(obj).sort(function (a, b) { return obj[b] - obj[a]; }).map(function (k) {
         return '<tr><td>' + U.esc(k) + '</td><td class="num">£' + Math.round(obj[k]) + 'bn</td></tr>';
@@ -837,7 +897,7 @@
     }).join("");
     var services = '<div class="panel"><h3>State of the Nation</h3>' + rows +
       '<p class="notice">Click any line to see <b>what\'s pushing it</b> — the policy levers, cabinet performance and demographic pressure most responsible for where the number is right now.</p></div>';
-    return chartPanel + budget + services;
+    return chartPanel + comparePanel + budget + services;
   }
   // Compute the top influences on a stat right now: each policy whose lever
   // has moved away from default, the cabinet bonus (if any), and the
@@ -1538,6 +1598,13 @@
     });
     app.querySelectorAll("[data-statdetail]").forEach(function (el) {
       el.addEventListener("click", function () { S.statDetail = el.getAttribute("data-statdetail"); render(); });
+    });
+    app.querySelectorAll("[data-cmp]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        var parts = el.getAttribute("data-cmp").split(":");
+        if (parts[0] === "a") S.compareA = parts[1]; else S.compareB = parts[1];
+        render();
+      });
     });
     // inline ± stages a pending change — nothing is spent until Confirm
     app.querySelectorAll("[data-polnudge]").forEach(function (btn) {
