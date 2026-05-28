@@ -893,22 +893,41 @@
   }
 
   function viewGameOver() {
-    var g = S.govern, el = g.lastElection, body;
+    var g = S.govern, el = g.lastElection;
+    var party = D.PARTIES[g.party];
+    var tag, line, sub;
     if (g.oustedBy === "party") {
-      body = '<h1>Removed by Your Own Party</h1>' +
-        '<p>After ' + g.termsWon + ' term' + (g.termsWon === 1 ? "" : "s") + ' and a collapse in the polls, ' +
-        D.PARTIES[g.party].name + ' MPs lost confidence and triggered a leadership challenge. You have been ousted from Number 10. ' +
-        'Final approval: ' + (g.approval * 100).toFixed(1) + '%.</p>';
+      tag = "OUSTED BY YOUR OWN PARTY";
+      line = "After a sustained collapse in the polls, your own MPs withdrew their confidence and triggered a leadership challenge you could not survive.";
+      sub = "Final approval: " + (g.approval * 100).toFixed(1) + "% · " + g.termsWon + " term" + (g.termsWon === 1 ? "" : "s") + " in office";
     } else if (el) {
-      body = '<h1>Out of Office</h1>' +
-        '<p>After ' + g.termsWon + ' term' + (g.termsWon === 1 ? "" : "s") + ' in power, ' + D.PARTIES[g.party].name +
-        ' has lost power. ' + U.pname(el.government.formateur) + ' formed a ' + el.government.type + ' government; you were left with ' + el.playerSeats + ' seats.</p>';
+      tag = "OUT OF OFFICE";
+      line = U.pname(el.government.formateur) + " has formed a " + el.government.type + " government. After " + g.termsWon + " term" + (g.termsWon === 1 ? "" : "s") + " in power, " + party.name + " has been turned out by the voters.";
+      sub = "Left with " + el.playerSeats + " seats · " + (el.shares && el.shares[g.party] ? el.shares[g.party].toFixed(1) + "% of the vote" : "");
     } else {
-      body = '<h1>Out of Office</h1><p>Your government has fallen.</p>';
+      tag = "OUT OF OFFICE";
+      line = "Your government has fallen.";
+      sub = "";
     }
-    return '<div class="hero">' + body +
+    // headline stats — what kind of country you leave behind
+    var m = g.macro;
+    var stats = '<div class="hero-stats" style="margin-top:18px">' +
+      '<div><div class="lab2">GDP growth</div><div class="big">' + m.realGrowth.toFixed(1) + '<small>%/yr</small></div></div>' +
+      '<div><div class="lab2">Inflation</div><div class="big">' + m.inflation.toFixed(1) + '<small>%</small></div></div>' +
+      '<div><div class="lab2">Deficit</div><div class="big">' + fmtMoney(m.deficit) + '</div></div>' +
+      '<div><div class="lab2">National debt</div><div class="big">' + m.debtPct + '<small>%</small></div></div>' +
+      '<div><div class="lab2">NHS</div><div class="big">' + Math.round(g.stats.nhs * 100) + '</div></div>' +
+      '<div><div class="lab2">Housing</div><div class="big">' + Math.round(g.stats.housing * 100) + '</div></div>' +
+      '</div>';
+    var hero = '<div class="election-hero" style="border-left:6px solid var(--bad)">' +
+      '<div class="lab2">Game Over</div>' +
+      '<div class="verdict" style="color:var(--bad)">' + tag + '</div>' +
+      '<div class="verdict-line">' + U.esc(line) + '</div>' +
+      (sub ? '<div class="muted" style="font-size:13px;margin-top:8px">' + U.esc(sub) + '</div>' : "") +
+      stats + '</div>';
+    return hero +
       '<div class="row" style="justify-content:center;margin-top:18px"><button class="btn primary" data-act="restart">Try Again</button>' +
-      '<button class="btn" data-go="home">Main Menu</button></div></div>';
+      '<button class="btn" data-go="home">Main Menu</button></div>';
   }
 
   // ----------------------------------------------------- mid-term elections
@@ -1267,8 +1286,27 @@
         break;
       }
       case "takepower": {
-        var pp = g.party; S.govern = E.newGovernState(pp); S.governTab = "policies";
-        S.pledgeSel = S.govern.pledges.slice(); clearSave(); go("pledges"); break;
+        var pp = g.party;
+        // carry the opposition campaign's most-promoted blocs into starting pledges
+        var pc = g.promoteCount || {};
+        var MAP = { pensioners: "nhs", workingclass: "equality", patriots: "migration",
+                    capitalists: "growth", environment: "education", young: "housing" };
+        var seeded = [];
+        Object.keys(pc).sort(function (a, b) { return pc[b] - pc[a]; }).forEach(function (k) {
+          var pid = MAP[k];
+          if (pid && D.PLEDGES.some(function (p) { return p.id === pid; }) && seeded.indexOf(pid) < 0 && seeded.length < 3) seeded.push(pid);
+        });
+        S.govern = E.newGovernState(pp, { difficulty: S.difficulty });
+        if (seeded.length) {
+          var fill = S.govern.pledges.filter(function (id) { return seeded.indexOf(id) < 0; });
+          S.govern.pledges = seeded.concat(fill).slice(0, 3);
+        }
+        S.governTab = "policies";
+        S.pledgeSel = S.govern.pledges.slice();
+        clearSave();
+        go("pledges");
+        if (seeded.length) toast("Your campaign promises seed your manifesto.");
+        break;
       }
       case "fighton":
         g.turn = 0; g.momentum = 0; g.oppHistory = []; g.lastElection = null;

@@ -1084,6 +1084,8 @@
     } else if (type === "promote") {
       g.oppShare += 0.9 * b; g.momentum += 0.8 * b;
       if (g.groups[arg] != null) g.groups[arg] = clamp01(g.groups[arg] + 0.04 * b);
+      g.promoteCount = g.promoteCount || {};
+      g.promoteCount[arg] = (g.promoteCount[arg] || 0) + 1;
     } else if (type === "tour") {
       g.regionEffort[arg] = (g.regionEffort[arg] || 0) + 3;      // banked ground game for polling day
       g.oppShare += 0.4;
