@@ -332,6 +332,43 @@
     b.unity = c("chair") * 0.03;
     return b;
   }
+  // Map a policy id to the cabinet post most likely to walk if it is moved.
+  var POLICY_TO_POST = {
+    nhs: "health", socialcare: "health", mentalhealth: "health",
+    police: "home", civil: "home", immigration: "home", border: "home", prisons: "home",
+    education: "education", tuition: "education", arts: "education", skills: "education",
+    defence: "foreign", foreignaid: "foreign",
+    welfare: "chancellor", pension: "chancellor", childcare: "chancellor", minwage: "chancellor",
+    housing: "chancellor", infra: "chancellor", rail: "chancellor", netzero: "chancellor", science: "chancellor",
+    businessreg: "chancellor", localgov: "chancellor",
+    incometax: "chancellor", incometax_higher: "chancellor", ni: "chancellor", vat: "chancellor",
+    corptax: "chancellor", cgt: "chancellor", inheritance: "chancellor", fuelduty: "chancellor",
+    counciltax: "chancellor", wealthtax: "chancellor", banklevy: "chancellor",
+    sintax: "chancellor", sugartax: "chancellor", stampduty: "chancellor"
+  };
+  // A big policy move can push a low-loyalty minister to resign in protest.
+  // Returns { resigned, post, outgoing, incoming } if a resignation fires.
+  function maybeMinisterResign(state, polId, cost) {
+    if (!state.cabinet || !state.talentPool) return null;
+    if (cost < 6) return null;
+    if (state.lastResignTurn != null && state.turn - state.lastResignTurn < 4) return null;
+    var postId = POLICY_TO_POST[polId]; if (!postId) return null;
+    var m = state.cabinet[postId]; if (!m) return null;
+    if (m.loyalty >= 0.5) return null;
+    // probability scales with disloyalty and the move's size
+    var p = (0.5 - m.loyalty) * 0.5 + (cost - 6) * 0.05;
+    if (Math.random() > p) return null;
+    // pick the best pool member to step in (highest competence)
+    var pool = state.talentPool, bestIdx = 0;
+    for (var i = 1; i < pool.length; i++) if (pool[i].competence > pool[bestIdx].competence) bestIdx = i;
+    var incoming = pool[bestIdx];
+    pool.splice(bestIdx, 1);
+    pool.push(m);
+    state.cabinet[postId] = incoming;
+    state.unity = clamp01(state.unity - m.loyalty * 0.05);
+    state.lastResignTurn = state.turn;
+    return { resigned: true, post: postId, outgoing: m, incoming: incoming };
+  }
   function reshuffleCabinet(state, post, poolIndex) {
     if (!state.cabinet || !state.talentPool) return false;
     var cand = state.talentPool[poolIndex];
@@ -1213,6 +1250,7 @@
     checkMilestones: checkMilestones,
     MILESTONES: MILESTONES,
     reshuffleCabinet: reshuffleCabinet,
+    maybeMinisterResign: maybeMinisterResign,
     cabinetBonus: cabinetBonus,
     CABINET_POSTS: CABINET_POSTS,
     reshuffleShadowCabinet: reshuffleShadowCabinet,

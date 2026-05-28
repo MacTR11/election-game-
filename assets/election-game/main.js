@@ -1251,6 +1251,8 @@
         if (newVal === oldVal) return;
         g.capital -= cost;
         g.policies[id] = newVal;
+        var resigned = E.maybeMinisterResign(g, id, cost);
+        if (resigned) toast("💼 " + resigned.outgoing.name + " resigns in protest — " + resigned.incoming.name + " takes the brief.", 4200);
         render();
       });
     });
