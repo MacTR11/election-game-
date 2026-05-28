@@ -362,6 +362,7 @@
                        deficit: F.spendingTotal - F.receiptsTotal,
                        debtPct: Math.round(F.debt / F.gdp * 100) },
               pressure: 0, pendingDilemma: null, dilemmaHistory: [], history: [],
+              activeCrisis: null, crisisHistory: [],
               unity: 0.7, discontent: 0, pledges: pickPledges(),
               approval: 0.5, lastElection: null, termsWon: 0, gameOver: false, oustedBy: null, log: [] };
     var i;
@@ -598,7 +599,9 @@
       if (ev.effect.macro) for (id in ev.effect.macro) if (state.macro[id] != null) state.macro[id] += ev.effect.macro[id];
     }
     state.activeEvents = firing;
-    if (firing.length) computeFiscal(state);
+    // active crisis drag (treated like a giant ongoing event)
+    applyCrisisDrag(state);
+    if (firing.length || state.activeCrisis) computeFiscal(state);
 
     // politics
     state.approval = computeApproval(state);
@@ -625,9 +628,14 @@
     recordHistory(state);
 
     var electionDue = state.turn >= TERM_TURNS;
-    // Mid-term tests take priority; otherwise PMQs (~every 6 months) or a decision.
+    // Order of priority for what lands on the desk: an active crisis stage,
+    // a brand-new crisis triggering, mid-term elections, PMQs, then dilemmas.
     if (!electionDue && !state.gameOver) {
-      if (state.month === 5 && state.turn >= 7) state.pendingMidterm = "local";
+      if (state.activeCrisis && state.activeCrisis.fireAt === state.turn) {
+        state.pendingDilemma = buildCrisisDilemma(state);
+      } else if (!state.activeCrisis && tryStartCrisis(state)) {
+        state.pendingDilemma = buildCrisisDilemma(state);
+      } else if (state.month === 5 && state.turn >= 7) state.pendingMidterm = "local";
       else if (state.turn > 4 && Math.random() < 0.05) state.pendingMidterm = "by";
       else if (state.turn % 6 === 0) state.pendingDilemma = buildPMQ(state);
       else if (Math.random() < 0.34) state.pendingDilemma = pickDilemma(state);
@@ -735,6 +743,8 @@
     if (e.all != null) for (id in state.groups) state.groups[id] = clamp01(state.groups[id] + e.all);
     if (e.capital) state.capital = Math.max(0, state.capital + e.capital);
     state.dilemmaHistory.push(d.id);
+    // crisis stage advancement (if this was a crisis-chain decision)
+    if (d.crisisChain && opt.crisisAdv) advanceCrisisAfterOption(state, opt);
     state.pendingDilemma = null;
     computeFiscal(state);
     state.approval = computeApproval(state);
@@ -828,6 +838,56 @@
       state.oustedBy = "voters";
     }
     return state;
+  }
+
+  // =====================================================================
+  // CRISIS CHAINS — multi-stage scripted events that unfold over several
+  // months with persistent drag and sequential decision points.
+  // =====================================================================
+  function crisisById(id) { var L = D.CRISES || []; for (var i = 0; i < L.length; i++) if (L[i].id === id) return L[i]; return null; }
+  function tryStartCrisis(state) {
+    var L = D.CRISES || [], hist = state.crisisHistory || [];
+    for (var i = 0; i < L.length; i++) {
+      var c = L[i];
+      if (hist.indexOf(c.id) >= 0) continue;
+      if (c.trigger && c.trigger(state)) {
+        state.activeCrisis = { id: c.id, current: 0, fireAt: state.turn };
+        return true;
+      }
+    }
+    return false;
+  }
+  function applyCrisisDrag(state) {
+    var ac = state.activeCrisis; if (!ac) return;
+    var c = crisisById(ac.id); if (!c || !c.drag) return;
+    var id;
+    if (c.drag.stats) for (id in c.drag.stats) if (state.stats[id] != null) state.stats[id] = clamp01(state.stats[id] + c.drag.stats[id]);
+    if (c.drag.groups) for (id in c.drag.groups) if (state.groups[id] != null) state.groups[id] = clamp01(state.groups[id] + c.drag.groups[id]);
+    if (c.drag.macro) for (id in c.drag.macro) if (state.macro[id] != null) state.macro[id] += c.drag.macro[id];
+  }
+  function buildCrisisDilemma(state) {
+    var ac = state.activeCrisis; if (!ac) return null;
+    var c = crisisById(ac.id); if (!c) return null;
+    var st = c.stages[ac.current]; if (!st) return null;
+    // re-wrap each option so resolveDilemma sees the standard effects but can
+    // also pick up the crisis advancement (next stage + delay)
+    var opts = st.options.map(function (o) {
+      var copy = { label: o.label, result: o.result, effects: o.effects || {}, crisisAdv: { next: o.next, in: o.in || 3 } };
+      return copy;
+    });
+    return { id: "crisis-" + c.id + "-" + ac.current, crisisChain: c.id, crisisStage: ac.current,
+             title: c.name + " · " + st.title, desc: st.desc, options: opts };
+  }
+  function advanceCrisisAfterOption(state, opt) {
+    var ac = state.activeCrisis, adv = opt && opt.crisisAdv; if (!ac || !adv) return;
+    if (adv.next == null) {
+      // chain ends
+      state.crisisHistory = state.crisisHistory || [];
+      if (state.crisisHistory.indexOf(ac.id) < 0) state.crisisHistory.push(ac.id);
+      state.activeCrisis = null;
+    } else {
+      state.activeCrisis = { id: ac.id, current: adv.next, fireAt: state.turn + (adv.in || 3) };
+    }
   }
 
   // =====================================================================

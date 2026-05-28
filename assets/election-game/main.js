@@ -74,6 +74,7 @@
         dilemmaHistory: g.dilemmaHistory, termsWon: g.termsWon, approval: g.approval,
         difficulty: g.difficulty, scenarioId: g.scenarioId,
         cabinet: g.cabinet, talentPool: g.talentPool,
+        activeCrisis: g.activeCrisis, crisisHistory: g.crisisHistory,
         oppShare: g.oppShare, govApproval: g.govApproval, energy: g.energy, maxEnergy: g.maxEnergy,
         momentum: g.momentum, oppHistory: g.oppHistory,
         pendingDilemma: g.pendingDilemma ? g.pendingDilemma.id : null,
@@ -100,6 +101,8 @@
       if (s.scenarioId) g.scenarioId = s.scenarioId;
       if (s.cabinet) g.cabinet = s.cabinet;
       if (s.talentPool) g.talentPool = s.talentPool;
+      if (s.activeCrisis) g.activeCrisis = s.activeCrisis;
+      if (s.crisisHistory) g.crisisHistory = s.crisisHistory;
       g.dilemmaHistory = s.dilemmaHistory || [];
       g.history = s.history && s.history.length ? s.history : g.history;
       if (opp) { g.oppHistory = s.oppHistory && s.oppHistory.length ? s.oppHistory : g.oppHistory; }
@@ -726,6 +729,19 @@
 
   function tabBriefing(live) {
     var g = S.govern;
+    var crisisBanner = "";
+    if (g.activeCrisis) {
+      var ch = (D.CRISES || []).filter(function (c) { return c.id === g.activeCrisis.id; })[0];
+      if (ch) {
+        var stIdx = g.activeCrisis.current, st = ch.stages[stIdx];
+        var fireAt = g.activeCrisis.fireAt, dueIn = Math.max(0, fireAt - g.turn);
+        crisisBanner = '<div class="panel crisis-banner" style="margin-bottom:16px"><div class="lab2" style="color:var(--bad)">⚠ National crisis · stage ' + (stIdx + 1) + ' of ' + ch.stages.length + '</div>' +
+          '<div class="big" style="font-size:18px;color:var(--bad)">' + U.esc(ch.name) + '</div>' +
+          '<p class="muted" style="margin:6px 0 0">Next decision: <b>' + U.esc(st.title) + '</b> — ' +
+          (dueIn === 0 ? "lands on your desk this month" : "expected in " + dueIn + " month" + (dueIn === 1 ? "" : "s")) +
+          '. The country is feeling the strain in every department until this chain resolves.</p></div>';
+      }
+    }
     var events = g.activeEvents.length
       ? g.activeEvents.map(function (e) {
           return '<div class="event' + (e.type === "good" ? " good" : "") + '"><div class="et">' + e.name + '</div><div class="ed">' + e.desc + '</div></div>';
@@ -748,7 +764,7 @@
       return '<div class="stat-row" style="grid-template-columns:24px 1fr"><div style="font-size:15px">' + (done ? "✅" : "⬜") + '</div>' +
         '<div class="name" style="color:' + (done ? "var(--good)" : "var(--ink-dim)") + '">' + U.esc(pl.text) + '</div></div>';
     }).join("");
-    return '<div class="panel" style="margin-bottom:16px"><h3>Cabinet Briefing</h3>' +
+    return crisisBanner + '<div class="panel" style="margin-bottom:16px"><h3>Cabinet Briefing</h3>' +
       '<p>' + mood + ' ' + fin + ' On today\'s numbers you would ' +
       (live.won ? govType + " (" + live.playerSeats + " seats)" : "lose office, falling to " + live.playerSeats + " seats") + '.</p></div>' +
       '<div class="panel" style="margin-bottom:16px"><h3>Manifesto Pledges</h3>' + pledges +

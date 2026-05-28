@@ -1196,6 +1196,112 @@
       stats: { immigration: 0.12 }, groups: { patriots: -0.12, workingclass: -0.07, liberals: -0.04 } }
   ];
 
+  // ---------------------------------------------------------------------------
+  // CRISIS CHAINS — multi-stage scripted events. Each chain has a trigger, a
+  // persistent per-turn drag while it is live, and a sequence of stages. Each
+  // stage is a decision (lands as a dilemma); the chosen option either advances
+  // the chain (in N turns) or ends it. crisisHistory prevents the same chain
+  // from firing twice in one game.
+  // ---------------------------------------------------------------------------
+  var CRISES = [
+    { id: "pandemic", name: "Respiratory Pandemic",
+      trigger: function (s) { return s.turn > 8 && Math.random() < 0.025; },
+      drag: { stats: { nhs: -0.012 }, groups: { pensioners: -0.015, parents: -0.010, publicsector: 0.004 }, macro: { realGrowth: -0.05 } },
+      stages: [
+        { title: "A New Pandemic", desc: "A novel respiratory virus is spreading fast. Modellers warn of catastrophic loss of life without action.",
+          options: [
+            { label: "Order a national lockdown", result: "The country goes into lockdown. A grim, expensive shock — but a clear plan.",
+              effects: { macro: { realGrowth: -0.6 }, all: 0.03, policy: { welfare: 0.05 }, capital: -1 }, next: 1, in: 3 },
+            { label: "Targeted shielding, keep economy open", result: "Schools and pubs stay open; the vulnerable are told to hide.",
+              effects: { stats: { nhs: -0.04 }, groups: { publicsector: -0.06, pensioners: -0.08, capitalists: 0.04 } }, next: 1, in: 3 },
+            { label: "Pour billions into a vaccination programme", result: "A national mobilisation that everyone watches anxiously.",
+              effects: { macro: { deficit: 8, realGrowth: -0.1 }, policy: { nhs: 0.05 }, all: 0.02, capital: -2 }, next: 1, in: 3 }
+          ] },
+        { title: "Eye of the Storm", desc: "Hospitals are stretched to breaking, supply lines are wobbling and the public mood is volatile.",
+          options: [
+            { label: "Pour money into the NHS and frontline pay", result: "Doctors and nurses cheer; the Treasury looks queasy.",
+              effects: { policy: { nhs: 0.08 }, macro: { deficit: 6 }, groups: { publicsector: 0.10, unions: 0.06 } }, next: 2, in: 3 },
+            { label: "Suspend red tape and fast-track everything", result: "Things move at last; lawyers and liberals warn of overreach.",
+              effects: { stats: { nhs: 0.04 }, groups: { capitalists: 0.05, liberals: -0.05 }, capital: -1 }, next: 2, in: 3 },
+            { label: "Tighten restrictions hard", result: "More lives saved; another deep hit to growth and morale.",
+              effects: { macro: { realGrowth: -0.3 }, all: -0.02, groups: { workingclass: -0.04 } }, next: 2, in: 3 }
+          ] },
+        { title: "The Aftermath", desc: "The virus recedes. The country wants answers and to know what comes next.",
+          options: [
+            { label: "Statutory inquiry & social-care reform", result: "Bereaved families heard; care reformed at lasting cost.",
+              effects: { policy: { socialcare: 0.18 }, macro: { deficit: 3 }, all: 0.03 }, next: null },
+            { label: "Move on quickly", result: "You change the subject; survivors and the NHS feel betrayed.",
+              effects: { all: -0.02, groups: { publicsector: -0.05 } }, next: null },
+            { label: "Hike taxes to pay for it", result: "Honest about the bill; households feel the squeeze.",
+              effects: { policy: { incometax: 0.04 }, groups: { capitalists: -0.05, wealthy: -0.05 } }, next: null }
+          ] }
+      ] },
+    { id: "gilt", name: "Gilt-Market Crisis",
+      trigger: function (s) { return s.turn > 6 && (s.macro.debtPct > 104 || s.macro.deficit > 175) && Math.random() < 0.18; },
+      drag: { macro: { inflation: 0.08, realGrowth: -0.08 }, groups: { capitalists: -0.012, wealthy: -0.010 } },
+      stages: [
+        { title: "Markets Sell the Pound", desc: "Gilts sell off sharply and sterling slides. The Bank wants the government to show a plan.",
+          options: [
+            { label: "Emergency tax rises", result: "Markets steady; households brace for the squeeze.",
+              effects: { policy: { incometax: 0.05 }, macro: { deficit: -6 }, all: -0.02 }, next: 1, in: 3 },
+            { label: "Sweeping spending cuts", result: "The City applauds; Whitehall and the unions reel.",
+              effects: { policy: { welfare: -0.06, nhs: -0.04 }, macro: { deficit: -8 }, groups: { poor: -0.10, publicsector: -0.07 } }, next: 1, in: 3 },
+            { label: "Tough it out and blame speculators", result: "Defiant — and the pound keeps sliding.",
+              effects: { macro: { inflation: 0.3, realGrowth: -0.3 }, groups: { capitalists: -0.06 } }, next: 1, in: 3 }
+          ] },
+        { title: "The Markets Test You", desc: "Despite the package, traders are circling. A second wave of selling tests every assumption.",
+          options: [
+            { label: "Coordinated central-bank action", result: "The Bank and the Fed step in; the panic is bought off.",
+              effects: { macro: { deficit: 2 }, groups: { capitalists: 0.06 }, capital: -1 }, next: 2, in: 3 },
+            { label: "Stand by your plan", result: "Resolute and risky; the markets settle, but slowly.",
+              effects: { macro: { realGrowth: -0.2 }, all: -0.01 }, next: 2, in: 3 },
+            { label: "Sack the Chancellor", result: "A symbolic reset; the City takes the hint and steadies.",
+              effects: { groups: { capitalists: 0.10 }, capital: -2, unity: -0.06 }, next: 2, in: 3 }
+          ] },
+        { title: "Storm Passes — Or Doesn't", desc: "The acute danger eases. The lessons could be permanent — or papered over.",
+          options: [
+            { label: "Lock fiscal rules into law", result: "Discipline cemented; the right approves, the left grumbles.",
+              effects: { macro: { deficit: -3 }, groups: { capitalists: 0.08, socialists: -0.04 } }, next: null },
+            { label: "OBR-style independent review", result: "Process replaces panic; a quiet, durable win.",
+              effects: { capital: -1, all: 0.02 }, next: null },
+            { label: "Declare victory and move on", result: "Premature, says the City; it'll be back.",
+              effects: { all: -0.02, groups: { capitalists: -0.05 } }, next: null }
+          ] }
+      ] },
+    { id: "war", name: "Major International Conflict",
+      trigger: function (s) { return s.turn > 10 && Math.random() < 0.022; },
+      drag: { macro: { realGrowth: -0.06, inflation: 0.05 }, groups: { patriots: 0.005 } },
+      stages: [
+        { title: "An Ally Under Attack", desc: "A close ally is invaded. The world is watching London for its response.",
+          options: [
+            { label: "Major military aid and sanctions", result: "Decisive solidarity; the cost is real.",
+              effects: { policy: { defence: 0.12, foreignaid: 0.10 }, macro: { deficit: 4 }, groups: { patriots: 0.10, liberals: 0.06 } }, next: 1, in: 3 },
+            { label: "Diplomatic pressure only", result: "Measured — and to some, cowardly.",
+              effects: { groups: { patriots: -0.06, liberals: 0.04 } }, next: 1, in: 3 },
+            { label: "Stay out of it", result: "You preserve resources; allies are appalled.",
+              effects: { groups: { patriots: -0.10, workingclass: -0.04, capitalists: -0.04 } }, next: 1, in: 3 }
+          ] },
+        { title: "Costs Mount at Home", desc: "Energy prices spike and refugees arrive. The war reaches every kitchen table.",
+          options: [
+            { label: "Cap energy bills nationally", result: "Households relieved; the bill is huge.",
+              effects: { macro: { deficit: 8, inflation: -0.2 }, all: 0.03 }, next: 2, in: 3 },
+            { label: "Windfall tax on energy firms", result: "Producers howl; the public cheers.",
+              effects: { policy: { banklevy: 0.10 }, macro: { deficit: -2 }, groups: { capitalists: -0.08, socialists: 0.06 } }, next: 2, in: 3 },
+            { label: "Let the market clear", result: "Orthodox and brutal on families.",
+              effects: { all: -0.03, groups: { poor: -0.06 } }, next: 2, in: 3 }
+          ] },
+        { title: "After the Cease-Fire", desc: "A fragile peace holds. Britain's place in the post-war order is up for grabs.",
+          options: [
+            { label: "Lead the reconstruction effort", result: "A diplomatic and moral win; an open-ended commitment.",
+              effects: { policy: { foreignaid: 0.10 }, macro: { deficit: 3 }, groups: { liberals: 0.08, capitalists: 0.04 } }, next: null },
+            { label: "Drive a permanent rearmament", result: "Britain's defences are rebuilt; the price tag is enduring.",
+              effects: { policy: { defence: 0.15 }, macro: { deficit: 5 }, groups: { patriots: 0.10 } }, next: null },
+            { label: "Bring the troops home, focus inward", result: "Voters are relieved; allies are quietly disappointed.",
+              effects: { groups: { workingclass: 0.05, patriots: -0.04 } }, next: null }
+          ] }
+      ] }
+  ];
+
   // DIFFICULTY — antiInc: anti-incumbency points at an election; regen: capital
   // regeneration multiplier; pressure: how fast the country decays; mood: a
   // starting shift to every group's contentment.
@@ -1221,6 +1327,7 @@
     LOCAL: LOCAL,
     SCENARIOS: SCENARIOS,
     DIFFICULTY: DIFFICULTY,
+    CRISES: CRISES,
     // ordered list of the main GB parties for charts/legends
     MAIN_PARTIES: ["lab", "con", "reform", "ld", "green", "snp", "pc", "oth"]
   };
