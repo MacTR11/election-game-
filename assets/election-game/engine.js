@@ -508,6 +508,7 @@
               policies: {}, stats: {}, groups: {}, activeEvents: [], fiscalLines: { r: {}, s: {} },
               macro: { gdp: F.gdp, realGrowth: F.realGrowth, inflation: F.inflation,
                        unemployment: F.unemployment, debt: F.debt,
+                       bankRate: F.bankRate,
                        debtInterest: Math.round(F.debt * F.effectiveDebtRate),
                        receipts: F.receiptsTotal, spending: F.spendingTotal,
                        deficit: F.spendingTotal - F.receiptsTotal,
@@ -521,6 +522,9 @@
     for (i = 0; i < D.POLICIES.length; i++) s.policies[D.POLICIES[i].id] = D.POLICIES[i].def;
     for (i = 0; i < D.STATS.length; i++) s.stats[D.STATS[i].id] = D.STATS[i].base;
     for (i = 0; i < D.GROUPS.length; i++) s.groups[D.GROUPS[i].id] = D.GROUPS[i].base;
+    s.sectors = {}; var SS = D.SECTORS || [];
+    for (i = 0; i < SS.length; i++) s.sectors[SS[i].id] = SS[i].health;
+    s.industrialStrategy = null; // {id, sector, sinceTurn}
     var cab = generateCabinet(); s.cabinet = cab.cabinet; s.talentPool = cab.talentPool;
     // anchor live seat projections to the player's "winning" counterfactual
     var wb = (D.WINNING_BASELINE && D.WINNING_BASELINE[party]) || D.BASELINE;
@@ -755,6 +759,132 @@
     m.debt = Math.max(0, m.debt + m.deficit / 12);
   }
 
+  // =====================================================================
+  // SECTORS — broad economic sectors with their own health 0..1. Each sector
+  // drifts toward a target shaped by policy choices, the industrial strategy
+  // and the active crisis. Sectors then feed back into growth and the wider
+  // economy (markets, group satisfaction) via marketIndicators().
+  // =====================================================================
+  function sectorTargetHealth(state, sec) {
+    var t = 0.50, w = sec.weights || {}, k;
+    for (k in w) {
+      var pol = polById(k); if (!pol) continue;
+      // signed distance from the policy's default: above default = bigger lever
+      var d = (state.policies[k] - pol.def) / (pol.max - pol.min);
+      t += w[k] * d;
+    }
+    // active crises drag the most exposed sectors
+    if (state.activeCrisis) {
+      var cid = state.activeCrisis.id;
+      if (cid === "energy" && (sec.id === "manufacturing" || sec.id === "services")) t -= 0.08;
+      if (cid === "gilt" && sec.id === "finance") t -= 0.10;
+      if (cid === "housing" && sec.id === "finance") t -= 0.05;
+      if (cid === "war" && sec.id === "energy") t -= 0.05;
+      if (cid === "cyber" && (sec.id === "tech" || sec.id === "finance")) t -= 0.08;
+      if (cid === "ai" && sec.id === "tech") t += 0.04; // accelerating, even amid chaos
+    }
+    // confidence (low approval / unity) hurts business sectors a touch
+    if (state.approval < 0.4) t -= 0.02;
+    if (state.unity < 0.4) t -= 0.02;
+    return clamp01(t);
+  }
+  function updateSectors(state) {
+    var SS = D.SECTORS || []; if (!state.sectors) state.sectors = {};
+    for (var i = 0; i < SS.length; i++) {
+      var sec = SS[i];
+      var cur = state.sectors[sec.id] != null ? state.sectors[sec.id] : sec.health;
+      var target = sectorTargetHealth(state, sec);
+      // gentle drift each month
+      cur = cur + (target - cur) * 0.16;
+      // industrial-strategy monthly boost on its sector
+      if (state.industrialStrategy && state.industrialStrategy.sector === sec.id) {
+        var st = (D.INDUSTRIAL_STRATEGIES || []).filter(function (x) { return x.id === state.industrialStrategy.id; })[0];
+        if (st) cur += st.monthlyHealthBoost;
+      }
+      state.sectors[sec.id] = clamp01(cur);
+    }
+    // industrial-strategy ongoing costs: small monthly hit to deficit + group moods
+    if (state.industrialStrategy) {
+      var sty = (D.INDUSTRIAL_STRATEGIES || []).filter(function (x) { return x.id === state.industrialStrategy.id; })[0];
+      if (sty) {
+        if (sty.deficitCost) state.macro.deficit += sty.deficitCost;
+        if (sty.groups) for (var gg in sty.groups) if (state.groups[gg] != null)
+          state.groups[gg] = clamp01(state.groups[gg] + sty.groups[gg] * 0.04); // gentle, persistent
+      }
+    }
+    // weighted average health → an economic "sectoral pulse" stored on macro
+    var wsum = 0, num = 0;
+    for (var j = 0; j < SS.length; j++) {
+      var s2 = SS[j], h = state.sectors[s2.id] != null ? state.sectors[s2.id] : s2.health;
+      num += h * s2.gdpShare; wsum += s2.gdpShare;
+    }
+    state.macro.sectorPulse = wsum > 0 ? num / wsum : 0.5;
+    // sectorPulse nudges real growth each turn (small, cumulative): healthy
+    // sectors = stronger underlying growth, vice versa.
+    state.macro.realGrowth += (state.macro.sectorPulse - 0.5) * 0.04;
+  }
+  // Apply an industrial strategy at the time it is chosen.
+  function chooseIndustrialStrategy(state, id) {
+    var st = (D.INDUSTRIAL_STRATEGIES || []).filter(function (x) { return x.id === id; })[0];
+    if (!st) return false;
+    state.industrialStrategy = { id: st.id, sector: st.sector, sinceTurn: state.turn };
+    // small one-off bump (signal effect) for the targeted sector
+    if (state.sectors && state.sectors[st.sector] != null) state.sectors[st.sector] = clamp01(state.sectors[st.sector] + 0.05);
+    return true;
+  }
+
+  // =====================================================================
+  // MARKETS — derived indicators (no state of their own). Computed fresh each
+  // time so they always reflect current macro / sector / approval. The UI
+  // uses these for the markets dashboard in the Economy tab.
+  // =====================================================================
+  function marketIndicators(state) {
+    var m = state.macro, sp = m.sectorPulse != null ? m.sectorPulse : 0.5;
+    var ftse = 8400
+      + (m.realGrowth - 1.1) * 220     // growth premium
+      - Math.max(0, m.inflation - 2) * 95  // sticky-inflation drag
+      - Math.max(0, m.debtPct - 100) * 14  // fiscal worry
+      + (sp - 0.5) * 1100                  // sectoral pulse
+      + (state.approval - 0.5) * 280;      // confidence
+    var gilt10y = 4.1
+      + Math.max(0, m.debtPct - 95) * 0.02
+      + Math.max(0, m.deficit - 80) * 0.004
+      + Math.max(0, m.inflation - 2) * 0.10
+      - (state.approval - 0.5) * 0.25
+      - (state.unity - 0.5) * 0.20;
+    var gbp = 1.27
+      + (m.bankRate - 4.5) * 0.015
+      - (m.inflation - 2) * 0.010
+      + (state.approval - 0.5) * 0.05
+      + (sp - 0.5) * 0.06
+      - Math.max(0, m.debtPct - 100) * 0.0008;
+    var housePI = 100
+      + (state.stats.housing - 0.4) * 30
+      - (m.bankRate - 4.5) * 4
+      + (m.realGrowth - 1) * 3
+      - Math.max(0, m.unemployment - 4.5) * 2;
+    // Trade balance as % GDP — manufacturing & services strength reduce the deficit
+    var tradePct = -3.0
+      + ((state.sectors && state.sectors.manufacturing ? state.sectors.manufacturing : 0.42) - 0.4) * 4
+      + ((state.sectors && state.sectors.services ? state.sectors.services : 0.55) - 0.5) * 5
+      - (gbp - 1.27) * 1.6; // stronger pound = worse trade balance
+    // Confidence: a 0..1 composite (capitalists, businesspeople would price)
+    var confidence = clamp01(0.50
+      + (m.realGrowth - 1.1) * 0.08
+      - Math.max(0, m.inflation - 2.5) * 0.04
+      - Math.max(0, m.unemployment - 4.5) * 0.03
+      + (sp - 0.5) * 0.6
+      + (state.approval - 0.5) * 0.2);
+    return {
+      ftse: Math.round(ftse),
+      gilt10y: +gilt10y.toFixed(2),
+      gbp: +gbp.toFixed(3),
+      housePI: Math.round(housePI),
+      tradePct: +tradePct.toFixed(1),
+      confidence: confidence
+    };
+  }
+
   // Weighted approval across all voter groups (by group size).
   function computeApproval(state) {
     var num = 0, den = 0, i;
@@ -810,6 +940,9 @@
       else { state.leadershipChallenge = "survived"; state.discontent = 0; state.unity = clamp01(state.unity + 0.15); }
     }
 
+    // economic sectors drift toward their policy-shaped target each month and
+    // the chosen industrial strategy adds a small monthly bump to its sector
+    updateSectors(state);
     // political capital regenerates faster for a popular, united government
     state.capital = Math.min(state.maxCapital, state.capital + capitalRegen(state));
 
@@ -864,17 +997,35 @@
   function buildScheduledEvent(state) {
     state.scheduledFiredYear = state.scheduledFiredYear || {};
     var key, dilemma = null;
-    if (state.month === 3) {                  // Spring Budget
+    if (state.month === 2) {                  // Feb MPC + Q4 ONS data
+      key = "mpc_q1_" + state.year;
+      if (!state.scheduledFiredYear[key]) {
+        state.scheduledFiredYear[key] = true;
+        dilemma = buildMPCDilemma(state, "winter");
+      }
+    } else if (state.month === 3) {           // Spring Budget
       key = "budget_" + state.year;
       if (!state.scheduledFiredYear[key]) {
         state.scheduledFiredYear[key] = true;
         dilemma = buildBudgetDilemma(state);
+      }
+    } else if (state.month === 6) {           // Mid-year ONS economic data
+      key = "ons_h1_" + state.year;
+      if (!state.scheduledFiredYear[key]) {
+        state.scheduledFiredYear[key] = true;
+        dilemma = buildONSDataDilemma(state, "midyear");
       }
     } else if (state.month === 7) {           // G7 / NATO summer summit
       key = "summit_" + state.year;
       if (!state.scheduledFiredYear[key]) {
         state.scheduledFiredYear[key] = true;
         dilemma = buildSummitDilemma(state);
+      }
+    } else if (state.month === 8) {           // Aug MPC summer rate decision
+      key = "mpc_q3_" + state.year;
+      if (!state.scheduledFiredYear[key]) {
+        state.scheduledFiredYear[key] = true;
+        dilemma = buildMPCDilemma(state, "summer");
       }
     } else if (state.month === 10) {          // Party Conference season
       key = "conference_" + state.year;
@@ -1009,6 +1160,66 @@
         { label: "Reframe and pick a fight for January",
           result: "Pick a target, set the news agenda — for better or worse.",
           effects: { unity: -0.02, groups: { patriots: 0.04, workingclass: 0.03 }, all: 0.005 } }
+      ]
+    };
+  }
+  // The Monetary Policy Committee meets quarterly. The BoE recommends a
+  // direction based on the inflation gap; the player can endorse, jawbone for
+  // a cut, or jawbone for a rise. Jawboning hurts BoE independence (a small
+  // markets/capitalists hit) but actually moves the rate. The starting
+  // bankRate field moves up or down.
+  function buildMPCDilemma(state, season) {
+    var infGap = state.macro.inflation - 2; // BoE's 2% target
+    var leans;
+    if (infGap > 1.0) leans = "rise";
+    else if (infGap < -0.5 || state.macro.realGrowth < 0.5) leans = "cut";
+    else leans = "hold";
+    var leansLine = leans === "rise" ? "Markets and the Bank lean toward a 25bp <b>rise</b>."
+      : leans === "cut" ? "The Bank is signalling a <b>cut</b> to support growth."
+      : "The Bank looks set to <b>hold</b> rates steady.";
+    var seasonLabel = season === "winter" ? "February MPC meeting" : "August MPC meeting";
+    return {
+      id: "sched-mpc-" + season + "-" + state.year, scheduled: true,
+      title: seasonLabel,
+      desc: "The Monetary Policy Committee meets at Threadneedle Street. " + leansLine + " The Treasury and Number 10 can stay out of it — or send signals.",
+      options: [
+        { label: "Publicly endorse the Bank's call",
+          result: "Markets calm; the Bank salutes Number 10's restraint.",
+          effects: { groups: { capitalists: 0.04, wealthy: 0.03 }, macro: leans === "rise" ? { bankRate: 0.25, inflation: -0.10 }
+            : leans === "cut" ? { bankRate: -0.25, realGrowth: 0.10 }
+            : {} } },
+        { label: "Pressure for a cut — boost growth",
+          result: "Households and the front bench cheer; the markets mutter about independence.",
+          effects: { macro: { bankRate: -0.25, realGrowth: 0.15, inflation: 0.08 },
+            groups: { workingclass: 0.04, homeowners: 0.05, capitalists: -0.05, wealthy: -0.03 } } },
+        { label: "Pressure for a rise — fight inflation",
+          result: "Pensioners and savers cheer; growth stutters.",
+          effects: { macro: { bankRate: 0.25, inflation: -0.15, realGrowth: -0.10 },
+            groups: { pensioners: 0.05, wealthy: 0.03, workingclass: -0.04, homeowners: -0.04 } } }
+      ]
+    };
+  }
+  // ONS data drops mid-year — the player frames how to spin the numbers.
+  // Effects depend on the state of the economy at that moment.
+  function buildONSDataDilemma(state, period) {
+    var m = state.macro, good = m.realGrowth > 1.4 && m.inflation < 3, bad = m.realGrowth < 0 || m.inflation > 4.5;
+    var lead = good ? "Solid mid-year figures — growth holding, inflation cooling."
+      : bad ? "Brutal mid-year figures — the recovery has stalled or prices are still hot."
+      : "Mixed mid-year figures: some encouraging, some concerning.";
+    return {
+      id: "sched-ons-" + period + "-" + state.year, scheduled: true,
+      title: "ONS Mid-Year Data Release",
+      desc: lead + " The Treasury wants to know how to spin it.",
+      options: [
+        { label: "Take the credit on a Sunday-morning tour",
+          result: good ? "A triumphant round of broadcast — well-earned." : bad ? "A risky push that earns sneers when the numbers don't back you." : "A glass-half-full round of media — passable.",
+          effects: good ? { all: 0.03, groups: { capitalists: 0.04 } } : bad ? { all: -0.02, unity: -0.02 } : { all: 0.005 } },
+        { label: "Sober honesty — set out the plan",
+          result: "A steady, statesmanlike response. Boring; effective.",
+          effects: { unity: 0.04, all: 0.005, groups: { middleclass: 0.02 } } },
+        { label: "Blame inheritance, the OBR, the world",
+          result: "The base loves it; the centre rolls its eyes.",
+          effects: { groups: { patriots: 0.04, workingclass: 0.03, liberals: -0.04 }, unity: 0.02 } }
       ]
     };
   }
@@ -1675,6 +1886,9 @@
     VOTE_THRESHOLD: VOTE_THRESHOLD,
     computeVoteOdds: computeVoteOdds,
     resolveCommonsVote: resolveCommonsVote,
+    marketIndicators: marketIndicators,
+    chooseIndustrialStrategy: chooseIndustrialStrategy,
+    updateSectors: updateSectors,
     maxCapitalFor: maxCapitalFor,
     campaignBoost: campaignBoost,
     campaignAdj: campaignAdj,

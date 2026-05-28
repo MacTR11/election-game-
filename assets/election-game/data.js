@@ -1488,6 +1488,167 @@
           effects: { policy: { education: 0.04 }, macro: { deficit: 1 } } },
         { label: "Defer to the devolved budget", result: "A constitutional shrug; Cardiff is unimpressed.",
           effects: { } }
+      ] },
+
+    // ---- BIG ECONOMY DILEMMAS ----
+    { id: "sov_downgrade", title: "Sovereign Credit Downgrade",
+      desc: "A major ratings agency drops UK gilts from AA to AA-. Borrowing costs are about to bite.",
+      cond: function (s) { return s.macro.debtPct > 100 || s.macro.deficit > 150; },
+      options: [
+        { label: "Emergency fiscal package — cuts and tax rises",
+          result: "Markets steady; the squeeze on households starts now.",
+          effects: { macro: { deficit: -8 }, policy: { incometax: 0.03 }, groups: { capitalists: 0.07, wealthy: 0.04, poor: -0.07, workingclass: -0.05 } } },
+        { label: "Attack the agencies, brazen it out",
+          result: "Defiant — and gilt yields keep climbing.",
+          effects: { macro: { inflation: 0.2, realGrowth: -0.2 }, groups: { capitalists: -0.08, patriots: 0.04 } } },
+        { label: "Independent fiscal review and new rules",
+          result: "A grown-up answer; the discipline is real and persistent.",
+          effects: { macro: { deficit: -3 }, groups: { capitalists: 0.06, liberals: 0.03 }, capital: -1 } }
+      ] },
+    { id: "company_collapse", title: "Flagship Firm on the Brink",
+      desc: "A national-strategic engineering group warns it is days from collapse — 20,000 direct jobs and a supply chain at risk.",
+      options: [
+        { label: "State equity rescue", result: "Jobs saved overnight; the taxpayer is now a shareholder.",
+          effects: { macro: { deficit: 5, unemployment: -0.3 }, groups: { workingclass: 0.08, unions: 0.06, capitalists: -0.04 } } },
+        { label: "Bridge loan + restructuring",
+          result: "A measured package; some plants close anyway.",
+          effects: { macro: { deficit: 2, unemployment: 0.1 }, groups: { workingclass: 0.04, capitalists: 0.02 } } },
+        { label: "Let it fail",
+          result: "Brutal — and the right shrugs as the left howls.",
+          effects: { macro: { unemployment: 0.6, realGrowth: -0.2 }, groups: { workingclass: -0.10, unions: -0.08, capitalists: 0.04 } } }
+      ] },
+    { id: "wage_price", title: "Wage-Price Spiral Warning",
+      desc: "Pay rounds across the public sector and large private employers are tracking 7–8%. The Bank is on red alert.",
+      cond: function (s) { return s.macro.inflation > 3.5; },
+      options: [
+        { label: "Public-sector pay freeze",
+          result: "Inflation cools; public-sector workers and unions go to war.",
+          effects: { macro: { inflation: -0.3 }, groups: { publicsector: -0.10, unions: -0.10, capitalists: 0.05 } } },
+        { label: "Buy off the unions with a one-off bonus",
+          result: "Industrial peace, expensive — and only kicks the can.",
+          effects: { macro: { deficit: 5 }, groups: { unions: 0.08, publicsector: 0.06, capitalists: -0.04 } } },
+        { label: "Independent pay-review bodies decide",
+          result: "Process replaces panic; the lobbyists hate it; the system works.",
+          effects: { macro: { inflation: -0.1 }, groups: { liberals: 0.04, unions: 0.02 } } }
+      ] },
+    { id: "brain_drain", title: "Britain's Best Are Leaving",
+      desc: "An FT splash: senior scientists, tech founders and surgeons quitting in record numbers for the US and Gulf.",
+      options: [
+        { label: "Tax break for high-skilled returners",
+          result: "A targeted carrot. The hard-left grumbles; the City applauds.",
+          effects: { policy: { incometax_higher: -0.05 }, groups: { wealthy: 0.08, capitalists: 0.05, socialists: -0.04 }, macro: { realGrowth: 0.1 } } },
+        { label: "Massive R&D + visa upgrade",
+          result: "A serious bet on knowledge-economy Britain.",
+          effects: { policy: { science: 0.10, immigration: 0.04 }, macro: { deficit: 3 }, groups: { capitalists: 0.05, young: 0.04, students: 0.04, patriots: -0.04 } } },
+        { label: "Britain First — exit tax on capital flight",
+          result: "Defiant and counter-productive; capital flees faster.",
+          effects: { groups: { capitalists: -0.10, wealthy: -0.08, patriots: 0.05, socialists: 0.05 }, macro: { realGrowth: -0.15 } } }
+      ] },
+    { id: "productivity", title: "The Productivity Puzzle",
+      desc: "OECD numbers put UK output-per-hour bottom of the G7 again. The Treasury wants a serious answer.",
+      options: [
+        { label: "Skills, training and capital allowances",
+          result: "Boring, durable, expensive.",
+          effects: { policy: { skills: 0.10, corptax: -0.04 }, macro: { realGrowth: 0.15, deficit: 3 }, groups: { workingclass: 0.04, capitalists: 0.05 } } },
+        { label: "Aggressive deregulation",
+          result: "Productivity creeps up; safety nets fray.",
+          effects: { policy: { businessreg: -0.10 }, groups: { capitalists: 0.08, unions: -0.06, liberals: -0.04 } } },
+        { label: "Industrial-strategy investment vehicle",
+          result: "Patient capital at scale; the deficit is the bill.",
+          effects: { policy: { infra: 0.08, science: 0.05 }, macro: { deficit: 4 }, groups: { capitalists: 0.04, workingclass: 0.03 } } }
+      ] },
+    { id: "currency_run", title: "Sterling Runs",
+      desc: "GBP/USD slides 4% in a fortnight. The Bank is sniffing around the foreign-exchange desk.",
+      cond: function (s) { return s.macro.deficit > 150 || s.unity < 0.4; },
+      options: [
+        { label: "Coordinated intervention with the Fed",
+          result: "The slide halts; the political price of relying on Washington is high.",
+          effects: { macro: { inflation: -0.1 }, groups: { capitalists: 0.06, patriots: -0.05 } } },
+        { label: "Emergency rate hike",
+          result: "Pound steadies; mortgage-holders are reaching for the news in horror.",
+          effects: { macro: { bankRate: 0.50, realGrowth: -0.2 }, groups: { homeowners: -0.10, pensioners: 0.04, capitalists: 0.05 } } },
+        { label: "Hold nerve, talk it up",
+          result: "The slide continues, but you keep the room.",
+          effects: { macro: { inflation: 0.2 }, groups: { capitalists: -0.06 } } }
+      ] },
+    { id: "tech_ipo", title: "A British Tech IPO Bonanza",
+      desc: "Three UK unicorns pick London for their listings. Markets and the Treasury are giddy.",
+      options: [
+        { label: "Co-invest via a state vehicle",
+          result: "Britain bottles some of the upside; the deficit ticks up.",
+          effects: { macro: { deficit: 2 }, policy: { science: 0.04 }, groups: { capitalists: 0.08, young: 0.05 } } },
+        { label: "Stamp-duty exemption on tech shares",
+          result: "Markets purr; small revenue hit.",
+          effects: { policy: { stampduty: -0.04 }, macro: { deficit: -1, realGrowth: 0.1 }, groups: { capitalists: 0.06 } } },
+        { label: "Take the credit, do nothing structural",
+          result: "A photo op. The moment passes.",
+          effects: { all: 0.01, groups: { capitalists: 0.02 } } }
+      ] },
+    { id: "banking_nearmiss", title: "Banking Near-Miss",
+      desc: "A mid-sized UK lender comes within hours of collapse. The PRA wants its mandate strengthened.",
+      options: [
+        { label: "Pre-emptive resolution package",
+          result: "Order restored quickly; some moral hazard left behind.",
+          effects: { macro: { deficit: 2 }, policy: { businessreg: 0.04 }, groups: { capitalists: -0.02 } } },
+        { label: "Tougher capital requirements",
+          result: "Future-proofed and dear. The sector grumbles.",
+          effects: { policy: { businessreg: 0.10, banklevy: 0.06 }, groups: { capitalists: -0.08, socialists: 0.04 } } },
+        { label: "Hands-off — let consolidation happen",
+          result: "Free-market orthodoxy; the next near-miss won't be a near-miss.",
+          effects: { groups: { capitalists: 0.04, socialists: -0.04 } } }
+      ] },
+    { id: "obr_forecast", title: "An Awful OBR Forecast",
+      desc: "The Office for Budget Responsibility downgrades growth and revenue across the medium term. The Treasury wants a steer.",
+      cond: function (s) { return s.turn > 6; },
+      options: [
+        { label: "Emergency fiscal package",
+          result: "Books re-balanced; voters feel the squeeze.",
+          effects: { macro: { deficit: -6 }, policy: { vat: 0.02 }, groups: { capitalists: 0.04, poor: -0.05, workingclass: -0.04 } } },
+        { label: "Reform the OBR mandate",
+          result: "Loud constitutional row; markets twitch at the politics.",
+          effects: { groups: { capitalists: -0.05, liberals: -0.05, patriots: 0.04 } } },
+        { label: "Stick to the plan, weather the storm",
+          result: "Defiant and disciplined.",
+          effects: { all: -0.01, capital: -1 } }
+      ] },
+    { id: "steel_closure", title: "Steel Plant Closure Threat",
+      desc: "A major steelworks announces a possible closure of its blast-furnace. Thousands of skilled jobs across an industrial town are at stake.",
+      options: [
+        { label: "Bail out with state equity",
+          result: "Jobs saved; the deficit absorbs it.",
+          effects: { macro: { deficit: 3, unemployment: -0.2 }, policy: { netzero: -0.04 }, groups: { workingclass: 0.08, unions: 0.06, capitalists: -0.04, environment: -0.04 } } },
+        { label: "Co-fund a green-steel transition",
+          result: "Future-facing; the bills land now.",
+          effects: { policy: { netzero: 0.08 }, macro: { deficit: 5 }, groups: { workingclass: 0.05, environment: 0.06, capitalists: 0.02 } } },
+        { label: "Let the market decide",
+          result: "Brutal; a region loses its biggest employer.",
+          effects: { macro: { unemployment: 0.4, realGrowth: -0.15 }, groups: { workingclass: -0.10, unions: -0.08, patriots: -0.05 } } }
+      ] },
+    { id: "skills_shortage", title: "Acute Skills Shortage",
+      desc: "Construction, hospitality and HGV sectors warn output is being capped by an acute shortage of skilled labour.",
+      options: [
+        { label: "Skills visas + targeted migration",
+          result: "Output recovers; the right erupts.",
+          effects: { policy: { skills: 0.05, immigration: 0.06 }, macro: { realGrowth: 0.15 }, groups: { capitalists: 0.06, liberals: 0.04, patriots: -0.06 } } },
+        { label: "Massive apprenticeship programme",
+          result: "Long-term answer; the gap stays open in the meantime.",
+          effects: { policy: { skills: 0.15 }, macro: { deficit: 3 }, groups: { young: 0.06, workingclass: 0.05, unions: 0.04 } } },
+        { label: "Let firms train their own",
+          result: "Orthodox and slow; some firms relocate.",
+          effects: { macro: { unemployment: 0.2 }, groups: { capitalists: -0.05 } } }
+      ] },
+    { id: "trade_war", title: "A Tariff War Spreads",
+      desc: "The US, EU and China are slapping tariffs on each other and threatening UK steel, services and digital exports.",
+      options: [
+        { label: "Negotiate carve-outs aggressively",
+          result: "Some wins, some scars; the Foreign Office is busy for months.",
+          effects: { macro: { realGrowth: -0.05 }, groups: { capitalists: 0.04, patriots: 0.03 }, capital: -1 } },
+        { label: "Retaliate to defend UK industry",
+          result: "Big domestic cheer; consumers pay more.",
+          effects: { macro: { inflation: 0.2 }, groups: { workingclass: 0.05, patriots: 0.05, capitalists: -0.04 } } },
+        { label: "Push hard for free-trade alliance",
+          result: "A long bet; the gains take years.",
+          effects: { policy: { businessreg: -0.04 }, macro: { realGrowth: 0.1 }, groups: { capitalists: 0.06, liberals: 0.04 } } }
       ] }
 
   ];
@@ -1655,7 +1816,11 @@
     { id: "diaspora_event", name: "Multi-faith Downing Street reception", icon: "🕊️", cost: 1,
       desc: "Host community leaders from across Britain's faiths and diaspora groups.",
       effects: { groups: { religious: 0.04, minorities: 0.05, liberals: 0.02 } },
-      headline: "PM hosts inter-faith reception at Number 10" }
+      headline: "PM hosts inter-faith reception at Number 10" },
+    { id: "industrial_strategy", name: "Launch an Industrial Strategy", icon: "🏗️", cost: 4,
+      desc: "A term-defining commitment to back ONE sector of the economy.",
+      effects: { all: 0.01 }, industrialStrategy: true,
+      headline: "PM unveils a flagship Industrial Strategy" }
   ];
 
   // FLAVOUR — small atmospheric events that fire randomly each month. Pure
@@ -2175,6 +2340,68 @@
   // DIFFICULTY — antiInc: anti-incumbency points at an election; regen: capital
   // regeneration multiplier; pressure: how fast the country decays; mood: a
   // starting shift to every group's contentment.
+  // ---------------------------------------------------------------------------
+  // ECONOMIC SECTORS — UK economy broken into broad sectors. Each has a base
+  // share of GDP (rough 2024 ONS), a starting health (0..1, where 0.5 is a
+  // sector neither booming nor in trouble), and policy weights describing how
+  // each lever pulls the sector up or down. Health updates each turn and feeds
+  // back into growth and the workforce groups associated with the sector.
+  // weights are signed (positive policy delta pushes health up if positive).
+  // ---------------------------------------------------------------------------
+  var SECTORS = [
+    { id: "services",      name: "Services",       icon: "🛍️", gdpShare: 0.34, health: 0.55,
+      weights: { vat: -0.18, incometax: -0.10, businessreg: -0.10, minwage: -0.05, skills: 0.08, infra: 0.04 },
+      groups: ["middleclass", "workingclass"] },
+    { id: "finance",       name: "Finance & Insurance", icon: "🏦", gdpShare: 0.09, health: 0.62,
+      weights: { corptax: -0.22, banklevy: -0.30, businessreg: -0.16, cgt: -0.10, science: 0.06 },
+      groups: ["capitalists", "wealthy"] },
+    { id: "manufacturing", name: "Manufacturing",  icon: "🏭", gdpShare: 0.09, health: 0.42,
+      weights: { corptax: -0.10, businessreg: -0.18, netzero: -0.06, infra: 0.16, skills: 0.10, fuelduty: -0.06 },
+      groups: ["workingclass", "unions"] },
+    { id: "tech",          name: "Tech & Digital", icon: "💻", gdpShare: 0.07, health: 0.58,
+      weights: { corptax: -0.20, science: 0.20, skills: 0.16, businessreg: -0.18, immigration: -0.06 },
+      groups: ["young", "students", "privatesector"] },
+    { id: "energy",        name: "Energy & Utilities", icon: "⚡", gdpShare: 0.06, health: 0.46,
+      weights: { netzero: 0.12, banklevy: -0.12, businessreg: -0.06, infra: 0.10, corptax: -0.06 },
+      groups: ["workingclass", "capitalists"] },
+    { id: "agriculture",   name: "Agriculture & Rural", icon: "🚜", gdpShare: 0.01, health: 0.50,
+      weights: { foreignaid: -0.04, businessreg: -0.10, inheritance: -0.08, netzero: -0.04, immigration: -0.08 },
+      groups: ["patriots", "workingclass"] }
+  ];
+
+  // ---------------------------------------------------------------------------
+  // INDUSTRIAL STRATEGY — a one-time, term-defining commitment to back ONE
+  // sector. Picked via the new initiative; persists across the term. Each
+  // strategy adds a per-month bump to its target sector's health and pays a
+  // small deficit cost. The blurb shapes which voter groups feel the love.
+  // ---------------------------------------------------------------------------
+  var INDUSTRIAL_STRATEGIES = [
+    { id: "is_tech",     sector: "tech",          name: "Tech & AI Britain",
+      blurb: "A trillion-pound bet on AI, semiconductors and quantum.",
+      monthlyHealthBoost: 0.012, deficitCost: 0.5,
+      groups: { young: 0.06, students: 0.05, capitalists: 0.04, workingclass: -0.02 } },
+    { id: "is_green",    sector: "energy",        name: "Green Industrial Revival",
+      blurb: "Build the renewable supply chain at home and re-industrialise the north.",
+      monthlyHealthBoost: 0.014, deficitCost: 0.7,
+      groups: { environment: 0.08, workingclass: 0.05, unions: 0.04, capitalists: -0.02 } },
+    { id: "is_makers",   sector: "manufacturing", name: "Made in Britain",
+      blurb: "A modern industrial strategy for advanced manufacturing — automotive, aerospace, defence.",
+      monthlyHealthBoost: 0.013, deficitCost: 0.6,
+      groups: { workingclass: 0.07, unions: 0.05, patriots: 0.04 } },
+    { id: "is_finance",  sector: "finance",       name: "Global Finance Hub",
+      blurb: "Light-touch regulation and competitive tax to keep the City world-leading.",
+      monthlyHealthBoost: 0.012, deficitCost: 0.2,
+      groups: { capitalists: 0.08, wealthy: 0.05, socialists: -0.04 } },
+    { id: "is_services", sector: "services",      name: "Services & Skills",
+      blurb: "Invest in human capital — colleges, retail, hospitality, the consumer economy.",
+      monthlyHealthBoost: 0.011, deficitCost: 0.4,
+      groups: { middleclass: 0.04, young: 0.03, workingclass: 0.04 } },
+    { id: "is_food",     sector: "agriculture",   name: "Food & Rural Renewal",
+      blurb: "Backing British farming, fishing and rural broadband.",
+      monthlyHealthBoost: 0.010, deficitCost: 0.3,
+      groups: { patriots: 0.06, workingclass: 0.03 } }
+  ];
+
   var DIFFICULTY = {
     easy:   { id: "easy",   name: "Easy",   antiInc: 1.5, regen: 1.3, pressure: 0.7,  mood: 0.05 },
     normal: { id: "normal", name: "Normal", antiInc: 3.0, regen: 1.0, pressure: 1.0,  mood: 0.0 },
@@ -2246,6 +2473,8 @@
     OPP_SCENARIOS: OPP_SCENARIOS,
     DIFFICULTY: DIFFICULTY,
     PERSONAS: PERSONAS,
+    SECTORS: SECTORS,
+    INDUSTRIAL_STRATEGIES: INDUSTRIAL_STRATEGIES,
     CRISES: CRISES,
     HEADLINES: HEADLINES,
     INITIATIVES: INITIATIVES,

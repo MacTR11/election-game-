@@ -27,6 +27,7 @@
     policyPending: {},   // { polId: pendingValue } — staged changes awaiting Confirm
     pendingVote: null,   // { source: 'bulk'|'single', polId, newVal, totalCost, billTitle } awaiting a Commons vote
     lastVoteResult: null, // { passed, prob, billTitle } shown to the player after a vote
+    industrialChooser: false, // industrial-strategy picker open?
     statDetail: null,    // stat id whose cause-and-effect modal is open
     groupDetail: null,   // voter group id whose modal is open
     compareA: "approval",
@@ -90,6 +91,8 @@
         oppositionLeader: g.oppositionLeader,
         persona: g.persona,
         voteRecord: g.voteRecord,
+        sectors: g.sectors,
+        industrialStrategy: g.industrialStrategy,
         milestones: g.milestones, promoteCount: g.promoteCount,
         oppShare: g.oppShare, govApproval: g.govApproval, energy: g.energy, maxEnergy: g.maxEnergy,
         momentum: g.momentum, oppHistory: g.oppHistory,
@@ -126,6 +129,8 @@
       if (s.oppositionLeader) g.oppositionLeader = s.oppositionLeader;
       if (s.persona) g.persona = s.persona;
       if (s.voteRecord) g.voteRecord = s.voteRecord;
+      if (s.sectors) g.sectors = s.sectors;
+      if (s.industrialStrategy) g.industrialStrategy = s.industrialStrategy;
       if (s.milestones) g.milestones = s.milestones;
       if (s.promoteCount) g.promoteCount = s.promoteCount;
       g.dilemmaHistory = s.dilemmaHistory || [];
@@ -636,7 +641,7 @@
         '<br><span class="faint">Every figure here is a band, not a forecast — normal polling uncertainty.</span>' +
       '</div></div></div>';
 
-    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + statDetailModal() + groupDetailModal() + commonsVoteModal() + voteResultModal() + endTurnFab(g);
+    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + statDetailModal() + groupDetailModal() + commonsVoteModal() + voteResultModal() + industrialChooserModal() + endTurnFab(g);
   }
   function trend(cur, prev, goodHigh) {
     if (prev == null) return "";
@@ -692,6 +697,30 @@
       '<p class="muted" style="font-size:12px">' + U.esc(r.billTitle) + ' · projected pass odds were ' + Math.round(r.prob * 100) + '%.</p>' +
       '<div class="row" style="justify-content:flex-end;margin-top:10px">' +
       '<button class="btn primary" data-act="closevoteresult">Continue</button></div>' +
+      '</div></div>';
+  }
+
+  // Industrial Strategy chooser — opens when the player clicks the matching
+  // PM Initiative. Picks one of the 6 strategies (each backs a sector).
+  function industrialChooserModal() {
+    if (!S.industrialChooser) return "";
+    var g = S.govern;
+    var cards = (D.INDUSTRIAL_STRATEGIES || []).map(function (st) {
+      var sec = (D.SECTORS || []).filter(function (s) { return s.id === st.sector; })[0];
+      var icon = sec ? sec.icon : "";
+      return '<button class="opt-card persona-card" data-pickstrategy="' + st.id + '">' +
+        '<b>' + icon + ' ' + U.esc(st.name) + '</b>' +
+        '<span>' + U.esc(st.blurb) + '</span>' +
+        '<span class="persona-perks">+' + (st.monthlyHealthBoost * 100).toFixed(1) + '%/mo sector · ~£' + st.deficitCost.toFixed(1) + 'bn/mo</span>' +
+        '</button>';
+    }).join("");
+    return '<div class="modal-overlay"><div class="modal" style="max-width:640px">' +
+      '<div class="modal-tag" style="color:var(--gold)">🏗 Industrial Strategy</div>' +
+      '<h2>Choose Britain\'s flagship sector</h2>' +
+      '<p class="muted">A term-defining commitment. The sector you back will get a quiet monthly boost to its health, paid for by a modest deficit cost. You can only pick one this term.</p>' +
+      '<div class="opt-grid">' + cards + '</div>' +
+      '<div class="row" style="justify-content:flex-end;margin-top:14px">' +
+      '<button class="btn" data-closeindustrial="1">Cancel</button></div>' +
       '</div></div>';
   }
 
@@ -1010,7 +1039,7 @@
     }).join("");
     var services = '<div class="panel"><h3>State of the Nation</h3>' + rows +
       '<p class="notice">Click any line to see <b>what\'s pushing it</b> — the policy levers, cabinet performance and demographic pressure most responsible for where the number is right now.</p></div>';
-    return chartPanel + comparePanel + budget + services;
+    return marketsPanel(g) + sectorsPanel(g) + chartPanel + comparePanel + budget + services;
   }
   // Compute the top influences on a stat right now: each policy whose lever
   // has moved away from default, the cabinet bonus (if any), and the
@@ -1368,7 +1397,7 @@
   function endTurnFab(g) {
     // Don't render the FAB at all while a modal is open — it would just sit
     // disabled and overlap the modal's controls.
-    if (g.pendingDilemma || S.policyDetail || S.reshufflePost || S.shadowReshufflePost || S.selectedSeat || S.statDetail || S.groupDetail || S.pendingVote || S.lastVoteResult) return "";
+    if (g.pendingDilemma || S.policyDetail || S.reshufflePost || S.shadowReshufflePost || S.selectedSeat || S.statDetail || S.groupDetail || S.pendingVote || S.lastVoteResult || S.industrialChooser) return "";
     var disabled = g.gameOver;
     return '<div class="fab-cluster">' +
       '<button class="fab-endturn" data-act="endturn"' + (disabled ? " disabled" : "") + ' title="End the month — ' + U.esc(dateLabel(g)) + '">' +
@@ -1465,6 +1494,75 @@
       '<div class="appoint-list">' + rows + '</div>' +
       '<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" data-act="closereshuffle">Cancel</button></div>' +
       '</div></div>';
+  }
+
+  // Markets dashboard — derived indicators that react to current macro and
+  // sector state. No state of their own: pure read-out so the player can see
+  // how the country is being priced by markets and households.
+  function marketsPanel(g) {
+    if (!E.marketIndicators) return "";
+    var mi = E.marketIndicators(g);
+    function deltaPill(val, base, fmt, hi) {
+      var d = val - base, abs = Math.abs(d);
+      var col = (hi ? d > 0 : d < 0) ? "var(--good)" : (Math.abs(d) < 0.01 ? "var(--ink-dim)" : "var(--bad)");
+      var sign = d > 0 ? "+" : "";
+      return '<span class="mk-delta" style="color:' + col + '">' + sign + fmt(d) + '</span>';
+    }
+    var cells = [
+      { lab: "FTSE-style index", v: mi.ftse.toLocaleString(), d: deltaPill(mi.ftse, 8400, function (x) { return Math.round(x) + ""; }, true),
+        hint: "Tracks growth, inflation, deficit and sector pulse." },
+      { lab: "10-yr Gilt yield", v: mi.gilt10y.toFixed(2) + "%", d: deltaPill(mi.gilt10y, 4.1, function (x) { return x.toFixed(2) + "%"; }, false),
+        hint: "Bond-market cost of borrowing. Lower is better." },
+      { lab: "GBP / USD", v: "$" + mi.gbp.toFixed(3), d: deltaPill(mi.gbp, 1.27, function (x) { return x.toFixed(3); }, true),
+        hint: "Sterling strength against the dollar." },
+      { lab: "House price index", v: mi.housePI + "", d: deltaPill(mi.housePI, 100, function (x) { return Math.round(x) + ""; }, true),
+        hint: "Affordability and demand combined." },
+      { lab: "Trade balance", v: (mi.tradePct > 0 ? "+" : "") + mi.tradePct.toFixed(1) + "% GDP", d: deltaPill(mi.tradePct, -3.0, function (x) { return x.toFixed(1) + "pp"; }, true),
+        hint: "Exports minus imports. Negative is normal for the UK." },
+      { lab: "Business confidence", v: Math.round(mi.confidence * 100) + "/100", d: deltaPill(mi.confidence, 0.5, function (x) { return Math.round(x * 100) + ""; }, true),
+        hint: "A composite of growth, inflation, jobs and approval." }
+    ];
+    var grid = cells.map(function (c) {
+      return '<div class="mk-cell"><div class="mk-lab">' + U.esc(c.lab) + '</div>' +
+        '<div class="mk-val">' + c.v + '</div><div>' + c.d + '</div>' +
+        '<div class="mk-hint">' + U.esc(c.hint) + '</div></div>';
+    }).join("");
+    return '<div class="panel" style="margin-bottom:16px"><h3>📈 Markets dashboard</h3>' +
+      '<div class="mk-grid">' + grid + '</div>' +
+      '<p class="notice" style="margin-top:10px">Derived from the macro picture and the health of the major sectors. Policy and crisis ripples show up here first.</p></div>';
+  }
+
+  // Sectors panel — six broad economic sectors with health bars + a button to
+  // launch / show the chosen Industrial Strategy.
+  function sectorsPanel(g) {
+    if (!D.SECTORS) return "";
+    var rows = D.SECTORS.map(function (sec) {
+      var h = g.sectors && g.sectors[sec.id] != null ? g.sectors[sec.id] : sec.health;
+      var pct = Math.round(h * 100);
+      var col = h > 0.65 ? "var(--good)" : h > 0.45 ? "var(--warn)" : "var(--bad)";
+      var label = h > 0.7 ? "Booming" : h > 0.55 ? "Growing" : h > 0.42 ? "Steady"
+        : h > 0.3 ? "Struggling" : "In trouble";
+      var backed = g.industrialStrategy && g.industrialStrategy.sector === sec.id;
+      return '<div class="sec-row' + (backed ? " backed" : "") + '">' +
+        '<div class="sec-name"><span class="sec-ico">' + sec.icon + '</span>' + U.esc(sec.name) +
+        (backed ? ' <span class="pill" style="background:rgba(201,162,39,.16);color:var(--gold);font-weight:700">★ flagship</span>' : '') +
+        '<div class="sec-meta">' + Math.round(sec.gdpShare * 100) + '% of GDP · ' + label + '</div></div>' +
+        '<div class="sec-bar-wrap"><div class="statbar"><i style="width:' + pct + '%;background:' + col + '"></i></div>' +
+        '<b class="sec-val" style="color:' + col + '">' + pct + '</b></div>' +
+      '</div>';
+    }).join("");
+    var strategyHTML;
+    if (g.industrialStrategy) {
+      var st = (D.INDUSTRIAL_STRATEGIES || []).filter(function (x) { return x.id === g.industrialStrategy.id; })[0];
+      strategyHTML = st
+        ? '<div class="sec-strategy"><b>★ Flagship: ' + U.esc(st.name) + '</b><div class="muted" style="font-size:12.5px">' + U.esc(st.blurb) + '</div></div>'
+        : "";
+    } else {
+      strategyHTML = '<div class="sec-strategy"><b>No flagship sector</b><div class="muted" style="font-size:12.5px">Use a PM Initiative to launch an Industrial Strategy and pick a sector to back.</div></div>';
+    }
+    return '<div class="panel" style="margin-bottom:16px"><h3>🏭 Sectors of the economy</h3>' +
+      '<div class="sec-list">' + rows + '</div>' + strategyHTML +
+      '<p class="notice" style="margin-top:10px">Each sector\'s health drifts toward a target shaped by your policies, the crisis weather and any flagship industrial strategy. A healthy sectoral pulse lifts underlying growth.</p></div>';
   }
 
   function tabBriefing(live) {
@@ -2066,12 +2164,45 @@
     app.querySelectorAll("[data-initiative]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var id = btn.getAttribute("data-initiative");
-        var r = E.usePMInitiative(S.govern, id);
+        var it = (D.INITIATIVES || []).filter(function (x) { return x.id === id; })[0];
+        var g = S.govern;
+        // Industrial Strategy is a sub-choice — open the chooser instead of firing
+        if (it && it.industrialStrategy) {
+          if (g.industrialStrategy) { toast("You've already chosen an industrial strategy this term."); return; }
+          if (g.initiativeUsedTurn === g.turn) { toast("You've already used this month's initiative."); return; }
+          if ((g.capital || 0) < it.cost) { toast("Not enough political capital."); return; }
+          S.industrialChooser = true; render(); return;
+        }
+        var r = E.usePMInitiative(g, id);
         if (!r.ok) { toast(r.why); return; }
         if (r.gaffed) toast("💥 The interview went badly — headlines turn against you.", 3600);
         else if (r.headline) toast("📰 " + r.headline, 3200);
         render(); flashKpis();
       });
+    });
+    app.querySelectorAll("[data-pickstrategy]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-pickstrategy");
+        var g = S.govern, init = (D.INITIATIVES || []).filter(function (x) { return x.id === "industrial_strategy"; })[0];
+        if (!init) return;
+        if (E.chooseIndustrialStrategy(g, id)) {
+          g.capital -= init.cost;
+          g.initiativeUsedTurn = g.turn;
+          var st = (D.INDUSTRIAL_STRATEGIES || []).filter(function (x) { return x.id === id; })[0];
+          if (st) {
+            g.decisionLog = g.decisionLog || [];
+            g.decisionLog.push({ id: "init-" + id, title: "Industrial Strategy: " + st.name, optionLabel: "Backed " + st.name,
+              result: st.blurb, year: g.year, month: g.month, isPmq: false, isCrisis: false });
+            if (g.decisionLog.length > 30) g.decisionLog.shift();
+            toast("📰 PM unveils flagship strategy: " + st.name, 3600);
+          }
+          S.industrialChooser = false;
+          render(); flashKpis();
+        }
+      });
+    });
+    app.querySelectorAll("[data-closeindustrial]").forEach(function (btn) {
+      btn.addEventListener("click", function () { S.industrialChooser = false; render(); });
     });
     app.querySelectorAll("[data-groupdetail]").forEach(function (el) {
       el.addEventListener("click", function () { S.groupDetail = el.getAttribute("data-groupdetail"); render(); });
@@ -2458,6 +2589,7 @@
       if (e.key !== "Escape") return;
       if (S.lastVoteResult) { S.lastVoteResult = null; render(); e.preventDefault(); return; }
       if (S.pendingVote) { /* don't allow Esc on the vote modal — it's a decision; the player must pick Whip/Push/Withdraw */ e.preventDefault(); return; }
+      if (S.industrialChooser) { S.industrialChooser = false; render(); e.preventDefault(); return; }
       if (S.groupDetail) { S.groupDetail = null; render(); e.preventDefault(); return; }
       if (S.statDetail) { S.statDetail = null; render(); e.preventDefault(); return; }
       if (S.policyDetail) { S.policyDetail = null; render(); e.preventDefault(); return; }

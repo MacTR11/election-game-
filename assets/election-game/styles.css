@@ -626,6 +626,29 @@ select.sel { background: var(--bg-2); color: var(--ink); border: 1px solid var(-
 }
 .modal .modal-tag { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); font-weight: 800; }
 .modal.commons-vote { border-top: 4px solid var(--gold); }
+
+/* Markets dashboard cards */
+.mk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 10px; margin-top: 4px; }
+.mk-cell { background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.mk-cell .mk-lab { font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--ink-dim); }
+.mk-cell .mk-val { font-size: 19px; font-weight: 800; color: var(--ink); }
+.mk-cell .mk-delta { font-size: 11.5px; font-weight: 700; }
+.mk-cell .mk-hint { font-size: 11.5px; color: var(--ink-dim); margin-top: 4px; line-height: 1.35; }
+
+/* Sectors panel */
+.sec-list { display: flex; flex-direction: column; gap: 8px; }
+.sec-row { display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px; align-items: center; padding: 8px 10px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; }
+.sec-row.backed { border-color: var(--gold); background: rgba(201,162,39,.07); }
+.sec-name { font-weight: 700; font-size: 13.5px; }
+.sec-name .sec-ico { margin-right: 6px; }
+.sec-name .sec-meta { font-size: 11.5px; color: var(--ink-dim); font-weight: 400; margin-top: 2px; }
+.sec-bar-wrap { display: flex; align-items: center; gap: 10px; }
+.sec-bar-wrap .statbar { flex: 1; }
+.sec-bar-wrap .sec-val { min-width: 28px; text-align: right; font-size: 13px; font-weight: 800; }
+.sec-strategy { margin-top: 12px; padding: 10px 12px; background: var(--bg-2); border: 1px dashed var(--border); border-radius: 8px; }
+@media (max-width: 620px) {
+  .sec-row { grid-template-columns: 1fr; gap: 8px; }
+}
 .modal h2 { margin: 8px 0 8px; font-size: 22px; }
 .modal p { margin: 0 0 16px; font-size: 14px; }
 .dilemma-opts { display: grid; gap: 10px; }
