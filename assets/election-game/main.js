@@ -43,10 +43,10 @@
   }
 
   // --------------------------------------------------------------------- utils
-  function toast(msg) {
+  function toast(msg, ms) {
     var t = $("#toast"); if (!t) return;
     t.textContent = msg; t.classList.add("show");
-    clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.remove("show"); }, 1900);
+    clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.remove("show"); }, ms || (msg.length > 40 ? 3200 : 1900));
   }
   function normShares(src) {
     var sum = 0, p, out = {};
@@ -765,6 +765,37 @@
       moversPanel;
   }
 
+  // Build a one-line summary of a dilemma option's biggest effects, so the
+  // player gets immediate "this is what just changed" feedback.
+  function decisionSummary(opt) {
+    if (!opt || !opt.effects) return null;
+    var e = opt.effects, parts = [], grpLookup = {};
+    D.GROUPS.forEach(function (gr) { grpLookup[gr.id] = gr.name; });
+    function add(label, val, fmtFn) {
+      if (val == null || Math.abs(val) < 0.005) return;
+      parts.push({ label: label, mag: Math.abs(val), txt: (val > 0 ? "▲" : "▼") + " " + label + " " + (fmtFn ? fmtFn(val) : Math.abs(val).toFixed(2)) });
+    }
+    if (e.all) add("all groups", e.all, function (v) { return (v > 0 ? "+" : "") + (v * 100).toFixed(1) + "pts"; });
+    if (e.unity) add("unity", e.unity, function (v) { return (v > 0 ? "+" : "") + (v * 100).toFixed(0) + "pts"; });
+    if (e.capital) add("capital", e.capital, function (v) { return (v > 0 ? "+" : "") + v; });
+    if (e.macro) {
+      Object.keys(e.macro).forEach(function (k) {
+        if (k === "deficit") add("deficit", e.macro[k], function (v) { return (v > 0 ? "+£" : "−£") + Math.abs(Math.round(v)) + "bn"; });
+        else add(k, e.macro[k], function (v) { return (v > 0 ? "+" : "") + v.toFixed(2); });
+      });
+    }
+    if (e.groups) Object.keys(e.groups).forEach(function (gid) {
+      var name = grpLookup[gid] || gid;
+      add(name, e.groups[gid], function (v) { return (v > 0 ? "+" : "") + (v * 100).toFixed(0) + "pts"; });
+    });
+    if (e.stats) Object.keys(e.stats).forEach(function (sid) {
+      add(STAT_NAME[sid] || sid, e.stats[sid], function (v) { return (v > 0 ? "+" : "") + (v * 100).toFixed(0) + "pts"; });
+    });
+    if (!parts.length) return null;
+    parts.sort(function (a, b) { return b.mag - a.mag; });
+    return parts.slice(0, 3).map(function (p) { return p.txt; }).join(" · ");
+  }
+
   function stars(c) { return '<span class="stars">' + "★".repeat(c) + '<span class="faint">' + "★".repeat(5 - c) + '</span></span>'; }
   function ministerPerf(c) {
     return c >= 5 ? { t: "Excelling", col: "var(--good)" } : c === 4 ? { t: "Performing well", col: "var(--good)" }
@@ -1367,7 +1398,11 @@
       if (m) { S.mapType = m.getAttribute("data-map"); render(); return; }
       var d = e.target.closest("[data-dilemma]");
       if (d && S.govern && S.govern.pendingDilemma) {
-        E.resolveDilemma(S.govern, parseInt(d.getAttribute("data-dilemma"), 10));
+        var idx = parseInt(d.getAttribute("data-dilemma"), 10);
+        var dil = S.govern.pendingDilemma, chosen = dil.options[idx];
+        E.resolveDilemma(S.govern, idx);
+        var summary = decisionSummary(chosen);
+        if (summary) toast(summary);
         render();
         return;
       }

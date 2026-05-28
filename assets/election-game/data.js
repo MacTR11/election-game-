@@ -1277,6 +1277,70 @@
               effects: { all: -0.02, groups: { capitalists: -0.05 } }, next: null }
           ] }
       ] },
+    { id: "energy", name: "Energy Supply Shock",
+      trigger: function (s) { return s.turn > 6 && Math.random() < 0.025; },
+      drag: { macro: { inflation: 0.08, realGrowth: -0.05 }, stats: { environment: -0.005 }, groups: { poor: -0.015, workingclass: -0.012 } },
+      stages: [
+        { title: "Bills Through the Roof", desc: "A sudden gas-supply shock sends household and business bills surging. Phone-ins are nuclear.",
+          options: [
+            { label: "Cap household bills nationally", result: "Households cheer; the deficit takes the hit.",
+              effects: { macro: { deficit: 8, inflation: -0.2 }, all: 0.03, capital: -1 }, next: 1, in: 3 },
+            { label: "Windfall tax on energy producers", result: "Producers howl; the public roars its approval.",
+              effects: { policy: { banklevy: 0.10 }, macro: { deficit: -2 }, groups: { capitalists: -0.08, socialists: 0.06 } }, next: 1, in: 3 },
+            { label: "Let the market clear", result: "Orthodox and brutal on families.",
+              effects: { all: -0.04, groups: { poor: -0.06 } }, next: 1, in: 3 }
+          ] },
+        { title: "Industry Slams the Brakes", desc: "Energy-intensive manufacturers cut shifts; thousands of jobs are on the line.",
+          options: [
+            { label: "State-backed loans to keep plants open", result: "Jobs saved; the right calls it corporate welfare.",
+              effects: { macro: { deficit: 4, unemployment: -0.2 }, groups: { workingclass: 0.06, unions: 0.06 } }, next: 2, in: 3 },
+            { label: "Speed up the green grid build", result: "Future-facing and pricey now.",
+              effects: { policy: { netzero: 0.10 }, macro: { deficit: 5 }, groups: { environment: 0.10 } }, next: 2, in: 3 },
+            { label: "Cut energy taxes for industry", result: "A short-term fix; environmentalists are appalled.",
+              effects: { macro: { deficit: -2 }, groups: { capitalists: 0.08, environment: -0.05 } }, next: 2, in: 3 }
+          ] },
+        { title: "Resetting Britain's Energy", desc: "The acute phase passes. The strategic question — what powers the country? — remains.",
+          options: [
+            { label: "Build new nuclear and gas baseload", result: "Security restored; greens grumble at the gas.",
+              effects: { policy: { netzero: 0.06, infra: 0.08 }, macro: { deficit: 3 }, groups: { patriots: 0.05 } }, next: null },
+            { label: "Go big on renewables and storage", result: "A bet on the future; the bill arrives now.",
+              effects: { policy: { netzero: 0.15 }, stats: { environment: 0.06 }, macro: { deficit: 3 }, groups: { environment: 0.10 } }, next: null },
+            { label: "Cut ambition to save money", result: "Cheaper today; less resilient tomorrow.",
+              effects: { stats: { environment: -0.06 }, all: -0.02 }, next: null }
+          ] }
+      ] },
+    { id: "ai", name: "AI Labour Shock",
+      trigger: function (s) { return s.turn > 14 && Math.random() < 0.02; },
+      drag: { macro: { unemployment: 0.04, realGrowth: 0.02 }, groups: { young: -0.008, middleclass: -0.010, unions: -0.008 } },
+      stages: [
+        { title: "White-Collar Layoffs", desc: "A wave of AI-driven redundancies hits law, accounting and admin firms. The middle is rattled.",
+          options: [
+            { label: "Pause and regulate", result: "Unions cheer; tech investors threaten to leave.",
+              effects: { policy: { businessreg: 0.10 }, groups: { unions: 0.10, workingclass: 0.06, capitalists: -0.08 } }, next: 1, in: 3 },
+            { label: "Massive retraining programme", result: "A future-facing bet on people.",
+              effects: { policy: { skills: 0.20 }, macro: { deficit: 4 }, groups: { young: 0.08, unions: 0.06 } }, next: 1, in: 3 },
+            { label: "Let the market adapt", result: "Growth surges; displaced workers feel abandoned.",
+              effects: { macro: { realGrowth: 0.2, unemployment: 0.3 }, groups: { capitalists: 0.08, middleclass: -0.06 } }, next: 1, in: 3 }
+          ] },
+        { title: "The UBI Question", desc: "City-level UBI trials are buzzing. Pressure builds for a national rollout.",
+          options: [
+            { label: "Trial UBI nationally", result: "Bold and very expensive; the left is jubilant.",
+              effects: { policy: { welfare: 0.10 }, macro: { deficit: 8 }, groups: { poor: 0.10, socialists: 0.10, capitalists: -0.06 } }, next: 2, in: 3 },
+            { label: "Strengthen the safety net", result: "A measured upgrade to benefits.",
+              effects: { policy: { welfare: 0.06 }, macro: { deficit: 3 }, groups: { poor: 0.06 } }, next: 2, in: 3 },
+            { label: "Hold the line on welfare", result: "Tough on the books, tough on the displaced.",
+              effects: { groups: { poor: -0.05, young: -0.05, capitalists: 0.04 } }, next: 2, in: 3 }
+          ] },
+        { title: "AI in the Civil Service", desc: "Officials propose deploying AI across Whitehall — vast savings and tens of thousands of jobs.",
+          options: [
+            { label: "Automate aggressively", result: "The Treasury loves it; the unions don't.",
+              effects: { macro: { deficit: -6, realGrowth: 0.2 }, groups: { publicsector: -0.10, unions: -0.08, capitalists: 0.06 } }, next: null },
+            { label: "Pilot with safeguards", result: "Slower savings, smoother politics.",
+              effects: { macro: { deficit: -2 }, groups: { publicsector: 0.04 } }, next: null },
+            { label: "Block automation in government", result: "Jobs protected; reform delayed.",
+              effects: { groups: { publicsector: 0.08, unions: 0.06, capitalists: -0.06 } }, next: null }
+          ] }
+      ] },
     { id: "war", name: "Major International Conflict",
       trigger: function (s) { return s.turn > 10 && Math.random() < 0.022; },
       drag: { macro: { realGrowth: -0.06, inflation: 0.05 }, groups: { patriots: 0.005 } },
