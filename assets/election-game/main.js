@@ -28,6 +28,13 @@
     pendingVote: null,   // { source: 'bulk'|'single', polId, newVal, totalCost, billTitle } awaiting a Commons vote
     lastVoteResult: null, // { passed, prob, billTitle } shown to the player after a vote
     industrialChooser: false, // industrial-strategy picker open?
+    // Seats Explorer (simulator)
+    seatsFilter: "all",   // projected-winner filter: "all" or partyId
+    seatsRegion: "all",   // region filter: "all" or region id
+    seatsSort: "margin_asc", // sort key
+    seatsSearch: "",      // free-text seat-name filter
+    seatsLimit: 50,       // initial visible rows; "Show more" reveals all 650
+    targetsParty: "lab",  // which party's targets/at-risk to surface
     statDetail: null,    // stat id whose cause-and-effect modal is open
     groupDetail: null,   // voter group id whose modal is open
     compareA: "approval",
@@ -224,6 +231,9 @@
     }).join("");
     var sum = SHARE_PARTIES.reduce(function (a, p) { return a + (S.shares[p] || 0); }, 0);
     var sumCol = Math.abs(sum - 100) < 0.5 ? "var(--good)" : Math.abs(sum - 100) < 5 ? "var(--warn)" : "var(--bad)";
+    var normNote = Math.abs(sum - 100) >= 0.5 && sum > 0
+      ? '<span class="sim-norm-note" style="font-size:11.5px;color:var(--ink-dim);margin-left:8px">— auto-normalised to 100% for projection</span>'
+      : "";
     var src = S.lastPollSource ? '<p class="notice" style="color:var(--commons-l);margin:8px 0 0">Loaded: ' + U.esc(S.lastPollSource) + '</p>' : "";
     // preset dropdown — quick-load any of the scenarios from data.js
     var presetOpts = '<option value="">— preset scenarios —</option>' +
@@ -235,7 +245,7 @@
         '<button class="btn sm" data-act="normalise">Normalise 100%</button>' +
         '<button class="btn sm" data-act="share">🔗 Share</button>' +
       '</div>' +
-      '<div class="sim-total" style="color:' + sumCol + '">Total: <b>' + sum.toFixed(1) + '%</b><span id="sharesum" hidden></span></div>' +
+      '<div class="sim-total" style="color:' + sumCol + '">Total: <b>' + sum.toFixed(1) + '%</b>' + normNote + '<span id="sharesum" hidden></span></div>' +
       rows + src +
       '<details class="sim-help"><summary>How does this work?</summary>' +
       '<p class="muted" style="font-size:12.5px;margin:8px 0 0"><b>Load latest polls</b> fetches the current poll-of-polls live, in your browser, from Wikipedia\'s "Opinion polling for the next United Kingdom general election" article — aggregating the British Polling Council member firms. If it can\'t be reached, your current figures stay. Shares are normalised before projection; swing is measured versus the 2024 result.</p>' +
@@ -255,6 +265,7 @@
     var shares = normShares(pickShares());
     var r = E.projectSeats(shares);
     var bg = E.battlegrounds(shares, 12);
+    var allSeats = E.allSeatResults(shares);
     return U.headline(r) + governmentPanel(r.government) +
       '<div class="viz2">' +
         '<div class="panel"><h3>National Vote &amp; Swing vs 2024</h3>' + U.voteSwing(shares) + '</div>' +
@@ -264,6 +275,8 @@
         U.legend(r.totals, { shares: shares }) + mapView(r.seatWinners) + '</div>' +
       seatDetailPanel(shares) +
       battlegroundPanel(bg) +
+      partyTargetsPanel(allSeats) +
+      seatsExplorerPanel(allSeats) +
       regionTable(r) +
       '<div class="panel" style="margin-top:16px"><details><summary class="sim-summary">How seats are modelled</summary>' +
       '<p class="muted" style="font-size:13px;margin:8px 0 8px">Every one of the 650 constituencies carries its <b>real July 2024 result</b> (actual Conservative / Labour / Reform vote shares and the real winning party; the remaining parties are region-calibrated to the published regional results). To project an outcome the model takes your national vote shares, works out each party\'s <b>swing versus 2024</b>, applies that swing uniformly to every seat, then awards each seat to the highest share — first-past-the-post, aggregated across all 650. At zero swing it reproduces the exact 2024 Commons (Lab 411, Con 121, LD 72, SNP 9, Reform 5…).</p>' +
@@ -317,6 +330,155 @@
       '<table class="tbl"><thead><tr><th>Region</th><th class="num">Seats</th><th>Result</th></tr></thead><tbody>' +
       rows + '</tbody></table></div>';
   }
+  // Seats Explorer — sortable / filterable view of all 650 constituencies
+  // under the current projection. The user wanted a meaningful way to see
+  // safest seats, most-at-risk seats, and what's flipping where.
+  function seatsExplorerPanel(allSeats) {
+    var sf = S.seatsFilter || "all";
+    var sr = S.seatsRegion || "all";
+    var sort = S.seatsSort || "margin_asc";
+    var search = (S.seatsSearch || "").trim().toLowerCase();
+    var limit = S.seatsLimit || 50;
+
+    // tally of projected winners — used to disable empty filter pills
+    var winnerCount = {};
+    allSeats.forEach(function (s) { winnerCount[s.winner] = (winnerCount[s.winner] || 0) + 1; });
+
+    // filter
+    var rows = allSeats.filter(function (s) {
+      if (sf !== "all" && s.winner !== sf) return false;
+      if (sr !== "all" && s.reg !== sr) return false;
+      if (search && s.name.toLowerCase().indexOf(search) < 0) return false;
+      return true;
+    });
+
+    // sort
+    var sortFns = {
+      margin_asc:  function (a, b) { return a.margin - b.margin; },              // most at risk first
+      margin_desc: function (a, b) { return b.margin - a.margin; },              // safest first
+      name_asc:    function (a, b) { return a.name.localeCompare(b.name); },
+      flip_first:  function (a, b) { return (b.flip ? 1 : 0) - (a.flip ? 1 : 0) || a.margin - b.margin; },
+      winner:      function (a, b) { return (a.winner || "").localeCompare(b.winner || "") || a.margin - b.margin; }
+    };
+    rows.sort(sortFns[sort] || sortFns.margin_asc);
+
+    var shown = rows.slice(0, limit);
+
+    // build filter pills (all + each party with at least one projected seat)
+    var partyOrder = ["lab", "con", "reform", "ld", "snp", "pc", "green", "restore", "dup", "sf", "alliance", "uup", "sdlp", "oth"];
+    var winnerPills = '<button class="seat-pill' + (sf === "all" ? " on" : "") + '" data-seatfilter="all">All <span class="faint">(' + allSeats.length + ')</span></button>' +
+      partyOrder.filter(function (p) { return winnerCount[p]; }).map(function (p) {
+        return '<button class="seat-pill' + (sf === p ? " on" : "") + '" data-seatfilter="' + p + '"' +
+          ' style="' + (sf === p ? "border-color:" + U.pcolor(p) + ";color:" + U.pcolor(p) + ";" : "") + '">' +
+          '<i class="sw" style="background:' + U.pcolor(p) + '"></i>' + U.pshort(p) + ' <span class="faint">(' + winnerCount[p] + ')</span></button>';
+      }).join("");
+
+    // region dropdown
+    var regionOpts = '<option value="all">All regions/nations</option>' +
+      (D.REGIONS || []).map(function (rg) { return '<option value="' + rg.id + '"' + (sr === rg.id ? " selected" : "") + '>' + U.esc(rg.name) + '</option>'; }).join("");
+
+    // sort dropdown
+    var sortOpts = [
+      { v: "margin_asc",  l: "Most at risk first" },
+      { v: "margin_desc", l: "Safest first" },
+      { v: "flip_first",  l: "Flipping seats first" },
+      { v: "name_asc",    l: "Alphabetical" },
+      { v: "winner",      l: "Group by winner" }
+    ].map(function (o) { return '<option value="' + o.v + '"' + (sort === o.v ? " selected" : "") + '>' + o.l + '</option>'; }).join("");
+
+    // table body
+    var bodyRows = shown.map(function (s) {
+      var winC = U.pcolor(s.winner), prevC = U.pcolor(s.prev);
+      var flipBadge = s.flip
+        ? '<span class="pill" style="background:' + winC + '22;color:' + winC + '">' + U.pshort(s.winner) + ' gain from ' + U.pshort(s.prev) + '</span>'
+        : '<span class="faint">' + U.pshort(s.winner) + ' hold</span>';
+      var marginCol = s.margin < 2 ? "var(--bad)" : s.margin < 6 ? "var(--warn)" : "var(--good)";
+      var regName = ((D.REGIONS || []).filter(function (rg) { return rg.id === s.reg; })[0] || { name: s.reg }).name;
+      return '<tr data-seat="' + s.code + '" class="clickrow">' +
+        '<td>' + U.esc(s.name) + '<div class="faint" style="font-size:11px">' + U.esc(regName) + '</div></td>' +
+        '<td><span class="sw" style="background:' + prevC + '"></span> ' + U.pshort(s.prev) + '</td>' +
+        '<td><span class="sw" style="background:' + winC + '"></span> ' + U.pshort(s.winner) + '</td>' +
+        '<td class="num" style="color:' + marginCol + '"><b>' + s.margin.toFixed(1) + '</b></td>' +
+        '<td>' + flipBadge + '</td>' +
+      '</tr>';
+    }).join("");
+
+    var moreBtn = rows.length > shown.length
+      ? '<div class="row" style="justify-content:center;margin-top:10px"><button class="btn sm" data-act="seatsmore">Show more (' + (rows.length - shown.length) + ' more)</button></div>'
+      : "";
+
+    return '<div class="panel" style="margin-top:16px"><h3>🗺 Seats Explorer — all 650 constituencies</h3>' +
+      '<div class="seat-filters" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">' + winnerPills + '</div>' +
+      '<div class="seat-controls">' +
+        '<input class="seat-search" data-seatsearch placeholder="Search a seat…" value="' + U.esc(search) + '">' +
+        '<select class="seat-select" data-seatregion>' + regionOpts + '</select>' +
+        '<select class="seat-select" data-seatsort>' + sortOpts + '</select>' +
+      '</div>' +
+      '<div class="seat-summary muted" style="font-size:12.5px;margin:6px 0 4px">Showing <b>' + shown.length + '</b> of <b>' + rows.length + '</b> matching ' + (rows.length === 1 ? "seat" : "seats") + '.</div>' +
+      '<div class="seat-table-wrap">' +
+      '<table class="tbl seat-table"><thead><tr><th>Constituency</th><th>2024 winner</th><th>Projected winner</th><th class="num">Margin (pts)</th><th>Status</th></tr></thead>' +
+      '<tbody>' + bodyRows + '</tbody></table></div>' + moreBtn +
+      '<p class="notice" style="margin-top:10px">Click any row to inspect that seat. Margins under 2 pts are knife-edge.</p>' +
+      '</div>';
+  }
+
+  // Party Targets — for the selected party, the top seats they could gain
+  // (closest losses) and the seats most at risk (smallest margins where they
+  // currently win). Both based on 2024 baseline + the current prediction.
+  function partyTargetsPanel(allSeats) {
+    var party = S.targetsParty || "lab";
+    // Major parties only (those with >= 1 projected seat OR a real 2024 footprint)
+    var partyOrder = ["lab", "con", "reform", "ld", "snp", "pc", "green", "restore"];
+
+    // 1. seats this party currently HOLDS (projected winner) — sorted asc by margin = most at risk
+    var atRisk = allSeats.filter(function (s) { return s.winner === party; })
+                         .sort(function (a, b) { return a.margin - b.margin; })
+                         .slice(0, 10);
+    // 2. seats this party DOESN'T hold but is the runner-up — sorted asc by margin = best targets
+    var targets = allSeats.filter(function (s) { return s.winner !== party && s.runner === party; })
+                          .sort(function (a, b) { return a.margin - b.margin; })
+                          .slice(0, 10);
+
+    function rowOf(s, mode) {
+      var winC = U.pcolor(s.winner);
+      var note = mode === "target"
+        ? '<span class="faint">behind ' + U.pshort(s.winner) + ' by ' + s.margin.toFixed(1) + 'pt</span>'
+        : '<span class="faint">leading ' + (s.runner ? U.pshort(s.runner) : "—") + ' by ' + s.margin.toFixed(1) + 'pt</span>';
+      var marginCol = s.margin < 2 ? "var(--bad)" : s.margin < 6 ? "var(--warn)" : "var(--good)";
+      var was2024 = s.prev ? ' <span class="faint" style="font-size:11px">(2024: ' + U.pshort(s.prev) + ')</span>' : "";
+      return '<tr data-seat="' + s.code + '" class="clickrow">' +
+        '<td>' + U.esc(s.name) + was2024 + '</td>' +
+        '<td class="num" style="color:' + marginCol + ';font-weight:700">' + s.margin.toFixed(1) + '</td>' +
+        '<td>' + note + '</td>' +
+        '<td><span class="sw" style="background:' + winC + '"></span> ' + U.pshort(s.winner) + '</td>' +
+      '</tr>';
+    }
+    var targetBody = targets.length
+      ? targets.map(function (s) { return rowOf(s, "target"); }).join("")
+      : '<tr><td colspan="4" class="muted">No close targets — ' + U.pname(party) + ' is not the runner-up anywhere on this prediction.</td></tr>';
+    var riskBody = atRisk.length
+      ? atRisk.map(function (s) { return rowOf(s, "risk"); }).join("")
+      : '<tr><td colspan="4" class="muted">No seats currently won by ' + U.pname(party) + ' on this prediction.</td></tr>';
+
+    var partyPills = partyOrder.map(function (p) {
+      return '<button class="seat-pill' + (party === p ? " on" : "") + '" data-targetparty="' + p + '"' +
+        ' style="' + (party === p ? "border-color:" + U.pcolor(p) + ";color:" + U.pcolor(p) + ";" : "") + '">' +
+        '<i class="sw" style="background:' + U.pcolor(p) + '"></i>' + U.pname(p) + '</button>';
+    }).join("");
+
+    return '<div class="panel" style="margin-top:16px"><h3>🎯 Targets &amp; risks — for each party</h3>' +
+      '<p class="muted" style="margin:0 0 8px;font-size:13px">Best gains and most-at-risk seats, based on the current prediction and the real 2024 baseline.</p>' +
+      '<div class="seat-filters" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' + partyPills + '</div>' +
+      '<div class="viz2">' +
+        '<div><h4 style="margin:0 0 6px">Top targets · 10 closest gains</h4>' +
+          '<table class="tbl"><thead><tr><th>Seat</th><th class="num">Margin</th><th>Position</th><th>Held by</th></tr></thead>' +
+          '<tbody>' + targetBody + '</tbody></table></div>' +
+        '<div><h4 style="margin:0 0 6px">Most at risk · 10 thinnest holds</h4>' +
+          '<table class="tbl"><thead><tr><th>Seat</th><th class="num">Margin</th><th>Position</th><th>Threat</th></tr></thead>' +
+          '<tbody>' + riskBody + '</tbody></table></div>' +
+      '</div></div>';
+  }
+
   function pickShares() {
     var out = {}; SHARE_PARTIES.forEach(function (p) { out[p] = S.shares[p] || 0; });
     return out;
@@ -2279,6 +2441,37 @@
         render();
       });
     });
+    // Seats Explorer + Party Targets controls
+    app.querySelectorAll("[data-seatfilter]").forEach(function (el) {
+      el.addEventListener("click", function () { S.seatsFilter = el.getAttribute("data-seatfilter"); S.seatsLimit = 50; refreshSim(); });
+    });
+    app.querySelectorAll("[data-targetparty]").forEach(function (el) {
+      el.addEventListener("click", function () { S.targetsParty = el.getAttribute("data-targetparty"); refreshSim(); });
+    });
+    app.querySelectorAll("[data-seatregion]").forEach(function (sel) {
+      sel.addEventListener("change", function () { S.seatsRegion = sel.value; S.seatsLimit = 50; refreshSim(); });
+    });
+    app.querySelectorAll("[data-seatsort]").forEach(function (sel) {
+      sel.addEventListener("change", function () { S.seatsSort = sel.value; refreshSim(); });
+    });
+    app.querySelectorAll("[data-seatsearch]").forEach(function (inp) {
+      inp.addEventListener("input", function () { S.seatsSearch = inp.value; S.seatsLimit = 50; refreshSim(); });
+    });
+  }
+  // Refresh just the simulator results region without a full re-render. The
+  // seat-search input re-mounts on every keystroke (its value is sticky on
+  // state), so we restore focus + caret afterwards.
+  function refreshSim() {
+    if (S.screen !== "simulator") return;
+    var box = document.getElementById("sim-results"); if (!box) return;
+    var active = document.activeElement;
+    var wasSearchFocused = active && active.hasAttribute && active.hasAttribute("data-seatsearch");
+    var caret = wasSearchFocused ? active.selectionStart : 0;
+    box.innerHTML = simResults();
+    if (wasSearchFocused) {
+      var inp = box.querySelector("[data-seatsearch]");
+      if (inp) { inp.focus(); try { inp.setSelectionRange(caret, caret); } catch (e) { /* readonly inputs */ } }
+    }
   }
 
   function bindPolicySliders() {
@@ -2333,6 +2526,8 @@
     switch (act) {
       case "normalise":
         S.shares = normShares(pickShares()); render(); break;
+      case "seatsmore":
+        S.seatsLimit = (S.seatsLimit || 50) + 200; refreshSim(); break;
       case "reset2024": {
         var b2 = E.sharesFromPreset("ge2024");
         SHARE_PARTIES.forEach(function (p) { S.shares[p] = b2[p] || 0; });

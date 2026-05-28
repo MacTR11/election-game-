@@ -238,6 +238,28 @@
     return { marginal: out.slice(0, n || 12), flips: flips, total: C.length,
              gains: out.filter(function (s) { return s.flip; }).sort(function (a, b) { return b.margin - a.margin; }) };
   }
+  // Per-seat result for every constituency on the current shares. Returns an
+  // array of { code, name, reg, winner, runner, prev, margin, flip,
+  // shareWinner, shareRunner }. Computed once; the UI then filters / sorts in
+  // place rather than re-projecting per row.
+  function allSeatResults(shares) {
+    var C = window.UKGAME.CONSTITUENCIES || [], out = [], i;
+    var ns = normShares(shares);
+    for (i = 0; i < C.length; i++) {
+      var seat = C[i];
+      var r = byElection(seat, ns);
+      var ranked = r.ranked || [];
+      out.push({
+        code: seat.c, name: seat.n, reg: seat.reg, nation: regionNation(seat.reg),
+        winner: r.winner, prev: seat.w,
+        runner: ranked[1] ? ranked[1].party : null,
+        shareWinner: ranked[0] ? ranked[0].share : 0,
+        shareRunner: ranked[1] ? ranked[1].share : 0,
+        margin: r.margin, flip: r.gain
+      });
+    }
+    return out;
+  }
 
   // ---------------------------------------------------------------------------
   // BY-ELECTION — single seat under national swing vs 2024.
@@ -245,13 +267,30 @@
   function byElection(seat, shares) {
     var base = seat.s || seat.shares;
     var sw = swingFrom(normShares(shares)), out = {}, total = 0, p;
+    // 1) parties that already stand in the seat (the 2024 baseline shares).
+    //    MUST mirror projectSeatsConstituency's logic exactly so the seat-
+    //    detail / explorer never disagrees with the headline projection.
     for (p in base) {
-      var v = Math.max(0, base[p] + (sw[p] || 0));
+      if (!partyEligibleInSeat(p, seat)) continue;
+      var v = base[p] + (sw[p] || 0); if (v < 0) v = 0;
       out[p] = v; total += v;
     }
+    // 2) parties that didn't stand in 2024 but appear in this projection's
+    //    national shares (e.g. Restore Britain). Same nation-eligibility rule.
+    for (p in sw) {
+      if (p in out) continue;
+      if (!partyEligibleInSeat(p, seat)) continue;
+      var v2 = (sw[p] || 0); if (v2 < 0) v2 = 0;
+      out[p] = v2; total += v2;
+    }
+    // Rank by RAW values (identical to projectSeats' first-wins-strict-greater
+    // semantics — guarantees the seat-detail winner matches the headline tally
+    // even on near-floating-point ties).
     var ranked = [];
-    for (p in out) { out[p] = total > 0 ? out[p] / total * 100 : 0; ranked.push({ party: p, share: out[p] }); }
-    ranked.sort(function (a, b) { return b.share - a.share; });
+    for (p in out) ranked.push({ party: p, raw: out[p] });
+    ranked.sort(function (a, b) { return b.raw - a.raw; });
+    // Normalise to % for display ONLY, after ranking is locked in.
+    for (var k = 0; k < ranked.length; k++) ranked[k].share = total > 0 ? ranked[k].raw / total * 100 : 0;
     var heldBy = seat.w, hi = -1;
     if (!heldBy) for (p in base) if (base[p] > hi) { hi = base[p]; heldBy = p; }
     return { ranked: ranked, winner: ranked[0].party, previousWinner: heldBy,
@@ -1850,6 +1889,7 @@
     byElection: byElection,
     seatResult: seatResult,
     battlegrounds: battlegrounds,
+    allSeatResults: allSeatResults,
     formGovernment: formGovernment,
     localElection: localElection,
     newGovernState: newGovernState,

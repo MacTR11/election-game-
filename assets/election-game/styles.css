@@ -649,6 +649,27 @@ select.sel { background: var(--bg-2); color: var(--ink); border: 1px solid var(-
 @media (max-width: 620px) {
   .sec-row { grid-template-columns: 1fr; gap: 8px; }
 }
+
+/* Seats Explorer & Party Targets */
+.seat-pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border-radius: 14px;
+  background: var(--bg-2); border: 1px solid var(--border); color: var(--ink); font-size: 12px; cursor: pointer;
+  font-weight: 600; transition: border-color .12s, color .12s; }
+.seat-pill:hover { border-color: var(--commons-l); color: var(--gold); }
+.seat-pill.on { border-color: var(--gold); color: var(--gold); }
+.seat-pill .sw { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.seat-controls { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 8px; margin-bottom: 4px; }
+.seat-search, .seat-select { background: var(--bg-2); border: 1px solid var(--border); color: var(--ink);
+  border-radius: 8px; padding: 7px 10px; font-size: 13px; font-family: inherit; }
+.seat-search:focus, .seat-select:focus { outline: none; border-color: var(--gold); }
+.seat-table-wrap { max-height: 460px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+.seat-table { margin: 0; }
+.seat-table thead th { position: sticky; top: 0; background: var(--bg-2); z-index: 1; }
+.seat-table tr.clickrow { cursor: pointer; }
+.seat-table tr.clickrow:hover { background: rgba(201, 162, 39, .07); }
+@media (max-width: 620px) {
+  .seat-controls { grid-template-columns: 1fr; }
+  .seat-table-wrap { max-height: 380px; }
+}
 .modal h2 { margin: 8px 0 8px; font-size: 22px; }
 .modal p { margin: 0 0 16px; font-size: 14px; }
 .dilemma-opts { display: grid; gap: 10px; }
