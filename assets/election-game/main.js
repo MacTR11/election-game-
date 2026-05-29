@@ -768,45 +768,65 @@
     else if (S.governTab === "cabinet") body = tabCabinet();
     else body = tabBriefing(live);
 
+    var sidebar = governRail(g, live);
+
+    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + statDetailModal() + groupDetailModal() + commonsVoteModal() + voteResultModal() + industrialChooserModal() + impactReportModal() + endTurnFab(g);
+  }
+
+  // The govern control rail — one cohesive card. Term + capital + unity up top,
+  // the live election band, pledges, the people behind the desk, then actions.
+  // Consolidates what used to be eight separate stacked boxes.
+  function governRail(g, live) {
+    var termPct = Math.min(100, g.turn / E.TERM_TURNS * 100);
+    var regen = E.capitalRegen(g);
     var dots = "";
     for (var i = 0; i < g.maxCapital; i++) dots += '<i class="' + (i < g.capital ? "on" : "") + '"></i>';
     var unityCol = g.unity > 0.55 ? "var(--good)" : g.unity > 0.38 ? "var(--warn)" : "var(--bad)";
-    var unityWarn = g.unity < 0.4 ? '<div class="muted" style="font-size:11px;color:var(--bad);margin-top:4px">Your backbenchers are restless — a leadership challenge looms.</div>' : "";
-    var regen = E.capitalRegen(g);
-    var sidebar = '<div class="panel"><h3>The Term</h3>' +
-      '<div class="statbar" style="margin-bottom:6px"><i style="width:' + termPct + '%;background:var(--commons-l)"></i></div>' +
-      '<div class="muted" style="font-size:12px">Month ' + g.turn + ' of ' + E.TERM_TURNS + ' before the next scheduled election.</div>' +
-      '<div style="margin:14px 0 4px"><div class="lab2">Party unity · ' + Math.round(g.unity * 100) + '%</div>' +
-      '<div class="statbar"><i style="width:' + (g.unity * 100) + '%;background:' + unityCol + '"></i></div>' + unityWarn + '</div>' +
-      '<div style="margin:14px 0 4px"><div class="lab2">Political capital · <b style="color:var(--gold)">' + g.capital + ' / ' + g.maxCapital + '</b> <span class="faint">(+' + regen + '/mo)</span></div>' +
-      '<div class="capital-dots">' + dots + '</div></div>' +
-      '<div class="muted" style="font-size:11.5px;margin-bottom:10px">Spent to change policy. Regenerates <b>+' + regen + '/month</b> — more when popular and united.</div>' +
-      pledgesMini(g) +
-      '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center;margin-bottom:8px">End Month ▶</button>' +
-      '<button class="btn sm" data-act="callelection" style="width:100%;justify-content:center;margin-bottom:8px">Call General Election</button>' +
-      '<button class="btn sm" data-act="quitgovern" style="width:100%;justify-content:center">Resign</button>' +
-      (g.persona
-        ? '<div class="opp-leader" style="margin-top:14px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-2)"><div class="lab2" style="margin-bottom:4px">Your Leadership Style</div>' +
-          '<div style="font-weight:700">' + (g.persona.icon || "") + ' ' + U.esc(g.persona.name) + '</div>' +
-          '<div class="muted" style="font-size:12px">' + U.esc((g.persona.tag || "")) + '</div></div>'
-        : "") +
-      (g.oppositionLeader
-        ? '<div class="opp-leader" style="margin-top:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-2)"><div class="lab2" style="margin-bottom:4px">Leader of the Opposition</div>' +
-          '<div style="font-weight:700">' + U.esc(g.oppositionLeader.name) + '</div>' +
-          '<div class="muted" style="font-size:12px">' + U.esc(g.oppositionLeader.partyName) + ' · ' + U.esc(g.oppositionLeader.style) + ' style</div></div>'
-        : "") +
-      '<div class="panel" style="margin-top:14px;padding:12px"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
-      U.seatBar(live.totals) + U.legend(live.totals, { byParty: live.byParty, shares: live.shares }) +
-      '<div class="muted" style="font-size:12px;margin-top:8px">' +
-        (live.knifeEdge
-          ? '<b style="color:var(--gold)">⚖ Knife-edge</b> — the result could go either way. Your range: <b>' + live.low + '–' + live.high + '</b> seats (central ' + live.central + ').'
-          : live.won
-          ? 'You hold power — <b style="color:var(--good)">' + live.low + '–' + live.high + '</b> seats (central ' + live.central + ').'
-          : 'You lose power — <b style="color:var(--bad)">' + (U.pname(live.winner) || "the opposition") + '</b> would form the next government. Your range: <b>' + live.low + '–' + live.high + '</b> seats.') +
-        '<br><span class="faint">Every figure here is a band, not a forecast — normal polling uncertainty.</span>' +
-      '</div></div></div>';
+    var unityWarn = g.unity < 0.4 ? '<div class="rail-warn">⚠ Backbenchers restless — a leadership challenge looms.</div>' : "";
 
-    return head + nowStrip(g) + kpis + '<div class="dash" style="margin-top:16px"><div>' + tabs + body + '</div>' + sidebar + '</div>' + dilemmaModal() + policyDetailModal() + cabinetReshuffleModal() + statDetailModal() + groupDetailModal() + commonsVoteModal() + voteResultModal() + industrialChooserModal() + impactReportModal() + endTurnFab(g);
+    // Vitals: capital (hero), unity + term as compact meters
+    var vitals =
+      '<div class="rail-capital">' +
+        '<div class="rail-cap-top"><span class="lab2">Political capital</span><b>' + g.capital + ' <span class="faint">/ ' + g.maxCapital + '</span></b></div>' +
+        '<div class="capital-dots">' + dots + '</div>' +
+        '<div class="rail-cap-note">+' + regen + '/month · spend it to change policy</div>' +
+      '</div>' +
+      '<div class="rail-meter"><div class="rail-meter-h"><span>Party unity</span><b style="color:' + unityCol + '">' + Math.round(g.unity * 100) + '%</b></div>' +
+        '<div class="statbar"><i style="width:' + (g.unity * 100) + '%;background:' + unityCol + '"></i></div>' + unityWarn + '</div>' +
+      '<div class="rail-meter"><div class="rail-meter-h"><span>Term progress</span><b>' + g.turn + ' / ' + E.TERM_TURNS + ' mo</b></div>' +
+        '<div class="statbar"><i style="width:' + termPct + '%;background:var(--commons-l)"></i></div></div>';
+
+    // Live election band
+    var verdict = live.knifeEdge
+      ? '<b style="color:var(--gold)">⚖ Knife-edge</b> — could go either way · <b>' + live.low + '–' + live.high + '</b> seats'
+      : live.won
+        ? '<b style="color:var(--good)">✓ You hold power</b> · <b>' + live.low + '–' + live.high + '</b> seats'
+        : '<b style="color:var(--bad)">✗ You lose power</b> to ' + (U.pname(live.winner) || "the opposition") + ' · <b>' + live.low + '–' + live.high + '</b> seats';
+    var electionBox =
+      '<div class="rail-section"><div class="lab2" style="margin-bottom:6px">If an election were held today</div>' +
+      U.seatBar(live.totals) +
+      '<div class="rail-verdict">' + verdict + '</div></div>';
+
+    // People — persona + opposition leader, compact two-up
+    var people = "";
+    var pcells = [];
+    if (g.persona) pcells.push('<div class="rail-person"><div class="lab2">Your style</div><div class="rail-person-name">' + (g.persona.icon || "") + ' ' + U.esc(g.persona.name) + '</div></div>');
+    if (g.oppositionLeader) pcells.push('<div class="rail-person"><div class="lab2">Opposition</div><div class="rail-person-name">' + U.esc(g.oppositionLeader.name) + '</div><div class="faint" style="font-size:11px">' + U.esc(g.oppositionLeader.partyName) + '</div></div>');
+    if (pcells.length) people = '<div class="rail-people">' + pcells.join("") + '</div>';
+
+    // Actions
+    var actions =
+      '<button class="btn primary" data-act="endturn" style="width:100%;justify-content:center">End Month ▶</button>' +
+      '<div class="rail-actions"><button class="btn sm" data-act="callelection">Call Election</button>' +
+      '<button class="btn sm" data-act="quitgovern">Resign</button></div>';
+
+    return '<div class="panel rail">' +
+      vitals +
+      pledgesMini(g) +
+      electionBox +
+      people +
+      '<div class="rail-foot">' + actions + '</div>' +
+      '</div>';
   }
   function trend(cur, prev, goodHigh) {
     if (prev == null) return "";
@@ -1557,7 +1577,7 @@
       return '<div class="pl-mini-row"><span class="pl-mini-tick">' + (ok ? "✓" : "○") +
         '</span><span style="color:' + (ok ? "var(--good)" : "var(--ink-dim)") + '">' + U.esc(pl.text) + '</span></div>';
     }).join("");
-    return '<div style="margin:0 0 12px"><div class="lab2" style="margin-bottom:6px">Pledges · ' + kept + '/' + g.pledges.length + ' kept</div>' + rows + '</div>';
+    return '<div class="rail-section rail-pledges"><div class="lab2" style="margin-bottom:6px">Pledges · ' + kept + '/' + g.pledges.length + ' kept</div>' + rows + '</div>';
   }
   // Snapshot the bits of state we want to diff after a turn.
   function snapshotForImpact(g) {
