@@ -19,6 +19,8 @@
     loadedRole: null,
     exitPoll: null,      // jittered 10pm projection shown before election night
     setupRole: "government",
+    // Setup is one decision now — these defaults are fixed and not picked
+    // by the player. Normal difficulty, Steady opening, Unifier persona.
     scenario: "steady",
     difficulty: "normal",
     persona: "unifier",
@@ -250,19 +252,16 @@
       var v = S.shares[p] != null ? S.shares[p] : 0;
       return '<div class="slider-row"><div class="name" style="color:' + U.pcolor(p) + '">' + U.pname(p) +
         '</div><input type="range" min="0" max="60" step="0.1" value="' + v + '" data-share="' + p + '">' +
-        '<input class="share-input" data-shareinput="' + p + '" value="' + v.toFixed(1) + '"></div>';
+        '<input class="share-input" type="number" min="0" max="60" step="0.1" data-shareinput="' + p + '" value="' + v.toFixed(1) + '"></div>';
     }).join("");
     var sum = SHARE_PARTIES.reduce(function (a, p) { return a + (S.shares[p] || 0); }, 0);
     var off = Math.abs(sum - 100) >= 0.5;
     var sumCol = !off ? "var(--good)" : Math.abs(sum - 100) < 5 ? "var(--warn)" : "var(--bad)";
     var src = S.lastPollSource ? '<p class="notice" style="color:var(--commons-l);margin:8px 0 0">Loaded: ' + U.esc(S.lastPollSource) + '</p>' : "";
-    // preset dropdown — quick-load any of the scenarios from data.js
-    var presetOpts = '<option value="">— preset scenarios —</option>' +
-      Object.keys(D.PRESETS).map(function (k) { return '<option value="' + k + '">' + U.esc(D.PRESETS[k].name) + '</option>'; }).join("");
     return '<div class="panel sim-controls"><h3>National Vote Share <small style="font-weight:400;text-transform:none;letter-spacing:0">· GB %</small></h3>' +
       '<div class="sim-toolbar">' +
         '<button class="btn sm" data-act="fetchpolls" id="fetchbtn">↻ Latest polls</button>' +
-        '<select class="sim-preset" data-presetsel>' + presetOpts + '</select>' +
+        '<button class="btn sm" data-act="reset2024">↺ Reset to 2024</button>' +
         '<button class="btn sm" data-act="share">🔗 Share</button>' +
       '</div>' +
       '<div class="sim-total" id="simtotal" style="color:' + sumCol + '">Total: <b>' + sum.toFixed(1) + '%</b>' +
@@ -271,7 +270,7 @@
       '</div>' +
       rows + src +
       '<details class="sim-help"><summary>How does this work?</summary>' +
-      '<p class="muted" style="font-size:12.5px;margin:8px 0 0"><b>Load latest polls</b> fetches the current poll-of-polls live, in your browser, from Wikipedia\'s "Opinion polling for the next United Kingdom general election" article — aggregating the British Polling Council member firms. If it can\'t be reached, your current figures stay. Sliders move <b>only the party you touch</b>; if the total drifts off 100%, hit <b>⚖ Scale to 100%</b> to shrink or stretch every share proportionally (the projection always works on normalised shares either way). Swing is measured versus the 2024 result.</p>' +
+      '<p class="muted" style="font-size:12.5px;margin:8px 0 0">Sliders move only the party you touch. The projection always treats the shares as fractions of 100% — so if your total drifts off, the chart uses rescaled values (the "Total" colour shows how far off you are). Hit <b>⚖ Scale to 100%</b> to lock them in. <b>↻ Latest polls</b> fetches the current poll-of-polls live from Wikipedia\'s "Opinion polling for the next UK general election" article. Swing is measured versus the 2024 result.</p>' +
       '</details>' +
       '</div>';
   }
@@ -285,11 +284,15 @@
       '<div id="sim-results"></div></div>';
   }
   function simResults() {
-    var shares = normShares(pickShares());
+    var raw = pickShares();
+    var shares = normShares(raw);
+    var rawSum = SHARE_PARTIES.reduce(function (a, p) { return a + (raw[p] || 0); }, 0);
+    var off = Math.abs(rawSum - 100) >= 0.5;
+    var rescaleNote = off ? rescaleBanner(raw, shares, rawSum) : "";
     var r = E.projectSeats(shares);
     var bg = E.battlegrounds(shares, 12);
     var allSeats = E.allSeatResults(shares);
-    return U.headline(r) + governmentPanel(r.government) +
+    return rescaleNote + U.headline(r) + governmentPanel(r.government) +
       '<div class="viz2">' +
         '<div class="panel"><h3>National Vote &amp; Swing vs 2024</h3>' + U.voteSwing(shares) + '</div>' +
         '<div class="panel"><h3>House of Commons — 650 seats</h3>' + U.hemicycle(r.totals) + U.seatBar(r.totals) + '</div>' +
@@ -304,6 +307,21 @@
       '<div class="panel" style="margin-top:16px"><details><summary class="sim-summary">How seats are modelled</summary>' +
       '<p class="muted" style="font-size:13px;margin:8px 0 8px">Every one of the 650 constituencies carries its <b>real July 2024 result</b> (actual Conservative / Labour / Reform vote shares and the real winning party; the remaining parties are region-calibrated to the published regional results). To project an outcome the model takes your national vote shares, works out each party\'s <b>swing versus 2024</b>, applies that swing uniformly to every seat, then awards each seat to the highest share — first-past-the-post, aggregated across all 650. At zero swing it reproduces the exact 2024 Commons (Lab 411, Con 121, LD 72, SNP 9, Reform 5…).</p>' +
       '<p class="muted" style="font-size:13px;margin:0">This is the classic <b>uniform national swing</b> swingometer. It\'s an estimate, not a forecast: in reality swing varies by region and demographic, and tactical voting, incumbency and local candidates aren\'t captured. Professional models (Electoral Calculus, YouGov MRP) layer regional/demographic transition models on much more data. Boundary data: mySociety; 2024 results: House of Commons Library / published constituency results.</p></details></div>';
+  }
+  // Show every party whose displayed share differs from its slider value by
+  // ≥0.5pt — so when the user sees the headline saying "LAB 50%" but their
+  // slider says 30%, this banner makes the rescaling visible, not magical.
+  function rescaleBanner(raw, shares, rawSum) {
+    var pairs = SHARE_PARTIES
+      .filter(function (p) { return (raw[p] || 0) > 0.05 && Math.abs((shares[p] || 0) - (raw[p] || 0)) >= 0.5; })
+      .map(function (p) {
+        return '<span class="rescale-pair"><i class="sw" style="background:' + U.pcolor(p) + '"></i>' +
+          U.pshort(p) + ' <b>' + (raw[p] || 0).toFixed(1) + '%</b> → <b>' + (shares[p] || 0).toFixed(1) + '%</b></span>';
+      }).join("");
+    var dir = rawSum > 100 ? "down" : "up";
+    return '<div class="rescale-bar"><div class="rescale-head">⚖ Total ' + rawSum.toFixed(1) + '% — projection uses the shares scaled ' + dir + ' to 100%.</div>' +
+      '<div class="rescale-list">' + pairs + '</div>' +
+      '<button class="btn sm" data-act="normalise">Lock these values in</button></div>';
   }
   function governmentPanel(g) {
     if (!g) return "";
@@ -537,64 +555,11 @@
       '<div class="tab' + (opp ? " active" : "") + '" data-setuprole="opposition">📣 Lead the Opposition</div></div>';
     var blurb = opp
       ? "You start out of power. Attack the government, win over voters and campaign to take office at the next election."
-      : "You take charge as Prime Minister and set the country's policies from day one.";
-    var scenList = opp ? D.OPP_SCENARIOS : D.SCENARIOS;
-    var scenCards = scenList.map(function (sc) {
-      return '<button class="opt-card' + (S.scenario === sc.id ? " on" : "") + '" data-scenario="' + sc.id + '">' +
-        '<b>' + U.esc(sc.name) + '</b><span>' + U.esc(sc.blurb) + '</span></button>';
-    }).join("");
-    var diffCards = Object.keys(D.DIFFICULTY).map(function (k) {
-      var d = D.DIFFICULTY[k];
-      var desc = k === "easy" ? "Forgiving economy, gentle voters, more capital."
-        : k === "normal" ? "A fair challenge — the intended balance."
-        : "Brutal decay, scarce capital and an unforgiving electorate.";
-      return '<button class="opt-card' + (S.difficulty === k ? " on" : "") + '" data-difficulty="' + k + '">' +
-        '<b>' + U.esc(d.name) + '</b><span>' + desc + '</span></button>';
-    }).join("");
-    // PM persona / leadership archetype — government mode only
-    var personaSection = "";
-    if (!opp && D.PERSONAS) {
-      var personaCards = D.PERSONAS.map(function (per) {
-        var m = per.mods || {};
-        var bits = [];
-        if (m.capital) bits.push((m.capital > 0 ? "+" : "") + m.capital + " capital");
-        if (m.regen && m.regen !== 1) {
-          var rp = Math.round((m.regen - 1) * 100);
-          bits.push((rp > 0 ? "+" : "") + rp + "% regen");
-        }
-        if (m.unity) {
-          var up = Math.round(m.unity * 100);
-          bits.push((up > 0 ? "+" : "") + up + " unity");
-        }
-        if (m.cabinet) bits.push("+" + m.cabinet + "★ cabinet");
-        if (m.gaffeMod && m.gaffeMod < 1) bits.push("media-savvy");
-        if (m.gaffeMod && m.gaffeMod > 1) bits.push("gaffe-prone");
-        var perks = bits.length ? '<span class="persona-perks">' + U.esc(bits.join(" · ")) + '</span>' : "";
-        return '<button class="opt-card persona-card' + (S.persona === per.id ? " on" : "") + '" data-persona="' + per.id + '">' +
-          '<b><span class="persona-ico">' + per.icon + '</span> ' + U.esc(per.name) + '</b>' +
-          '<span>' + U.esc(per.blurb) + '</span>' + perks + '</button>';
-      }).join("");
-      personaSection = '<h3 style="margin-top:16px">Leadership Style</h3>' +
-        '<p class="muted" style="margin:-4px 0 8px;font-size:12.5px">Your persona shapes how you start and how you govern — pick a way to lead.</p>' +
-        '<div class="opt-grid">' + personaCards + '</div>';
-    }
-    // Advanced setup collapses behind one line — the summary shows the live
-    // selections so the defaults are never a mystery. Picking a party is the
-    // only decision you HAVE to make.
-    var scenName = (scenList.filter(function (x) { return x.id === S.scenario; })[0] || scenList[0] || {}).name || "Steady";
-    var perName = !opp ? ((D.PERSONAS.filter(function (x) { return x.id === S.persona; })[0] || {}).name || "") : "";
-    var diffName = (D.DIFFICULTY[S.difficulty] || {}).name || "Normal";
-    var advSummary = [scenName, perName, diffName].filter(Boolean).join(" · ");
-    var setupOpts = '<details class="adv-setup"' + (S.advOpen ? " open" : "") + '><summary data-advtoggle>⚙ Fine-tune your start <span class="adv-current">' + U.esc(advSummary) + '</span></summary>' +
-      '<div class="adv-body"><h3>Starting Scenario</h3>' +
-      '<div class="opt-grid">' + scenCards + '</div>' +
-      personaSection +
-      '<h3 style="margin-top:16px">Difficulty</h3><div class="opt-grid">' + diffCards + '</div></div></details>';
+      : "You take charge as Prime Minister. Pick a party — your first month begins immediately.";
     return '<h2 class="section-title">Choose Your Role</h2>' +
-      '<p class="subtitle">' + blurb + ' <b>Pick a party and you\'re in</b> — sensible defaults cover the rest, or fine-tune below.</p>' +
+      '<p class="subtitle">' + blurb + '</p>' +
       resume + roleToggle +
-      '<div class="modes" style="margin-top:14px">' + cards + '</div>' +
-      setupOpts;
+      '<div class="modes" style="margin-top:14px">' + cards + '</div>';
   }
 
   // ----------------------------------------------------- manifesto pledges
@@ -1655,9 +1620,15 @@
     function push(label, beforeVal, afterVal, fmt, hiGood, threshold) {
       var d = afterVal - beforeVal;
       if (!isFinite(d) || Math.abs(d) < (threshold || 0.001)) return;
-      var col = (hiGood ? d > 0 : d < 0) ? "var(--good)" : "var(--bad)";
+      var good = hiGood ? d > 0 : d < 0;
+      var col = good ? "var(--good)" : "var(--bad)";
       var arrow = d > 0 ? "▲" : "▼";
-      rows.push({ label: label, col: col, arrow: arrow, before: fmt(beforeVal), after: fmt(afterVal), deltaStr: (d > 0 ? "+" : "") + fmt(d).replace(/[£%/\s]+/g, "").replace("bn", "bn") });
+      // strength = how big a deal is this move (used to pick the top movers)
+      var pivot = threshold || 0.5;
+      rows.push({ label: label, col: col, arrow: arrow, good: good,
+        before: fmt(beforeVal), after: fmt(afterVal),
+        deltaStr: (d > 0 ? "+" : "") + fmt(d).replace(/[£%/\s]+/g, "").replace("bn", "bn"),
+        strength: Math.abs(d) / pivot });
     }
     // Headline figures
     push("Approval", b.approval * 100, g.approval * 100, function (v) { return v.toFixed(0) + "%"; }, true, 0.5);
@@ -1703,11 +1674,37 @@
   }
   function impactReportModal() {
     var r = S.impactReport; if (!r) return "";
-    var rows = r.rows.length ? r.rows.map(function (x) {
-      return '<tr><td>' + U.esc(x.label) + '</td>' +
-        '<td class="num muted">' + x.before + '</td>' +
-        '<td style="color:' + x.col + '" class="num"><span style="font-size:11px">' + x.arrow + '</span> ' + x.after + '</td></tr>';
-    }).join("") : '<tr><td colspan="3" class="muted" style="text-align:center;padding:14px">A quiet month — nothing of consequence moved on the headline numbers.</td></tr>';
+
+    // headline: a one-line verdict on the month — biggest mover sets the tone
+    var sorted = r.rows.slice().sort(function (a, b) { return b.strength - a.strength; });
+    var top = sorted.slice(0, 3);
+    var rest = sorted.slice(3);
+    var goodCount = r.rows.filter(function (x) { return x.good; }).length;
+    var badCount  = r.rows.length - goodCount;
+    var verdict;
+    if (!r.rows.length) verdict = "A quiet month.";
+    else if (goodCount > badCount * 2) verdict = "A good month.";
+    else if (badCount > goodCount * 2) verdict = "A difficult month.";
+    else verdict = "A mixed month.";
+
+    // top movers as big chips
+    var topChips = top.length
+      ? '<div class="impact-top">' + top.map(function (x) {
+          return '<div class="impact-top-chip" style="border-color:' + x.col + '">' +
+            '<div class="impact-top-lab">' + U.esc(x.label) + '</div>' +
+            '<div class="impact-top-val" style="color:' + x.col + '"><span class="impact-top-arrow">' + x.arrow + '</span> ' + U.esc(x.after) + '</div>' +
+            '<div class="impact-top-from">from ' + U.esc(x.before) + '</div>' +
+          '</div>';
+        }).join("") + '</div>'
+      : "";
+
+    // secondary movers as inline pills (compact)
+    var restPills = rest.length
+      ? '<div class="impact-rest">' + rest.map(function (x) {
+          return '<span class="impact-rest-pill" style="color:' + x.col + ';border-color:' + x.col + '">' +
+            U.esc(x.label) + ' <b>' + x.arrow + ' ' + U.esc(x.after) + '</b></span>';
+        }).join("") + '</div>'
+      : "";
 
     var sectors = r.sectorChanges.length
       ? '<div class="impact-sectors">' + r.sectorChanges.map(function (s) {
@@ -1728,12 +1725,10 @@
 
     return '<div class="modal-overlay"><div class="modal impact-modal">' +
       '<div class="modal-tag" style="color:var(--gold)">📊 End of ' + U.esc(r.dateLabel) + '</div>' +
-      '<h2>Impact dashboard</h2>' +
-      '<p class="muted" style="margin:-4px 0 10px">How the country moved this month, before the in-tray.</p>' +
-      (notes.length ? '<div class="impact-notes">' + notes.join("") + '</div>' : "") +
-      '<table class="tbl impact-table"><thead><tr><th>Headline figure</th><th class="num">Before</th><th class="num">After</th></tr></thead>' +
-      '<tbody>' + rows + '</tbody></table>' +
+      '<h2 class="impact-verdict">' + U.esc(verdict) + '</h2>' +
+      topChips + restPills +
       (sectors ? '<div class="lab2" style="margin-top:14px">Economic sectors</div>' + sectors : "") +
+      (notes.length ? '<div class="impact-notes">' + notes.join("") + '</div>' : "") +
       '<div class="row" style="justify-content:flex-end;margin-top:16px;gap:8px">' +
       '<button class="btn primary" data-act="closeimpact">' + U.esc(nextLabel) + '</button>' +
       '</div></div></div>';
@@ -2600,25 +2595,8 @@
     app.querySelectorAll("[data-setuprole]").forEach(function (el) {
       el.addEventListener("click", function () {
         S.setupRole = el.getAttribute("data-setuprole");
-        // reset scenario to that role's default if the current id isn't valid for it
-        var roleScenList = S.setupRole === "opposition" ? D.OPP_SCENARIOS : D.SCENARIOS;
-        if (!roleScenList.some(function (x) { return x.id === S.scenario; })) S.scenario = roleScenList[0].id;
         render();
       });
-    });
-    // remember whether the fine-tune panel is open, so option clicks inside it
-    // (which re-render) don't snap it shut
-    app.querySelectorAll("details.adv-setup").forEach(function (el) {
-      el.addEventListener("toggle", function () { S.advOpen = el.open; });
-    });
-    app.querySelectorAll("[data-scenario]").forEach(function (el) {
-      el.addEventListener("click", function () { S.scenario = el.getAttribute("data-scenario"); render(); });
-    });
-    app.querySelectorAll("[data-persona]").forEach(function (el) {
-      el.addEventListener("click", function () { S.persona = el.getAttribute("data-persona"); render(); });
-    });
-    app.querySelectorAll("[data-difficulty]").forEach(function (el) {
-      el.addEventListener("click", function () { S.difficulty = el.getAttribute("data-difficulty"); render(); });
     });
     app.querySelectorAll("[data-party]").forEach(function (el) {
       el.addEventListener("click", function () {
@@ -2851,35 +2829,34 @@
   function bindShareControls() {
     // Sliders move ONLY the party you touch — no auto-redistribution. The
     // total indicator and the "Scale to 100%" button track the drift.
+    // Repaints are rAF-coalesced so dragging a slider is smooth even with
+    // a 650-seat reprojection per move.
+    var SLIDER_MAX = 60, paintQueued = false;
+    function queuePaint() {
+      if (paintQueued) return;
+      paintQueued = true;
+      requestAnimationFrame(function () { paintQueued = false; refreshShareResults(); });
+    }
+    function clamp(v) { v = parseFloat(v); if (isNaN(v)) v = 0; return Math.max(0, Math.min(SLIDER_MAX, v)); }
     app.querySelectorAll("[data-share]").forEach(function (range) {
       var p = range.getAttribute("data-share");
       range.addEventListener("input", function () {
-        S.shares[p] = parseFloat(range.value) || 0;
-        var inp = app.querySelector('[data-shareinput="' + p + '"]'); if (inp) inp.value = S.shares[p].toFixed(1);
-        refreshShareResults();
+        var v = clamp(range.value);
+        S.shares[p] = v;
+        var inp = app.querySelector('[data-shareinput="' + p + '"]'); if (inp) inp.value = v.toFixed(1);
+        queuePaint();
       });
     });
     app.querySelectorAll("[data-shareinput]").forEach(function (inp) {
       var p = inp.getAttribute("data-shareinput");
-      inp.addEventListener("change", function () {
-        var v = parseFloat(inp.value); if (isNaN(v)) v = 0; v = Math.max(0, Math.min(100, v));
+      function applyInput() {
+        var v = clamp(inp.value);
         S.shares[p] = v; inp.value = v.toFixed(1);
         var range = app.querySelector('[data-share="' + p + '"]'); if (range) range.value = v;
-        refreshShareResults();
-      });
-    });
-    // preset dropdown — instantly applies a saved scenario to the sliders
-    app.querySelectorAll("[data-presetsel]").forEach(function (sel) {
-      sel.addEventListener("change", function () {
-        var key = sel.value; if (!key) return;
-        var preset = D.PRESETS && D.PRESETS[key]; if (!preset) return;
-        SHARE_PARTIES.forEach(function (p) { S.shares[p] = preset.shares[p] != null ? preset.shares[p] : 0; });
-        // ensure the loaded preset shares sum to 100 (presets are close but
-        // not exact — auto-balance keeps the invariant)
-        S.shares = normShares(pickShares());
-        S.lastPollSource = preset.name;
-        render();
-      });
+        queuePaint();
+      }
+      inp.addEventListener("input", applyInput);   // typed digit-by-digit
+      inp.addEventListener("change", applyInput);  // blur / Enter
     });
     bindSeatsExplorer();
   }
