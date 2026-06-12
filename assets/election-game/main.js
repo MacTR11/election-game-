@@ -194,7 +194,20 @@
   }
 
   // ------------------------------------------------------------------- routing
-  function go(screen) { S.screen = screen; window.scrollTo(0, 0); render(); }
+  function go(screen) {
+    // Clear any modal flag belonging to a screen we're leaving — stops a
+    // simulator selected seat / opposition shadow-reshuffle / election-night
+    // ticker etc. from suppressing the next screen's controls (e.g. the
+    // govern FAB).
+    if (S.screen !== screen) {
+      if (screen !== "simulator" && screen !== "election" && screen !== "midterm") S.selectedSeat = null;
+      if (screen !== "opposition") S.shadowReshufflePost = null;
+      if (screen !== "exitpoll") S.exitPoll = null;
+      if (screen !== "nightticker") S.night = null;
+      if (screen !== "coalition") S.coalition = null;
+    }
+    S.screen = screen; window.scrollTo(0, 0); render();
+  }
 
   function render() {
     document.querySelectorAll(".nav-btn").forEach(function (b) {
@@ -1815,11 +1828,13 @@
   }
 
   function endTurnFab(g) {
-    // Don't render the FAB while a govern-mode modal is open. (selectedSeat
-    // is a simulator-only marker — must NOT suppress the govern FAB, otherwise
-    // clicking a seat in the simulator and navigating to govern leaves the
-    // button missing until restart.)
-    if (g.pendingDilemma || S.policyDetail || S.reshufflePost || S.statDetail || S.groupDetail || S.pendingVote || S.lastVoteResult || S.industrialChooser || S.impactReport) return "";
+    // Only suppress when a genuine overlay is up — and only in govern mode.
+    // selectedSeat is simulator-only; shadow* is opposition; etc. We keep
+    // this list tight so stale flags from other screens can't hide the FAB.
+    if (S.screen !== "govern") return "";
+    if (g.pendingDilemma || S.policyDetail || S.reshufflePost ||
+        S.statDetail || S.groupDetail || S.pendingVote || S.lastVoteResult ||
+        S.industrialChooser || S.impactReport) return "";
     var disabled = g.gameOver;
     return '<div class="fab-cluster">' +
       '<button class="fab-endturn" data-act="endturn"' + (disabled ? " disabled" : "") + ' title="End the month — ' + U.esc(dateLabel(g)) + '">' +
@@ -2327,14 +2342,17 @@
       '</div>';
   }
 
-  // ------------------------------------------------ results ticker (the night)
-  // After the exit poll, seats declare in waves through the night — the map
-  // and the running totals fill in, with each wave's gains called out.
-  var NIGHT_WAVES = [
-    { at: 0.04, label: "11:30pm", line: "The first declarations — the North East races to be first as always." },
-    { at: 0.25, label: "1:00am",  line: "Results now arriving in a steady stream. The shape of the night emerges." },
-    { at: 0.55, label: "3:00am",  line: "The bulk of the count. Marginals are falling — careers with them." },
-    { at: 0.85, label: "5:00am",  line: "Dawn breaks over Westminster. The last recounts grind on." },
+  // ------------------------------------------------ animated election night
+  // Seats declare continuously through the night — the clock ticks, the map
+  // recolours, the bar fills, gains stream in as headlines. The player can
+  // pause, change speed, or skip to the result.
+  // Five "chapters" tied to a fraction-of-650 progress, each with its own
+  // clock label and atmospheric line.
+  var NIGHT_CHAPTERS = [
+    { at: 0.04, label: "11:30pm",  line: "The first declarations — the North East races to be first as always." },
+    { at: 0.25, label: "1:00am",   line: "Results now arriving in a steady stream. The shape of the night emerges." },
+    { at: 0.55, label: "3:00am",   line: "The bulk of the count. Marginals are falling — careers with them." },
+    { at: 0.85, label: "5:00am",   line: "Dawn breaks over Westminster. The last recounts grind on." },
     { at: 1.00, label: "Breakfast", line: "Every seat has declared. The country has decided." }
   ];
   var _seatByCodeMap = null;
@@ -2344,10 +2362,10 @@
     for (var i = 0; i < C.length; i++) m[C[i].c] = C[i];
     return (_seatByCodeMap = m);
   }
+  var _nightTimer = null;
   function startNightTicker() {
     var C = window.UKGAME.CONSTITUENCIES || [], M = seatMap();
-    // shuffle declaration order, then pull a handful of North-East seats to the
-    // front — Sunderland tradition.
+    // shuffle, then pull a handful of North-East seats to the front (Sunderland)
     var codes = C.map(function (c) { return c.c; });
     for (var i = codes.length - 1; i > 0; i--) {
       var j = Math.floor(Math.random() * (i + 1)); var t = codes[i]; codes[i] = codes[j]; codes[j] = t;
@@ -2357,58 +2375,114 @@
       var seat = M[code];
       if (seat && seat.reg === "ne" && ne.length < 8) ne.push(code); else rest.push(code);
     });
-    S.night = { order: ne.concat(rest), wave: 0, exit: S.exitPoll ? S.exitPoll.totals : null };
+    S.night = {
+      order: ne.concat(rest),
+      declaredCount: 0,
+      lastFlips: [],          // a rolling list of the most recent gains
+      playing: true,
+      speed: 1,               // 0.5 (slow) / 1 (normal) / 2 (fast)
+      exit: S.exitPoll ? S.exitPoll.totals : null
+    };
+    nightTick(); // arm the loop
   }
-  function viewNightTicker() {
-    var g = S.govern, r = g.lastElection, n = S.night;
-    if (!n || !r) return viewElectionNight();
-    var M = seatMap();
-    var wave = NIGHT_WAVES[Math.min(n.wave, NIGHT_WAVES.length - 1)];
-    var upto = Math.round(wave.at * n.order.length);
-    var prevUpto = n.wave > 0 ? Math.round(NIGHT_WAVES[n.wave - 1].at * n.order.length) : 0;
-    var declared = {}, totals = {}, waveFlips = [];
-    for (var i = 0; i < upto; i++) {
-      var code = n.order[i], winner = r.seatWinners[code];
-      if (!winner) continue;
-      declared[code] = winner;
-      totals[winner] = (totals[winner] || 0) + 1;
-      if (i >= prevUpto) {
-        var seat = M[code];
-        if (seat && seat.w !== winner) waveFlips.push({ name: seat.n, from: seat.w, to: winner });
-      }
+  function nightStop() {
+    if (_nightTimer) { clearTimeout(_nightTimer); _nightTimer = null; }
+  }
+  function nightTick() {
+    nightStop();
+    var n = S.night, g = S.govern; if (!n || !g || !g.lastElection || S.screen !== "nightticker") return;
+    if (!n.playing) return;
+    if (n.declaredCount >= n.order.length) return;
+    // declare a batch — bigger as the night accelerates, scaled by speed
+    var total = n.order.length;
+    var pct = n.declaredCount / total;
+    var basePerTick = pct < 0.04 ? 1 : pct < 0.25 ? 3 : pct < 0.55 ? 7 : pct < 0.85 ? 9 : 5;
+    var batch = Math.max(1, Math.round(basePerTick * n.speed));
+    var M = seatMap(), r = g.lastElection;
+    var newFlips = [];
+    var stop = Math.min(n.declaredCount + batch, n.order.length);
+    for (var i = n.declaredCount; i < stop; i++) {
+      var code = n.order[i], winner = r.seatWinners[code]; if (!winner) continue;
+      var seat = M[code];
+      if (seat && seat.w && seat.w !== winner) newFlips.unshift({ name: seat.n, from: seat.w, to: winner, code: code });
     }
-    // running bar: declared share of 650, grey remainder
+    n.declaredCount = stop;
+    if (newFlips.length) n.lastFlips = newFlips.concat(n.lastFlips).slice(0, 8);
+    // animation cadence: ~500ms slow / 320 normal / 180 fast
+    var delay = Math.round(500 / n.speed);
+    renderNightOnly();
+    if (n.declaredCount < n.order.length) _nightTimer = setTimeout(nightTick, delay);
+    else { n.playing = false; renderNightOnly(); }
+  }
+  // Cheap partial repaint that only swaps the night DOM (no full screen
+  // re-render) — keeps the FAB-less night animation smooth.
+  function renderNightOnly() {
+    if (S.screen !== "nightticker") return;
+    var stage = document.getElementById("night-stage");
+    if (stage) stage.innerHTML = nightStageInner();
+    else render();
+  }
+  function nightStageInner() {
+    var g = S.govern, r = g.lastElection, n = S.night;
+    if (!n || !r) return "";
+    var total = n.order.length, declared = n.declaredCount;
+    var pct = total ? declared / total : 0;
+    // chapter — first whose `at` is >= current pct
+    var ch = NIGHT_CHAPTERS[NIGHT_CHAPTERS.length - 1];
+    for (var i = 0; i < NIGHT_CHAPTERS.length; i++) {
+      if (pct <= NIGHT_CHAPTERS[i].at) { ch = NIGHT_CHAPTERS[i]; break; }
+    }
+    // tally seats declared so far
+    var totals = {}, declaredMap = {};
+    for (var k = 0; k < declared; k++) {
+      var code = n.order[k], w = r.seatWinners[code]; if (!w) continue;
+      declaredMap[code] = w; totals[w] = (totals[w] || 0) + 1;
+    }
     var order = Object.keys(totals).sort(function (a, b) { return totals[b] - totals[a]; });
     var segs = order.map(function (p) {
-      return '<span style="width:' + (totals[p] / 650 * 100).toFixed(2) + '%;background:' + U.pcolor(p) + '"></span>';
-    }).join("") + '<span style="width:' + ((650 - upto) / 650 * 100).toFixed(2) + '%;background:#202836"></span>';
+      return '<span style="width:' + (totals[p] / 650 * 100).toFixed(3) + '%;background:' + U.pcolor(p) + '"></span>';
+    }).join("") + '<span style="width:' + ((650 - declared) / 650 * 100).toFixed(3) + '%;background:#1a2233"></span>';
     var tally = order.slice(0, 6).map(function (p) {
       var vsExit = n.exit && n.exit[p] != null
-        ? ' <small class="faint">(exit: ' + n.exit[p] + ')</small>' : "";
+        ? ' <small class="faint">vs exit ' + n.exit[p] + '</small>' : "";
       return '<div class="night-party"><span class="sw" style="background:' + U.pcolor(p) + '"></span>' +
         '<b style="color:' + U.pcolor(p) + '">' + U.pshort(p) + '</b> <span class="night-n">' + totals[p] + '</span>' + vsExit + '</div>';
     }).join("");
-    var flipRows = waveFlips.slice(0, 7).map(function (f) {
-      return '<div class="night-flip"><span class="flip-seat">' + U.esc(f.name) + '</span>' +
-        '<span class="pill" style="background:' + U.pcolor(f.to) + '22;color:' + U.pcolor(f.to) + '">' + U.pshort(f.to) + ' gain</span>' +
-        '<span class="faint" style="font-size:11px">from ' + U.pshort(f.from) + '</span></div>';
-    }).join("") || '<p class="muted" style="font-size:13px">No seats changed hands in this batch.</p>';
-    var moreFlips = waveFlips.length > 7 ? '<div class="muted" style="font-size:12px;margin-top:4px">…and ' + (waveFlips.length - 7) + ' more gains this hour.</div>' : "";
-    var last = n.wave >= NIGHT_WAVES.length - 1;
-    var nextBtn = last
+    // running gain ticker — newest first
+    var flipRows = n.lastFlips.length
+      ? n.lastFlips.map(function (f, idx) {
+          var fadeCls = idx === 0 ? " just-in" : "";
+          return '<div class="night-flip' + fadeCls + '"><span class="flip-seat">' + U.esc(f.name) + '</span>' +
+            '<span class="pill" style="background:' + U.pcolor(f.to) + '22;color:' + U.pcolor(f.to) + '">' + U.pshort(f.to) + ' gain</span>' +
+            '<span class="faint" style="font-size:11px">from ' + U.pshort(f.from) + '</span></div>';
+        }).join("")
+      : '<p class="muted" style="font-size:13px;margin:0">No gains yet — quiet so far.</p>';
+    var done = declared >= total;
+    var controls = done
       ? '<button class="btn primary" data-act="nightdone">The final result ▶</button>'
-      : '<button class="btn primary" data-act="nightnext">Next declarations ▶</button>' +
-        '<button class="btn sm" data-act="nightdone">Skip to the result ⏭</button>';
-    return '<div class="night-head"><div class="night-clock">🕐 ' + wave.label + '</div>' +
-      '<div class="night-line">' + U.esc(wave.line) + '</div>' +
-      '<div class="night-progress">' + upto + ' of 650 seats declared</div></div>' +
+      : '<div class="night-controls">' +
+          '<button class="btn sm' + (n.playing ? "" : " primary") + '" data-act="nightplay">' +
+            (n.playing ? "⏸ Pause" : "▶ Play") + '</button>' +
+          '<button class="btn sm' + (n.speed === 0.5 ? " on" : "") + '" data-act="nightslow">½×</button>' +
+          '<button class="btn sm' + (n.speed === 1 ? " on" : "") + '" data-act="nightnormal">1×</button>' +
+          '<button class="btn sm' + (n.speed === 2 ? " on" : "") + '" data-act="nightfast">2×</button>' +
+          '<button class="btn sm" data-act="nightdone">⏭ Skip to result</button>' +
+        '</div>';
+    return '<div class="night-head"><div class="night-clock">🕐 ' + ch.label + '</div>' +
+      '<div class="night-line">' + U.esc(ch.line) + '</div>' +
+      '<div class="night-progress">' + declared + ' of 650 seats declared · ' + (pct * 100).toFixed(0) + '%</div></div>' +
       '<div class="panel" style="margin-top:14px"><h3>Running totals</h3>' +
       '<div class="night-bar">' + segs + '</div>' +
       '<div class="night-tally">' + tally + '</div></div>' +
       '<div class="dash" style="margin-top:16px">' +
-      '<div class="panel"><h3>Declared so far</h3>' + mapView(declared) + '</div>' +
-      '<div class="panel"><h3>This hour\'s gains</h3>' + flipRows + moreFlips + '</div></div>' +
-      '<div class="row" style="margin-top:18px;justify-content:center;gap:8px">' + nextBtn + '</div>';
+      '<div class="panel"><h3>Declared so far</h3>' + mapView(declaredMap) + '</div>' +
+      '<div class="panel"><h3>Latest gains</h3>' + flipRows + '</div></div>' +
+      '<div class="row" style="margin-top:18px;justify-content:center;gap:8px">' + controls + '</div>';
+  }
+  function viewNightTicker() {
+    if (!S.night || !S.govern || !S.govern.lastElection) return viewElectionNight();
+    // Wrap in a stable container so partial refreshes can swap only inner HTML
+    return '<div id="night-stage">' + nightStageInner() + '</div>';
   }
 
   // ------------------------------------------------ coalition negotiation
@@ -3126,9 +3200,14 @@
         } else runElection(adj);
         break;
       }
-      case "seeresults": startNightTicker(); S.exitPoll = null; go("nightticker"); break;
-      case "nightnext": if (S.night) { S.night.wave++; window.scrollTo(0, 0); render(); } break;
-      case "nightdone": S.night = null; go("election"); break;
+      case "seeresults": S.exitPoll = null; S.screen = "nightticker"; startNightTicker(); render(); break;
+      case "nightplay":
+        if (S.night) { S.night.playing = !S.night.playing; if (S.night.playing) nightTick(); else nightStop(); renderNightOnly(); }
+        break;
+      case "nightslow":   if (S.night) { S.night.speed = 0.5; nightStop(); if (S.night.playing) nightTick(); renderNightOnly(); } break;
+      case "nightnormal": if (S.night) { S.night.speed = 1;   nightStop(); if (S.night.playing) nightTick(); renderNightOnly(); } break;
+      case "nightfast":   if (S.night) { S.night.speed = 2;   nightStop(); if (S.night.playing) nightTick(); renderNightOnly(); } break;
+      case "nightdone":   nightStop(); S.night = null; go("election"); break;
       case "negotiate": S.coalition = { selected: {} }; go("coalition"); break;
       case "coalconfirm": {
         var rC = g.lastElection; if (!rC || !S.coalition) break;
