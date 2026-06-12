@@ -43,6 +43,7 @@
     targetsParty: "lab",   // which party's targets/at-risk to surface
     targetsView: "both",   // "both" | "targets" | "risks"
     targetsSearch: "",     // free-text seat name filter for the targets panel
+    simView: "projection", // "projection" (swingometer) or "today" (real 2024 Commons)
     statDetail: null,    // stat id whose cause-and-effect modal is open
     groupDetail: null,   // voter group id whose modal is open
     compareA: "approval",
@@ -298,7 +299,28 @@
       shareControls() +
       '<div id="sim-results"></div></div>';
   }
+  // Real Commons makeup, computed from the actual 2024 baseline winners across
+  // every constituency. This is the "Today's House of Commons" reference.
+  function currentCommonsState() {
+    var C = window.UKGAME.CONSTITUENCIES || [];
+    var winners = {}, totals = {};
+    for (var i = 0; i < C.length; i++) {
+      var w = C[i].w; if (!w) continue;
+      winners[C[i].c] = w;
+      totals[w] = (totals[w] || 0) + 1;
+    }
+    return { seatWinners: winners, totals: totals };
+  }
   function simResults() {
+    // View toggle — Projection (the swingometer) vs Today's House (the real
+    // post-2024 Commons makeup, unchanged by the sliders).
+    var view = S.simView || "projection";
+    var pillProj = '<button class="sim-view-pill' + (view === "projection" ? " on" : "") + '" data-simview="projection">⚖ Projection</button>';
+    var pillToday = '<button class="sim-view-pill' + (view === "today" ? " on" : "") + '" data-simview="today">🏛 Today\'s House</button>';
+    var viewToggle = '<div class="sim-view-toggle">' + pillProj + pillToday + '</div>';
+
+    if (view === "today") return viewToggle + simResultsTodaysHouse();
+
     var raw = pickShares();
     var shares = normShares(raw);
     var rawSum = SHARE_PARTIES.reduce(function (a, p) { return a + (raw[p] || 0); }, 0);
@@ -316,12 +338,11 @@
     var liveMap =
       '<div class="panel sim-livemap" style="margin-bottom:16px">' +
         '<h3>🗺 Live Constituency Map ' +
-          '<span class="faint" style="font-weight:400;text-transform:none;letter-spacing:0">' +
-            '· every seat under your current shares · <b>' + flips + '</b> change hands vs 2024 · click any seat</span>' +
+          '<span class="livemap-sub">your shares · <b>' + flips + '</b> seats flip vs 2024 · click any seat</span>' +
         '</h3>' +
         U.legend(r.totals, { shares: shares }) + mapView(r.seatWinners) +
       '</div>';
-    return rescaleNote + U.headline(r) + governmentPanel(r.government) +
+    return viewToggle + rescaleNote + U.headline(r) + governmentPanel(r.government) +
       liveMap +
       '<div class="viz2">' +
         '<div class="panel"><h3>National Vote &amp; Swing vs 2024</h3>' + U.voteSwing(shares) + '</div>' +
@@ -335,6 +356,57 @@
       '<div class="panel" style="margin-top:16px"><details><summary class="sim-summary">How seats are modelled</summary>' +
       '<p class="muted" style="font-size:13px;margin:8px 0 8px">Every one of the 650 constituencies carries its <b>real July 2024 result</b> (actual Conservative / Labour / Reform vote shares and the real winning party; the remaining parties are region-calibrated to the published regional results). To project an outcome the model takes your national vote shares, works out each party\'s <b>swing versus 2024</b>, applies that swing uniformly to every seat, then awards each seat to the highest share — first-past-the-post, aggregated across all 650. At zero swing it reproduces the exact 2024 Commons (Lab 411, Con 121, LD 72, SNP 9, Reform 5…).</p>' +
       '<p class="muted" style="font-size:13px;margin:0">This is the classic <b>uniform national swing</b> swingometer. It\'s an estimate, not a forecast: in reality swing varies by region and demographic, and tactical voting, incumbency and local candidates aren\'t captured. Professional models (Electoral Calculus, YouGov MRP) layer regional/demographic transition models on much more data. Boundary data: mySociety; 2024 results: House of Commons Library / published constituency results.</p></details></div>';
+  }
+  // Today's House view — the real 650-seat composition as elected in July 2024,
+  // not a projection. The sliders are visually disabled in spirit (the result
+  // panel shows the actual outcome), giving the user a reference baseline.
+  function simResultsTodaysHouse() {
+    var c = currentCommonsState();
+    var lab = c.totals.lab || 0;
+    var govt = lab >= 326 ? { type: "majority", formateur: "lab", members: ["lab"], seats: lab, needed: 326, sitting: 650 }
+                          : { type: "minority", formateur: "lab", members: ["lab"], seats: lab, needed: 326, sitting: 650 };
+    var govPanel = governmentPanel(govt);
+    var headStrip =
+      '<div class="headline">' +
+        '<span class="sw" style="width:34px;height:34px;border-radius:8px;background:' + U.pcolor("lab") + '"></span>' +
+        '<div><div class="lab2">UK General Election · 4 July 2024</div><div class="big">The current House of Commons</div></div>' +
+      '</div>';
+    return headStrip + govPanel +
+      '<div class="panel sim-livemap" style="margin-bottom:16px">' +
+        '<h3>🏛 Today\'s Constituency Map <span class="livemap-sub">the seats actually elected on 4 July 2024 · click any seat</span></h3>' +
+        U.legend(c.totals) + mapView(c.seatWinners) +
+      '</div>' +
+      '<div class="viz2">' +
+        '<div class="panel"><h3>House of Commons — 650 seats</h3>' + U.hemicycle(c.totals) + U.seatBar(c.totals) + '</div>' +
+        '<div class="panel"><h3>Seats by party</h3>' + commonsTallyTable(c.totals) + '</div>' +
+      '</div>' +
+      '<div class="panel" style="margin-top:16px"><h3>Seats by Nation &amp; Region</h3>' +
+      regionTallyTodaysHouse(c.seatWinners) + '</div>';
+  }
+  function commonsTallyTable(totals) {
+    var ordered = U.orderedParties(totals);
+    var rows = ordered.map(function (p) {
+      return '<tr><td><span class="sw" style="width:10px;height:10px;border-radius:2px;display:inline-block;background:' + U.pcolor(p) + ';vertical-align:middle;margin-right:6px"></span>' +
+        U.pname(p) + '</td><td class="num"><b>' + totals[p] + '</b></td><td class="num muted">' + (totals[p] / 650 * 100).toFixed(1) + '%</td></tr>';
+    }).join("");
+    return '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Party</th><th class="num">Seats</th><th class="num">Share</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+  function regionTallyTodaysHouse(seatWinners) {
+    var C = window.UKGAME.CONSTITUENCIES || [], byRegion = {};
+    for (var i = 0; i < C.length; i++) {
+      var seat = C[i], w = seatWinners[seat.c]; if (!w) continue;
+      byRegion[seat.reg] = byRegion[seat.reg] || {};
+      byRegion[seat.reg][w] = (byRegion[seat.reg][w] || 0) + 1;
+    }
+    var rows = (D.REGIONS || []).map(function (rg) {
+      var seats = byRegion[rg.id] || {};
+      var top = Object.keys(seats).sort(function (a, b) { return seats[b] - seats[a]; }).slice(0, 4);
+      var cells = top.map(function (p) {
+        return '<span class="pill" style="background:' + U.pcolor(p) + '22;color:' + U.pcolor(p) + '">' + U.pshort(p) + ' ' + seats[p] + '</span>';
+      }).join(" ");
+      return '<tr><td>' + U.esc(rg.name) + '</td><td class="num">' + rg.seats + '</td><td>' + cells + '</td></tr>';
+    }).join("");
+    return '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Region</th><th class="num">Seats</th><th>Result</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
   }
   // Show every party whose displayed share differs from its slider value by
   // ≥0.5pt — so when the user sees the headline saying "LAB 50%" but their
@@ -3027,6 +3099,9 @@
         S.targetsSearch = ""; // a fresh party = a fresh slate
         refreshSim();
       });
+    });
+    app.querySelectorAll("[data-simview]").forEach(function (el) {
+      el.addEventListener("click", function () { S.simView = el.getAttribute("data-simview"); refreshSim(); });
     });
     app.querySelectorAll("[data-targetsview]").forEach(function (el) {
       el.addEventListener("click", function () { S.targetsView = el.getAttribute("data-targetsview"); refreshSim(); });

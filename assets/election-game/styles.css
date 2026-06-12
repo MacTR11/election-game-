@@ -580,8 +580,9 @@ svg.dualchart { width: 100%; height: 150px; display: block; }
   .vbubble-name { font-size: 9px; }
 }
 @media (max-width: 620px) {
-  .fab-endturn { right: 14px; bottom: 14px; padding: 10px 18px; }
-  .fab-endturn .fab-label { font-size: 13px; }
+  .fab-cluster { right: 14px; bottom: 14px; }
+  .fab-endturn { height: 44px; padding: 0 18px; }
+  .fab-endturn .fab-label { font-size: 13.5px; }
 }
 @media (max-width: 620px) {
   .election-hero { padding: 14px 16px; }
@@ -866,9 +867,27 @@ select.sel { background: var(--bg-2); color: var(--ink); border: 1px solid var(-
   .targets-summary { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* Simulator view toggle — Projection vs Today's House */
+.sim-view-toggle { display: inline-flex; background: var(--bg-2);
+  border: 1px solid var(--border-soft); border-radius: 12px;
+  padding: 4px; gap: 3px; margin-bottom: 14px; }
+.sim-view-pill { padding: 7px 14px; border-radius: 8px; cursor: pointer;
+  background: transparent; border: 1px solid transparent; color: var(--ink-dim);
+  font-weight: 600; font-size: 13px; font-family: inherit; height: 32px;
+  transition: background .15s, color .15s; }
+.sim-view-pill:hover { color: var(--ink); }
+.sim-view-pill.on { background: var(--panel-2); border-color: var(--border); color: var(--ink);
+  box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+
 /* Live constituency map header — sits directly under the headline so the
    user sees the country recolour the moment a slider moves */
 .sim-livemap h3 b { color: var(--gold); font-variant-numeric: tabular-nums; }
+.livemap-sub { font-weight: 400; text-transform: none; letter-spacing: 0;
+  color: var(--ink-faint); display: block; font-size: 11.5px; margin-top: 2px; }
+@media (min-width: 700px) {
+  .livemap-sub { display: inline; font-size: inherit; margin-top: 0; margin-left: 6px; }
+  .livemap-sub::before { content: "· "; }
+}
 
 /* Targets & risks: summary cards + controls + table styling */
 .targets-summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 4px 0 14px; }
@@ -1036,3 +1055,116 @@ tr.clickrow:hover td { background: var(--panel-2); }
 
 .map-wrap { background: var(--bg-2); border-radius: 10px; padding: 8px; }
 .seat-search { width: 100%; background: var(--bg-2); border: 1px solid var(--border); color: var(--ink); border-radius: 8px; padding: 9px 11px; font-size: 14px; }
+
+/* =========================================================================
+   FINAL MOBILE SWEEP — overrides at the end so they always win the cascade.
+   Goal: every screen reads cleanly at 360px, every table can scroll without
+   stretching the layout, every touch target is at least 32px high.
+   ========================================================================= */
+
+/* Tables that risk overflow on narrow screens: wrap in a horizontal scroller
+   automatically without changing markup. */
+.panel > table.tbl,
+.panel > .targets-block > table.tbl,
+.panel > .seat-table-wrap,
+.panel > div > table.tbl { max-width: 100%; }
+.targets-block { overflow-x: auto; }
+.region-row { min-width: 0; }
+
+@media (max-width: 620px) {
+  /* tighter outer padding so cards reach the edges */
+  .wrap { padding: 10px 10px 130px; }
+  .panel { padding: 14px 14px; border-radius: 12px; }
+  .panel h3 { font-size: 11.5px; }
+
+  /* simulator: stack share controls + results, view-toggle full width */
+  .split#simgrid { grid-template-columns: 1fr !important; }
+  .sim-view-toggle { width: 100%; }
+  .sim-view-pill { flex: 1; height: 36px; padding: 0 10px; font-size: 12.5px; }
+  .sim-toolbar { gap: 6px; }
+  .sim-toolbar .btn { height: 32px; font-size: 12px; padding: 0 10px; }
+  .sim-total { font-size: 12px; gap: 7px; }
+  .sim-normbtn { height: 28px; padding: 0 10px; }
+  .sim-offnote { font-size: 10.5px; }
+
+  /* sliders: name on top, slider + numeric input below — easier to drag */
+  .slider-row { grid-template-columns: 1fr 64px; grid-template-rows: auto auto;
+    grid-template-areas: 'name name' 'range input'; gap: 6px 10px; padding: 8px 0; }
+  .slider-row .name { grid-area: name; font-size: 13px; }
+  .slider-row input[type=range] { grid-area: range; height: 36px; }
+  .slider-row .share-input { grid-area: input; width: 64px; height: 32px; font-size: 13px; }
+
+  /* live map / today's map header: stack the sub-text below the title */
+  .sim-livemap h3 { line-height: 1.35; }
+
+  /* targets & risks: summary in 2 cols, controls stack, table tightens */
+  .targets-summary { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .targets-stat { padding: 8px 10px; }
+  .targets-stat b { font-size: 18px; }
+  .targets-controls { grid-template-columns: 1fr; gap: 6px; }
+  .targets-body.two { grid-template-columns: 1fr; }
+  .targets-tbl td { padding: 7px 6px; font-size: 12.5px; }
+  .targets-tbl .seat-cell .seat-name { font-size: 12.5px; }
+  .targets-block-h h4 { font-size: 12.5px; }
+
+  /* seats explorer table — keep horizontally scrollable, no headline cramp */
+  .seat-table-wrap { max-height: 360px; }
+  .seat-table thead th { font-size: 10.5px; padding: 6px 6px; }
+  .seat-table td { padding: 8px 6px; font-size: 12px; }
+  .seat-controls { grid-template-columns: 1fr; gap: 8px; }
+  .seat-search, .seat-select { height: 38px; font-size: 13.5px; }
+
+  /* tab strip: smooth horizontal scroll, hide scrollbar */
+  .tabs { overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+
+  /* govern KPIs: 3 columns (was auto-fit producing 4 cramped) */
+  .kpis { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .kpi { padding: 8px 9px; }
+  .kpi .v { font-size: 16px; }
+  .kpi .v small { font-size: 10px; }
+
+  /* impact dashboard — single column top chips so each is legible */
+  .modal.impact-modal { padding: 18px 16px; }
+  .impact-top { grid-template-columns: 1fr; gap: 8px; }
+  .impact-verdict { font-size: 20px; }
+  .impact-top-val { font-size: 19px; }
+
+  /* night ticker: clock smaller, controls wrap, bar tighter */
+  .night-head { padding: 16px 6px 4px; }
+  .night-clock { font-size: 22px; letter-spacing: .5px; }
+  .night-line { font-size: 13px; }
+  .night-bar { height: 22px; }
+  .night-tally { gap: 8px 14px; }
+  .night-party .night-n { font-size: 15px; }
+  .night-controls { flex-wrap: wrap; padding: 4px; justify-content: center; }
+  .night-controls .btn.sm { padding: 0 10px; font-size: 11.5px; height: 28px; }
+  .dash > .panel { padding: 12px 12px; }
+
+  /* coalition negotiation: 1-col cards */
+  .coal-grid { grid-template-columns: 1fr; }
+  .coal-card { padding: 12px 14px; }
+
+  /* modal pad correction (collides with new 24px base) */
+  .modal { padding: 18px 18px; border-radius: 16px; }
+  .modal h2 { font-size: 19px; line-height: 1.25; }
+
+  /* rescale banner: stack on mobile */
+  .rescale-bar { padding: 10px 12px; }
+  .rescale-head { font-size: 12px; }
+  .rescale-list { font-size: 11.5px; gap: 4px 10px; }
+
+  /* exit poll: smaller stacked headline */
+  .exitpoll-card { padding: 22px 18px; }
+  .exitpoll-headline { font-size: 22px !important; }
+  .exitpoll-seats { gap: 16px; }
+  .exitpoll-party .ep-n { font-size: 24px; }
+}
+@media (max-width: 380px) {
+  .targets-summary { grid-template-columns: 1fr 1fr; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .sim-view-pill { font-size: 11.5px; padding: 0 8px; }
+  .night-clock { font-size: 19px; }
+  .night-bar { height: 18px; }
+  .impact-verdict { font-size: 18px; }
+}
