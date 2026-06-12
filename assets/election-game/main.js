@@ -247,10 +247,12 @@
     var rows = SHARE_PARTIES.map(function (p) {
       var v = S.shares[p] != null ? S.shares[p] : 0;
       return '<div class="slider-row"><div class="name" style="color:' + U.pcolor(p) + '">' + U.pname(p) +
-        '</div><input type="range" min="0" max="100" step="0.1" value="' + v + '" data-share="' + p + '">' +
+        '</div><input type="range" min="0" max="60" step="0.1" value="' + v + '" data-share="' + p + '">' +
         '<input class="share-input" data-shareinput="' + p + '" value="' + v.toFixed(1) + '"></div>';
     }).join("");
     var sum = SHARE_PARTIES.reduce(function (a, p) { return a + (S.shares[p] || 0); }, 0);
+    var off = Math.abs(sum - 100) >= 0.5;
+    var sumCol = !off ? "var(--good)" : Math.abs(sum - 100) < 5 ? "var(--warn)" : "var(--bad)";
     var src = S.lastPollSource ? '<p class="notice" style="color:var(--commons-l);margin:8px 0 0">Loaded: ' + U.esc(S.lastPollSource) + '</p>' : "";
     // preset dropdown — quick-load any of the scenarios from data.js
     var presetOpts = '<option value="">— preset scenarios —</option>' +
@@ -261,10 +263,13 @@
         '<select class="sim-preset" data-presetsel>' + presetOpts + '</select>' +
         '<button class="btn sm" data-act="share">🔗 Share</button>' +
       '</div>' +
-      '<div class="sim-total" style="color:var(--good)">Total: <b>' + sum.toFixed(1) + '%</b> <span style="font-size:11.5px;color:var(--ink-dim);font-weight:400">— auto-balanced</span><span id="sharesum" hidden></span></div>' +
+      '<div class="sim-total" id="simtotal" style="color:' + sumCol + '">Total: <b>' + sum.toFixed(1) + '%</b>' +
+        '<button class="btn sm sim-normbtn" data-act="normalise"' + (off && sum > 0 ? "" : " disabled") + '>⚖ Scale to 100%</button>' +
+        '<span class="sim-offnote"' + (off ? "" : " hidden") + '>projection rescales to 100% behind the scenes</span>' +
+      '</div>' +
       rows + src +
       '<details class="sim-help"><summary>How does this work?</summary>' +
-      '<p class="muted" style="font-size:12.5px;margin:8px 0 0"><b>Load latest polls</b> fetches the current poll-of-polls live, in your browser, from Wikipedia\'s "Opinion polling for the next United Kingdom general election" article — aggregating the British Polling Council member firms. If it can\'t be reached, your current figures stay. Shares always sum to 100%: pulling one party up shrinks the others proportionally. Swing is measured versus the 2024 result.</p>' +
+      '<p class="muted" style="font-size:12.5px;margin:8px 0 0"><b>Load latest polls</b> fetches the current poll-of-polls live, in your browser, from Wikipedia\'s "Opinion polling for the next United Kingdom general election" article — aggregating the British Polling Council member firms. If it can\'t be reached, your current figures stay. Sliders move <b>only the party you touch</b>; if the total drifts off 100%, hit <b>⚖ Scale to 100%</b> to shrink or stretch every share proportionally (the projection always works on normalised shares either way). Swing is measured versus the 2024 result.</p>' +
       '</details>' +
       '</div>';
   }
@@ -2786,53 +2791,36 @@
       $("#sim-results").innerHTML = simResults();
       bindSeatsExplorer(); // re-wire the freshly rendered explorer
     }
+    // live-update the running total + normalise button without a full render
+    // (a render would yank focus mid-drag)
     var sum = SHARE_PARTIES.reduce(function (a, p) { return a + (S.shares[p] || 0); }, 0);
-    var el = $("#sharesum"); if (el) el.textContent = "Total: " + sum.toFixed(1) + "%";
-  }
-  // Auto-normalise: when one party's share changes, scale the OTHER parties
-  // proportionally so the GB total always sums to 100%. Then push every value
-  // back into its slider + numeric input so the UI shows what the projection
-  // is actually using.
-  function setShareAndRedistribute(party, newVal) {
-    newVal = Math.max(0, Math.min(100, parseFloat(newVal) || 0));
-    var prev = SHARE_PARTIES.slice().reduce(function (o, p) { o[p] = S.shares[p] || 0; return o; }, {});
-    var others = SHARE_PARTIES.filter(function (p) { return p !== party; });
-    var target = 100 - newVal;
-    var otherTotal = others.reduce(function (a, p) { return a + (prev[p] || 0); }, 0);
-    S.shares[party] = newVal;
-    if (otherTotal > 0) {
-      var scale = target / otherTotal;
-      others.forEach(function (p) { S.shares[p] = Math.max(0, (prev[p] || 0) * scale); });
-    } else {
-      var each = others.length ? target / others.length : 0;
-      others.forEach(function (p) { S.shares[p] = Math.max(0, each); });
+    var off = Math.abs(sum - 100) >= 0.5;
+    var tot = $("#simtotal");
+    if (tot) {
+      tot.style.color = !off ? "var(--good)" : Math.abs(sum - 100) < 5 ? "var(--warn)" : "var(--bad)";
+      var b = tot.querySelector("b"); if (b) b.textContent = sum.toFixed(1) + "%";
+      var nb = tot.querySelector(".sim-normbtn"); if (nb) nb.disabled = !(off && sum > 0);
+      var note = tot.querySelector(".sim-offnote"); if (note) note.hidden = !off;
     }
-    // FP correction so the visible total really is 100
-    var sum = SHARE_PARTIES.reduce(function (a, p) { return a + S.shares[p]; }, 0);
-    if (sum > 0 && Math.abs(sum - 100) > 0.001) {
-      var k = 100 / sum;
-      SHARE_PARTIES.forEach(function (p) { S.shares[p] *= k; });
-    }
-    // sync every slider + input to the redistributed values
-    SHARE_PARTIES.forEach(function (p) {
-      var v = S.shares[p];
-      var r = app.querySelector('[data-share="' + p + '"]'); if (r) r.value = v;
-      var ip = app.querySelector('[data-shareinput="' + p + '"]'); if (ip) ip.value = v.toFixed(1);
-    });
   }
 
   function bindShareControls() {
+    // Sliders move ONLY the party you touch — no auto-redistribution. The
+    // total indicator and the "Scale to 100%" button track the drift.
     app.querySelectorAll("[data-share]").forEach(function (range) {
       var p = range.getAttribute("data-share");
       range.addEventListener("input", function () {
-        setShareAndRedistribute(p, parseFloat(range.value));
+        S.shares[p] = parseFloat(range.value) || 0;
+        var inp = app.querySelector('[data-shareinput="' + p + '"]'); if (inp) inp.value = S.shares[p].toFixed(1);
         refreshShareResults();
       });
     });
     app.querySelectorAll("[data-shareinput]").forEach(function (inp) {
       var p = inp.getAttribute("data-shareinput");
       inp.addEventListener("change", function () {
-        setShareAndRedistribute(p, parseFloat(inp.value));
+        var v = parseFloat(inp.value); if (isNaN(v)) v = 0; v = Math.max(0, Math.min(100, v));
+        S.shares[p] = v; inp.value = v.toFixed(1);
+        var range = app.querySelector('[data-share="' + p + '"]'); if (range) range.value = v;
         refreshShareResults();
       });
     });
@@ -2943,6 +2931,9 @@
   function action(act) {
     var g = S.govern;
     switch (act) {
+      case "normalise":
+        // scale the user's entered shares proportionally so they sum to 100
+        S.shares = normShares(pickShares()); render(); break;
       case "seatsmore":
         S.seatsLimit = (S.seatsLimit || 50) + 200; refreshSim(); break;
       case "reset2024": {
