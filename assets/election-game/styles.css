@@ -632,6 +632,26 @@ input[type=range] { touch-action: none; height: 24px; }
 .rail-people { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 15px; padding-top: 14px; border-top: 1px solid var(--border-soft); }
 .rail-person { background: var(--bg-2); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: 8px 10px; }
 .rail-person-name { font-weight: 700; font-size: 13px; margin-top: 2px; }
+/* government focus picker */
+.focus-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.focus-pill { text-align: left; padding: 7px 9px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600;
+  background: var(--bg-2); border: 1px solid var(--border-soft); color: var(--ink-dim);
+  transition: border-color .15s, color .15s, background .15s; }
+.focus-pill:hover { color: var(--ink); border-color: var(--commons-l); }
+.focus-pill.on { color: var(--gold); border-color: var(--gold); background: var(--gold-soft); }
+
+/* collapsed advanced-setup panel */
+.adv-setup { margin-top: 18px; background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  border: 1px solid var(--border-soft); border-radius: var(--radius); box-shadow: var(--ring); }
+.adv-setup > summary { cursor: pointer; list-style: none; padding: 14px 18px; font-weight: 700; font-size: 13.5px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--ink); }
+.adv-setup > summary::-webkit-details-marker { display: none; }
+.adv-setup > summary:hover { color: var(--gold); }
+.adv-setup .adv-current { font-size: 11.5px; color: var(--ink-faint); font-weight: 600; letter-spacing: .3px; }
+.adv-setup[open] > summary { border-bottom: 1px solid var(--border-soft); }
+.adv-setup .adv-body { padding: 16px 18px; }
+.adv-setup .adv-body h3 { margin: 0 0 10px; font-size: 12.5px; letter-spacing: .7px; text-transform: uppercase; color: var(--ink-dim); }
+
 .rail-foot { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-soft); display: flex; flex-direction: column; gap: 8px; }
 .rail-actions { display: flex; gap: 8px; }
 .rail-actions .btn { flex: 1; justify-content: center; }

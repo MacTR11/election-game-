@@ -105,6 +105,7 @@
         sectors: g.sectors,
         industrialStrategy: g.industrialStrategy,
         coalitionPartners: g.coalitionPartners,
+        focus: g.focus,
         milestones: g.milestones, promoteCount: g.promoteCount,
         oppShare: g.oppShare, govApproval: g.govApproval, energy: g.energy, maxEnergy: g.maxEnergy,
         momentum: g.momentum, oppHistory: g.oppHistory,
@@ -144,6 +145,7 @@
       if (s.sectors) g.sectors = s.sectors;
       if (s.industrialStrategy) g.industrialStrategy = s.industrialStrategy;
       if (s.coalitionPartners) g.coalitionPartners = s.coalitionPartners;
+      if (s.focus) g.focus = s.focus;
       if (s.milestones) g.milestones = s.milestones;
       if (s.promoteCount) g.promoteCount = s.promoteCount;
       g.dilemmaHistory = s.dilemmaHistory || [];
@@ -576,13 +578,23 @@
         '<p class="muted" style="margin:-4px 0 8px;font-size:12.5px">Your persona shapes how you start and how you govern — pick a way to lead.</p>' +
         '<div class="opt-grid">' + personaCards + '</div>';
     }
-    var setupOpts = '<div class="panel" style="margin-top:14px"><h3>Starting Scenario</h3>' +
+    // Advanced setup collapses behind one line — the summary shows the live
+    // selections so the defaults are never a mystery. Picking a party is the
+    // only decision you HAVE to make.
+    var scenName = (scenList.filter(function (x) { return x.id === S.scenario; })[0] || scenList[0] || {}).name || "Steady";
+    var perName = !opp ? ((D.PERSONAS.filter(function (x) { return x.id === S.persona; })[0] || {}).name || "") : "";
+    var diffName = (D.DIFFICULTY[S.difficulty] || {}).name || "Normal";
+    var advSummary = [scenName, perName, diffName].filter(Boolean).join(" · ");
+    var setupOpts = '<details class="adv-setup"' + (S.advOpen ? " open" : "") + '><summary data-advtoggle>⚙ Fine-tune your start <span class="adv-current">' + U.esc(advSummary) + '</span></summary>' +
+      '<div class="adv-body"><h3>Starting Scenario</h3>' +
       '<div class="opt-grid">' + scenCards + '</div>' +
       personaSection +
-      '<h3 style="margin-top:16px">Difficulty</h3><div class="opt-grid">' + diffCards + '</div></div>';
+      '<h3 style="margin-top:16px">Difficulty</h3><div class="opt-grid">' + diffCards + '</div></div></details>';
     return '<h2 class="section-title">Choose Your Role</h2>' +
-      '<p class="subtitle">' + blurb + '</p>' + resume + roleToggle + setupOpts +
-      '<div class="modes" style="margin-top:14px">' + cards + '</div>';
+      '<p class="subtitle">' + blurb + ' <b>Pick a party and you\'re in</b> — sensible defaults cover the rest, or fine-tune below.</p>' +
+      resume + roleToggle +
+      '<div class="modes" style="margin-top:14px">' + cards + '</div>' +
+      setupOpts;
   }
 
   // ----------------------------------------------------- manifesto pledges
@@ -847,8 +859,24 @@
       '<div class="rail-actions"><button class="btn sm" data-act="callelection">Call Election</button>' +
       '<button class="btn sm" data-act="quitgovern">Resign</button></div>';
 
+    // Government focus — a standing agenda that nudges its area monthly and
+    // leans the in-tray toward matching dilemmas. Free to change.
+    var focusBtns = (D.FOCUSES || []).map(function (f) {
+      var on = g.focus === f.id;
+      return '<button class="focus-pill' + (on ? " on" : "") + '" data-focus="' + f.id + '" title="' + U.esc(f.blurb) + '">' +
+        f.icon + ' ' + U.esc(f.name) + '</button>';
+    }).join("");
+    var focusBox = (D.FOCUSES && D.FOCUSES.length)
+      ? '<div class="rail-section"><div class="lab2" style="margin-bottom:6px">Government focus</div>' +
+        '<div class="focus-grid">' + focusBtns + '</div>' +
+        '<div class="rail-cap-note">' + (g.focus
+          ? U.esc(((D.FOCUSES.filter(function (f) { return f.id === g.focus; })[0]) || {}).blurb || "")
+          : "Set an agenda — it steers what lands on your desk.") + '</div></div>'
+      : "";
+
     return '<div class="panel rail">' +
       vitals +
+      focusBox +
       pledgesMini(g) +
       electionBox +
       people +
@@ -2578,6 +2606,11 @@
         render();
       });
     });
+    // remember whether the fine-tune panel is open, so option clicks inside it
+    // (which re-render) don't snap it shut
+    app.querySelectorAll("details.adv-setup").forEach(function (el) {
+      el.addEventListener("toggle", function () { S.advOpen = el.open; });
+    });
     app.querySelectorAll("[data-scenario]").forEach(function (el) {
       el.addEventListener("click", function () { S.scenario = el.getAttribute("data-scenario"); render(); });
     });
@@ -2600,6 +2633,17 @@
           S.pledgeSel = S.govern.pledges.slice(); // pre-seed with sensible defaults
           go("pledges");
         }
+      });
+    });
+    // government focus — set / clear the standing agenda
+    app.querySelectorAll("[data-focus]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        var g = S.govern; if (!g) return;
+        var id = el.getAttribute("data-focus");
+        g.focus = g.focus === id ? null : id; // click again to clear
+        var f = (D.FOCUSES || []).filter(function (x) { return x.id === id; })[0];
+        toast(g.focus ? "🎯 Focus: " + (f ? f.name : id) : "Focus cleared — a balanced agenda.");
+        render();
       });
     });
     // coalition negotiation — toggle a partner in/out of the bloc
@@ -2972,6 +3016,17 @@
           midterm: queued.midterm
         });
         S.pendingPostImpact = queued;
+        // genuinely quiet month (nothing but routine capital regen, no event
+        // queued, nothing earned) — skip the dashboard, don't waste a click
+        var repQ = S.impactReport;
+        var meaningfulRows = repQ.rows.filter(function (x) { return x.label !== "Political capital"; });
+        if (!meaningfulRows.length && !repQ.sectorChanges.length && !repQ.milestone && !repQ.challenge && !queued.dilemma && !queued.midterm) {
+          S.impactReport = null; S.pendingPostImpact = null;
+          render(); flashKpis();
+          if (repQ.flavour) toast("📰 " + repQ.flavour.text, 3200);
+          else toast("A quiet month — " + dateLabel(g));
+          break;
+        }
         render(); flashKpis();
         break;
       }

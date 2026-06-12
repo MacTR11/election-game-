@@ -973,6 +973,17 @@
 
   // Advance one quarter.
   function simulateTurn(state) {
+    // the standing government focus pays a small monthly dividend in its area
+    if (state.focus) {
+      var foc = (D.FOCUSES || []).filter(function (f) { return f.id === state.focus; })[0];
+      if (foc && foc.effects) {
+        var fe = foc.effects, fk;
+        if (fe.unity != null) state.unity = clamp01(state.unity + fe.unity);
+        if (fe.macro) for (fk in fe.macro) if (state.macro[fk] != null) state.macro[fk] += fe.macro[fk];
+        if (fe.stats) for (fk in fe.stats) if (state.stats[fk] != null) state.stats[fk] = clamp01(state.stats[fk] + fe.stats[fk]);
+        if (fe.groups) for (fk in fe.groups) if (state.groups[fk] != null) state.groups[fk] = clamp01(state.groups[fk] + fe.groups[fk]);
+      }
+    }
     var targets = computeTargets(state, false), id, INERTIA = 0.2;
     for (id in targets.stats)
       state.stats[id] += (targets.stats[id] - state.stats[id]) * INERTIA;
@@ -1063,6 +1074,12 @@
       avail = pool.filter(function (d) { return recent.indexOf(d.id) < 0; });
     }
     if (!avail.length) avail = pool;
+    // the government's standing focus leans the in-tray toward its theme —
+    // a little over half the time, when a matching dilemma is available
+    if (state.focus && D.DILEMMA_THEMES) {
+      var themed = avail.filter(function (d) { return D.DILEMMA_THEMES[d.id] === state.focus; });
+      if (themed.length && Math.random() < 0.55) avail = themed;
+    }
     return avail[Math.floor(Math.random() * avail.length)];
   }
 

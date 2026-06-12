@@ -2421,6 +2421,64 @@
   //   groups      — opening mood deltas applied to specific voter blocs
   //   pressure    — multiplier on country decay (stacks with difficulty)
   // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // GOVERNMENT FOCUS — a standing agenda the player sets (and can change any
+  // month, free). Two effects: a small monthly nudge to the focused area, and
+  // the in-tray leans toward dilemmas on that theme (via DILEMMA_THEMES).
+  // Set-and-forget steering, not a forced monthly click.
+  // ---------------------------------------------------------------------------
+  var FOCUSES = [
+    { id: "economy",  name: "Economy",         icon: "📈",
+      blurb: "Growth, jobs and the public finances get the PM's attention.",
+      effects: { macro: { realGrowth: 0.015 }, groups: { capitalists: 0.003, privatesector: 0.003 } } },
+    { id: "services", name: "Public Services", icon: "🏥",
+      blurb: "The NHS, schools and the safety net come first.",
+      effects: { stats: { nhs: 0.004, education: 0.003 }, groups: { publicsector: 0.003 } } },
+    { id: "law",      name: "Law & Borders",   icon: "🛡️",
+      blurb: "Crime and migration dominate the grid.",
+      effects: { stats: { crime: -0.004, immigration: -0.003 }, groups: { patriots: 0.003 } } },
+    { id: "climate",  name: "Climate & Energy", icon: "🌍",
+      blurb: "Net zero and energy security set the agenda.",
+      effects: { stats: { environment: 0.005 }, groups: { environment: 0.004, young: 0.002 } } },
+    { id: "world",    name: "World Stage",     icon: "🌐",
+      blurb: "Summits, alliances and Britain's standing abroad.",
+      effects: { groups: { patriots: 0.003, liberals: 0.002, capitalists: 0.002 } } },
+    { id: "party",    name: "Party Management", icon: "🤝",
+      blurb: "Keep the backbenches sweet and the whips happy.",
+      effects: { unity: 0.008 } }
+  ];
+
+  // Which focus each themed dilemma belongs to. Unlisted dilemmas stay in the
+  // general pool. Used by pickDilemma to lean the in-tray toward the agenda.
+  var DILEMMA_THEMES = {
+    // economy
+    carplant: "economy", energy: "economy", triple_lock: "economy", uc_reform: "economy",
+    sovereign_wealth: "economy", productivity: "economy", sov_downgrade: "economy",
+    company_collapse: "economy", wage_price: "economy", brain_drain: "economy",
+    currency_run: "economy", tech_ipo: "economy", banking_nearmiss: "economy",
+    obr_forecast: "economy", steel_closure: "economy", skills_shortage: "economy",
+    trade_war: "economy", crypto: "economy", winterfuel: "economy", rail: "economy",
+    // public services
+    doctors: "services", twochild: "services", schoolmeals: "services",
+    smoking_gen: "services", welsh_schools: "services", housing: "services",
+    assisted_dying: "services", social_media_under16: "services",
+    // law & borders
+    smallboats: "law", prisons: "law", knife_crime: "law", jury_reform: "law",
+    encryption: "law", travelchaos: "law", drugs_decrim: "law",
+    // climate & energy
+    sewage: "climate", onshore_wind: "climate", ev_mandate: "climate",
+    northsea: "climate", northsea_oil: "climate", watercap: "climate", farmer_iht: "climate",
+    // world stage
+    eu_vet_deal: "world", ukraine_aid: "world", gaza_arms: "world",
+    china_huawei: "world", commonwealth: "world", aukus_pillar: "world",
+    aidappeal: "world", procurement: "world", defence: "world",
+    us_tariffs: "world", olympics_bid: "world",
+    // party management
+    rebellion: "party", scandal: "party", donor_row: "party", leak_inquiry: "party",
+    spouse_business: "party", honours_row: "party", lords_reform: "party",
+    votes16: "party", indyref_2: "party", ni_protocol: "party", barnett: "party"
+  };
+
   var PERSONAS = [
     { id: "firebrand", name: "The Firebrand", icon: "🔥",
       blurb: "A conviction politician who electrifies the base and divides the nation. High energy, high risk.",
@@ -2473,6 +2531,8 @@
     OPP_SCENARIOS: OPP_SCENARIOS,
     DIFFICULTY: DIFFICULTY,
     PERSONAS: PERSONAS,
+    FOCUSES: FOCUSES,
+    DILEMMA_THEMES: DILEMMA_THEMES,
     SECTORS: SECTORS,
     INDUSTRIAL_STRATEGIES: INDUSTRIAL_STRATEGIES,
     CRISES: CRISES,
