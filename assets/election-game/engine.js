@@ -819,10 +819,13 @@
     var contrib = policyContributions(state), m = state.macro;
     var gdpPush = contrib.stats.gdp || 0, inflPush = contrib.stats.inflation || 0, unempPush = contrib.stats.unemployment || 0;
     var growthTarget = 1.1 + 7 * gdpPush - 0.6 * Math.max(0, (m.debtPct - 100) / 10) + cabinetBonus(state).growth;
+    // post-recession bounce-back: deep contractions create slack that pulls
+    // the economy back toward trend, so a slump is painful but not permanent
+    if (m.realGrowth < 0) growthTarget += Math.min(2, -m.realGrowth * 0.3);
     var inflTarget = 2.0 + 6 * inflPush + 0.35 * (m.realGrowth - 1.4);
     var unempTarget = 4.2 - 0.7 * (m.realGrowth - 1.4) + 9 * unempPush;
     var K = 0.15; // monthly easing toward targets
-    m.realGrowth += (growthTarget - m.realGrowth) * K;
+    m.realGrowth = clamp(m.realGrowth + (growthTarget - m.realGrowth) * K, -6, 8);
     m.inflation = Math.max(0, m.inflation + (inflTarget - m.inflation) * K);
     m.unemployment = Math.max(2.5, m.unemployment + (unempTarget - m.unemployment) * K);
     // nominal GDP grows by (real growth + inflation) per year, applied monthly
@@ -893,7 +896,7 @@
     state.macro.sectorPulse = wsum > 0 ? num / wsum : 0.5;
     // sectorPulse nudges real growth each turn (small, cumulative): healthy
     // sectors = stronger underlying growth, vice versa.
-    state.macro.realGrowth += (state.macro.sectorPulse - 0.5) * 0.04;
+    state.macro.realGrowth = clamp(state.macro.realGrowth + (state.macro.sectorPulse - 0.5) * 0.04, -6, 8);
   }
   // Apply an industrial strategy at the time it is chosen.
   function chooseIndustrialStrategy(state, id) {
@@ -1875,7 +1878,7 @@
     g.oppShare += (clamp(target, 3, 60) - g.oppShare) * 0.18;
     g.oppShare = clamp(g.oppShare, 3, 60);
     var cb = shadowChiefBonus(g);
-    g.momentum *= Math.min(0.95, 0.7 + cb.decay);
+    g.momentum = clamp(g.momentum * Math.min(0.95, 0.7 + cb.decay), -8, 8);
     g.energy = Math.min(g.maxEnergy, g.energy + 2 + cb.energy);
     g.turn += 1; g.month += 1; if (g.month > 12) { g.month = 1; g.year += 1; }
     if (g.shadowCabinet) for (var _sp2 in g.shadowCabinet) if (g.shadowCabinet[_sp2]) g.shadowCabinet[_sp2].tenure = (g.shadowCabinet[_sp2].tenure || 0) + 1;

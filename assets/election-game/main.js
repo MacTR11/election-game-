@@ -15,7 +15,9 @@
     screen: "home",
     shares: E.sharesFromPreset("ge2024"),
     govern: null,
-    governTab: "policies",
+    governTab: "briefing",
+    loadedRole: null,
+    exitPoll: null,      // jittered 10pm projection shown before election night
     setupRole: "government",
     scenario: "steady",
     difficulty: "normal",
@@ -155,11 +157,22 @@
             : (D.DILEMMAS.filter(function (d) { return d.id === s.pendingDilemma; })[0] || null))
         : null;
       g.gameOver = false; g.lastElection = null;
+      resetTransientUI();
       S.govern = g; S.loadedRole = opp ? "opposition" : "government"; return true;
     } catch (e) { return false; }
   }
   function autosave() {
     if (S.govern && !S.govern.gameOver) saveGame(); else clearSave();
+  }
+  // Clear every transient modal / staged-input flag. Called whenever a game
+  // begins or is replaced (new game, takepower, restart, load) so state from
+  // the previous session can never leak a stale modal into the new one.
+  function resetTransientUI() {
+    S.policyDetail = null; S.reshufflePost = null; S.shadowReshufflePost = null;
+    S.statDetail = null; S.groupDetail = null; S.selectedSeat = null;
+    S.pendingVote = null; S.lastVoteResult = null; S.industrialChooser = false;
+    S.impactReport = null; S.pendingPostImpact = null; S.exitPoll = null;
+    S.policyPending = {};
   }
 
   // map view = a hex/geographic toggle plus the chosen map (used in every mode)
@@ -194,6 +207,7 @@
       case "govern":      html = viewGovern(); break;
       case "midterm":     html = viewMidterm(); break;
       case "termreview":  html = viewTermReview(); break;
+      case "exitpoll":    html = viewExitPoll(); break;
       case "election":    html = viewElectionNight(); break;
       default:            html = viewHome();
     }
@@ -644,7 +658,7 @@
     var weakRows = Object.keys(E.OPP_THEMES).map(function (k) {
       var w = g.weak[k] || 0;
       var col = w > 0.55 ? "var(--bad)" : w > 0.4 ? "var(--warn)" : "var(--good)";
-      return '<div class="stat-row"><div class="name" style="text-transform:capitalize">' + E.OPP_THEMES[k] + '</div>' +
+      return '<div class="stat-row"><div class="name" style="text-transform:capitalize">' + U.esc(E.OPP_THEMES[k]) + '</div>' +
         '<div class="statbar"><i style="width:' + (w * 100) + '%;background:' + col + '"></i></div>' +
         '<button class="btn sm" data-opp="attack:' + k + '"' + (g.energy < 2 ? " disabled" : "") + '>Attack</button></div>';
     }).join("");
@@ -758,7 +772,7 @@
       kpi("Seats today", live.low + "–" + live.high + "<small>/650</small>", live.won ? "var(--good)" : "var(--bad)") +
       '</div>';
 
-    var tabs = '<div class="tabs">' + [["policies", "Policies"], ["economy", "Economy"], ["voters", "Voters"], ["cabinet", "Cabinet"], ["briefing", "Briefing"]]
+    var tabs = '<div class="tabs">' + [["briefing", "Overview"], ["policies", "Policies"], ["economy", "Economy"], ["voters", "Voters"], ["cabinet", "Cabinet"]]
       .map(function (t) { return '<div class="tab' + (S.governTab === t[0] ? " active" : "") + '" data-tab="' + t[0] + '">' + t[1] + '</div>'; }).join("") + '</div>';
 
     var body;
@@ -2148,6 +2162,55 @@
   }
 
   // --------------------------------------------------------- election night
+  // Exit poll — the 10pm moment. A deliberately imperfect projection of the
+  // real result: the big parties are jittered by a few seats so the night
+  // can still surprise, exactly like the real broadcast exit poll.
+  function makeExitPoll(r) {
+    var totals = {}; for (var p in r.totals) totals[p] = r.totals[p];
+    var majors = Object.keys(totals).filter(function (x) { return totals[x] >= 10; })
+      .sort(function (a, b) { return totals[b] - totals[a]; });
+    // transfer a random handful of seats between adjacent majors (sum preserved)
+    for (var i = 0; i + 1 < majors.length && i < 4; i++) {
+      var a = majors[i], b = majors[i + 1];
+      var swing = Math.round((Math.random() - 0.5) * (i === 0 ? 22 : 10));
+      swing = Math.max(-totals[b] + 1, Math.min(totals[a] - 1, swing));
+      totals[a] -= swing; totals[b] += swing;
+    }
+    var winner = null, ws = -1;
+    for (var q in totals) if (q !== "sf" && totals[q] > ws) { ws = totals[q]; winner = q; }
+    return {
+      totals: totals, winner: winner, winnerSeats: ws,
+      playerParty: r.playerParty, playerSeats: totals[r.playerParty] || 0,
+      isOpp: !!r.isOpp
+    };
+  }
+  function viewExitPoll() {
+    var ep = S.exitPoll;
+    if (!ep) return viewElectionNight();
+    var w = D.PARTIES[ep.winner] || {};
+    var majLine = ep.winnerSeats >= 326
+      ? U.esc(w.name) + " projected to win an overall majority"
+      : U.esc(w.name) + " projected the largest party — hung parliament";
+    var top = Object.keys(ep.totals).sort(function (a, b) { return ep.totals[b] - ep.totals[a]; }).slice(0, 4);
+    var cells = top.map(function (p) {
+      return '<div class="exitpoll-party"><div class="ep-n" style="color:' + U.pcolor(p) + '">' + ep.totals[p] + '</div>' +
+        '<div class="ep-p" style="color:' + U.pcolor(p) + '">' + U.pshort(p) + '</div></div>';
+    }).join("");
+    var mine = '<div class="exitpoll-sub">Your party (' + U.pshort(ep.playerParty) + ') is projected on <b style="color:' + U.pcolor(ep.playerParty) + '">' + ep.playerSeats + '</b> seats.</div>';
+    return '<div class="exitpoll-stage">' +
+      '<div class="exitpoll-clock">🕙 Ten o\'clock</div>' +
+      '<div class="exitpoll-card">' +
+        '<span class="exitpoll-live">● LIVE</span>' +
+        '<div class="exitpoll-label">As Big Ben strikes ten, the broadcasters\' exit poll says…</div>' +
+        '<h2 class="exitpoll-headline" style="color:' + (w.color || "var(--ink)") + '">' + majLine + '</h2>' +
+        '<div class="exitpoll-seats">' + cells + '</div>' + mine +
+        '<div class="exitpoll-note">Exit polls are usually close — and occasionally very wrong. The real count starts now.</div>' +
+      '</div>' +
+      '<div class="row" style="justify-content:center;margin-top:20px">' +
+      '<button class="btn primary" data-act="seeresults">Watch the results come in ▶</button></div>' +
+      '</div>';
+  }
+
   // ---- election night helpers ----
   var _base2024Seats = null;
   function base2024Seats() {
@@ -2354,12 +2417,13 @@
     app.querySelectorAll("[data-party]").forEach(function (el) {
       el.addEventListener("click", function () {
         var party = el.getAttribute("data-party");
+        resetTransientUI();
         if (S.setupRole === "opposition") {
           S.govern = E.newOppositionState(party, { scenario: S.scenario, difficulty: S.difficulty });
           go("opposition");
         } else {
           S.govern = E.newGovernState(party, { scenario: S.scenario, difficulty: S.difficulty, persona: S.persona });
-          S.governTab = "policies";
+          S.governTab = "briefing";
           S.pledgeSel = S.govern.pledges.slice(); // pre-seed with sensible defaults
           go("pledges");
         }
@@ -2762,10 +2826,13 @@
       case "pollingday": {
         var adj = E.campaignAdj(g.party, S.campaign.alloc);
         if (g.role === "opposition") {
-          g.lastElection = E.runOppositionElection(g, adj); S.campaign = null; go("election");
+          g.lastElection = E.runOppositionElection(g, adj); S.campaign = null;
+          S.exitPoll = makeExitPoll(g.lastElection);
+          go("exitpoll");
         } else runElection(adj);
         break;
       }
+      case "seeresults": S.exitPoll = null; go("election"); break;
       case "takepower": {
         var pp = g.party;
         // carry the opposition campaign's most-promoted blocs into starting pledges
@@ -2777,12 +2844,13 @@
           var pid = MAP[k];
           if (pid && D.PLEDGES.some(function (p) { return p.id === pid; }) && seeded.indexOf(pid) < 0 && seeded.length < 3) seeded.push(pid);
         });
+        resetTransientUI();
         S.govern = E.newGovernState(pp, { difficulty: S.difficulty });
         if (seeded.length) {
           var fill = S.govern.pledges.filter(function (id) { return seeded.indexOf(id) < 0; });
           S.govern.pledges = seeded.concat(fill).slice(0, 3);
         }
-        S.governTab = "policies";
+        S.governTab = "briefing";
         S.pledgeSel = S.govern.pledges.slice();
         clearSave();
         go("pledges");
@@ -2859,7 +2927,7 @@
       case "closeshadowreshuffle": S.shadowReshufflePost = null; render(); break;
       case "continuesave": if (loadGame()) go(S.loadedRole === "opposition" ? "opposition" : "govern"); break;
       case "discardsave": clearSave(); render(); break;
-      case "restart": clearSave(); S.govern = null; go("govern-setup"); break;
+      case "restart": clearSave(); S.govern = null; resetTransientUI(); go("govern-setup"); break;
       case "fetchpolls": fetchLatestPolls(); break;
       case "share": {
         var enc = SHARE_PARTIES.map(function (p) { return (S.shares[p] || 0).toFixed(1); }).join("-");
@@ -2957,7 +3025,8 @@
     var result = E.runGeneralElection(S.govern, regionAdj);
     E.applyElectionResult(S.govern, result);
     S.campaign = null;
-    go("election");
+    S.exitPoll = makeExitPoll(result);
+    go("exitpoll");
   }
 
   // ----------------------------------------------------------------- bootstrap
