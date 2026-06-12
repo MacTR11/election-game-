@@ -104,6 +104,7 @@
         voteRecord: g.voteRecord,
         sectors: g.sectors,
         industrialStrategy: g.industrialStrategy,
+        coalitionPartners: g.coalitionPartners,
         milestones: g.milestones, promoteCount: g.promoteCount,
         oppShare: g.oppShare, govApproval: g.govApproval, energy: g.energy, maxEnergy: g.maxEnergy,
         momentum: g.momentum, oppHistory: g.oppHistory,
@@ -142,6 +143,7 @@
       if (s.voteRecord) g.voteRecord = s.voteRecord;
       if (s.sectors) g.sectors = s.sectors;
       if (s.industrialStrategy) g.industrialStrategy = s.industrialStrategy;
+      if (s.coalitionPartners) g.coalitionPartners = s.coalitionPartners;
       if (s.milestones) g.milestones = s.milestones;
       if (s.promoteCount) g.promoteCount = s.promoteCount;
       g.dilemmaHistory = s.dilemmaHistory || [];
@@ -172,6 +174,7 @@
     S.statDetail = null; S.groupDetail = null; S.selectedSeat = null;
     S.pendingVote = null; S.lastVoteResult = null; S.industrialChooser = false;
     S.impactReport = null; S.pendingPostImpact = null; S.exitPoll = null;
+    S.night = null; S.coalition = null;
     S.policyPending = {};
   }
 
@@ -208,6 +211,8 @@
       case "midterm":     html = viewMidterm(); break;
       case "termreview":  html = viewTermReview(); break;
       case "exitpoll":    html = viewExitPoll(); break;
+      case "nightticker": html = viewNightTicker(); break;
+      case "coalition":   html = viewCoalition(); break;
       case "election":    html = viewElectionNight(); break;
       default:            html = viewHome();
     }
@@ -826,6 +831,9 @@
     var pcells = [];
     if (g.persona) pcells.push('<div class="rail-person"><div class="lab2">Your style</div><div class="rail-person-name">' + (g.persona.icon || "") + ' ' + U.esc(g.persona.name) + '</div></div>');
     if (g.oppositionLeader) pcells.push('<div class="rail-person"><div class="lab2">Opposition</div><div class="rail-person-name">' + U.esc(g.oppositionLeader.name) + '</div><div class="faint" style="font-size:11px">' + U.esc(g.oppositionLeader.partyName) + '</div></div>');
+    if (g.coalitionPartners && g.coalitionPartners.length)
+      pcells.push('<div class="rail-person" style="grid-column:1/-1"><div class="lab2">In coalition with</div><div class="rail-person-name">' +
+        g.coalitionPartners.map(function (p) { return '<span style="color:' + U.pcolor(p) + '">' + U.pname(p) + '</span>'; }).join(" + ") + '</div></div>');
     if (pcells.length) people = '<div class="rail-people">' + pcells.join("") + '</div>';
 
     // Actions
@@ -2211,6 +2219,161 @@
       '</div>';
   }
 
+  // ------------------------------------------------ results ticker (the night)
+  // After the exit poll, seats declare in waves through the night — the map
+  // and the running totals fill in, with each wave's gains called out.
+  var NIGHT_WAVES = [
+    { at: 0.04, label: "11:30pm", line: "The first declarations — the North East races to be first as always." },
+    { at: 0.25, label: "1:00am",  line: "Results now arriving in a steady stream. The shape of the night emerges." },
+    { at: 0.55, label: "3:00am",  line: "The bulk of the count. Marginals are falling — careers with them." },
+    { at: 0.85, label: "5:00am",  line: "Dawn breaks over Westminster. The last recounts grind on." },
+    { at: 1.00, label: "Breakfast", line: "Every seat has declared. The country has decided." }
+  ];
+  var _seatByCodeMap = null;
+  function seatMap() {
+    if (_seatByCodeMap) return _seatByCodeMap;
+    var C = window.UKGAME.CONSTITUENCIES || [], m = {};
+    for (var i = 0; i < C.length; i++) m[C[i].c] = C[i];
+    return (_seatByCodeMap = m);
+  }
+  function startNightTicker() {
+    var C = window.UKGAME.CONSTITUENCIES || [], M = seatMap();
+    // shuffle declaration order, then pull a handful of North-East seats to the
+    // front — Sunderland tradition.
+    var codes = C.map(function (c) { return c.c; });
+    for (var i = codes.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)); var t = codes[i]; codes[i] = codes[j]; codes[j] = t;
+    }
+    var ne = [], rest = [];
+    codes.forEach(function (code) {
+      var seat = M[code];
+      if (seat && seat.reg === "ne" && ne.length < 8) ne.push(code); else rest.push(code);
+    });
+    S.night = { order: ne.concat(rest), wave: 0, exit: S.exitPoll ? S.exitPoll.totals : null };
+  }
+  function viewNightTicker() {
+    var g = S.govern, r = g.lastElection, n = S.night;
+    if (!n || !r) return viewElectionNight();
+    var M = seatMap();
+    var wave = NIGHT_WAVES[Math.min(n.wave, NIGHT_WAVES.length - 1)];
+    var upto = Math.round(wave.at * n.order.length);
+    var prevUpto = n.wave > 0 ? Math.round(NIGHT_WAVES[n.wave - 1].at * n.order.length) : 0;
+    var declared = {}, totals = {}, waveFlips = [];
+    for (var i = 0; i < upto; i++) {
+      var code = n.order[i], winner = r.seatWinners[code];
+      if (!winner) continue;
+      declared[code] = winner;
+      totals[winner] = (totals[winner] || 0) + 1;
+      if (i >= prevUpto) {
+        var seat = M[code];
+        if (seat && seat.w !== winner) waveFlips.push({ name: seat.n, from: seat.w, to: winner });
+      }
+    }
+    // running bar: declared share of 650, grey remainder
+    var order = Object.keys(totals).sort(function (a, b) { return totals[b] - totals[a]; });
+    var segs = order.map(function (p) {
+      return '<span style="width:' + (totals[p] / 650 * 100).toFixed(2) + '%;background:' + U.pcolor(p) + '"></span>';
+    }).join("") + '<span style="width:' + ((650 - upto) / 650 * 100).toFixed(2) + '%;background:#202836"></span>';
+    var tally = order.slice(0, 6).map(function (p) {
+      var vsExit = n.exit && n.exit[p] != null
+        ? ' <small class="faint">(exit: ' + n.exit[p] + ')</small>' : "";
+      return '<div class="night-party"><span class="sw" style="background:' + U.pcolor(p) + '"></span>' +
+        '<b style="color:' + U.pcolor(p) + '">' + U.pshort(p) + '</b> <span class="night-n">' + totals[p] + '</span>' + vsExit + '</div>';
+    }).join("");
+    var flipRows = waveFlips.slice(0, 7).map(function (f) {
+      return '<div class="night-flip"><span class="flip-seat">' + U.esc(f.name) + '</span>' +
+        '<span class="pill" style="background:' + U.pcolor(f.to) + '22;color:' + U.pcolor(f.to) + '">' + U.pshort(f.to) + ' gain</span>' +
+        '<span class="faint" style="font-size:11px">from ' + U.pshort(f.from) + '</span></div>';
+    }).join("") || '<p class="muted" style="font-size:13px">No seats changed hands in this batch.</p>';
+    var moreFlips = waveFlips.length > 7 ? '<div class="muted" style="font-size:12px;margin-top:4px">…and ' + (waveFlips.length - 7) + ' more gains this hour.</div>' : "";
+    var last = n.wave >= NIGHT_WAVES.length - 1;
+    var nextBtn = last
+      ? '<button class="btn primary" data-act="nightdone">The final result ▶</button>'
+      : '<button class="btn primary" data-act="nightnext">Next declarations ▶</button>' +
+        '<button class="btn sm" data-act="nightdone">Skip to the result ⏭</button>';
+    return '<div class="night-head"><div class="night-clock">🕐 ' + wave.label + '</div>' +
+      '<div class="night-line">' + U.esc(wave.line) + '</div>' +
+      '<div class="night-progress">' + upto + ' of 650 seats declared</div></div>' +
+      '<div class="panel" style="margin-top:14px"><h3>Running totals</h3>' +
+      '<div class="night-bar">' + segs + '</div>' +
+      '<div class="night-tally">' + tally + '</div></div>' +
+      '<div class="dash" style="margin-top:16px">' +
+      '<div class="panel"><h3>Declared so far</h3>' + mapView(declared) + '</div>' +
+      '<div class="panel"><h3>This hour\'s gains</h3>' + flipRows + moreFlips + '</div></div>' +
+      '<div class="row" style="margin-top:18px;justify-content:center;gap:8px">' + nextBtn + '</div>';
+  }
+
+  // ------------------------------------------------ coalition negotiation
+  // When the night ends hung, the player can build a bloc — every partner
+  // names a price. Or govern alone as a minority and pay in unity.
+  var COALITION_DEMANDS = {
+    ld:       { label: "Electoral reform on the table",  desc: "A referendum commitment on proportional representation.", costText: "−2 capital · −2 unity", capital: -2, unity: -0.02 },
+    green:    { label: "Accelerate net zero",            desc: "Billions more for the green transition, starting now.", costText: "+£2bn/yr deficit · greens cheer", macro: { deficit: 2 }, groups: { environment: 0.05, capitalists: -0.02 } },
+    snp:      { label: "More money for Scotland",        desc: "A significantly fatter block grant via Barnett.", costText: "+£3bn/yr deficit", macro: { deficit: 3 } },
+    pc:       { label: "A better deal for Wales",        desc: "Rail electrification and a funding floor for Cardiff.", costText: "+£1bn/yr deficit", macro: { deficit: 1 } },
+    reform:   { label: "A migration crackdown",          desc: "Hard annual caps and a deportations bill in year one.", costText: "−3 unity · liberals revolt", unity: -0.03, groups: { patriots: 0.05, liberals: -0.05 } },
+    con:      { label: "Seats at the cabinet table",     desc: "Senior ministries for their big beasts.", costText: "−3 capital", capital: -3 },
+    lab:      { label: "A softer programme",             desc: "Drop the sharpest edges of your manifesto.", costText: "−3 capital · −2 unity", capital: -3, unity: -0.02 },
+    restore:  { label: "A culture-war agenda",           desc: "Their issues get top billing in the King's Speech.", costText: "−4 unity · liberals furious", unity: -0.04, groups: { liberals: -0.04 } },
+    dup:      { label: "Cash for Northern Ireland",      desc: "A confidence-and-supply-style cheque for the Province.", costText: "+£2bn/yr deficit", macro: { deficit: 2 } },
+    uup:      { label: "Union guarantees",               desc: "Cast-iron commitments on the constitutional status quo.", costText: "−1 capital", capital: -1 },
+    alliance: { label: "Powersharing guarantees",        desc: "Stormont protected, reformed and funded.", costText: "−1 capital", capital: -1 },
+    sdlp:     { label: "Investment for the North",       desc: "An infrastructure package across Northern Ireland.", costText: "+£1bn/yr deficit", macro: { deficit: 1 } }
+  };
+  function coalitionPartners(g, r) {
+    return Object.keys(r.totals).filter(function (p) {
+      return p !== g.party && p !== "sf" && p !== "oth" && (r.totals[p] || 0) > 0 &&
+        COALITION_DEMANDS[p] && E.pairCompatible(g.party, p);
+    }).sort(function (a, b) { return r.totals[b] - r.totals[a]; });
+  }
+  // Max achievable bloc — decides whether negotiation is even worth offering.
+  function coalitionAchievable(g, r) {
+    var sum = r.playerSeats;
+    coalitionPartners(g, r).forEach(function (p) { sum += r.totals[p]; });
+    return sum >= 326;
+  }
+  function viewCoalition() {
+    var g = S.govern, r = g.lastElection;
+    if (!r || !S.coalition) return viewElectionNight();
+    var sel = S.coalition.selected;
+    var mySeats = r.playerSeats, total = mySeats;
+    Object.keys(sel).forEach(function (p) { if (sel[p]) total += r.totals[p] || 0; });
+    var partners = coalitionPartners(g, r);
+    var cards = partners.map(function (p) {
+      var d = COALITION_DEMANDS[p], on = !!sel[p];
+      // a candidate must be compatible with every partner already chosen
+      var blocked = !on && Object.keys(sel).some(function (q) { return sel[q] && !E.pairCompatible(p, q); });
+      return '<button class="coal-card' + (on ? " on" : "") + (blocked ? " blocked" : "") + '" data-coal="' + p + '"' + (blocked ? " disabled" : "") + '>' +
+        '<div class="coal-head"><span class="sw" style="background:' + U.pcolor(p) + '"></span>' +
+        '<b>' + U.pname(p) + '</b><span class="coal-seats">' + (r.totals[p] || 0) + ' seats</span></div>' +
+        '<div class="coal-demand">“' + U.esc(d.label) + '”</div>' +
+        '<div class="coal-desc">' + U.esc(d.desc) + '</div>' +
+        '<div class="coal-cost">' + U.esc(d.costText) + '</div>' +
+        (blocked ? '<div class="coal-blocked">Won\'t sit with your current partners</div>' : "") +
+        '</button>';
+    }).join("");
+    var pct = Math.min(100, total / 326 * 100);
+    var enough = total >= 326;
+    return '<h2 class="section-title">Hung Parliament — the talks begin</h2>' +
+      '<p class="subtitle">No one has 326. You won <b>' + mySeats + '</b> seats; every partner below will join your bloc — at a price. Build a majority, or govern alone and take your chances vote by vote.</p>' +
+      '<div class="panel coal-meter-panel"><div class="rail-meter-h"><span>Your bloc</span><b style="color:' + (enough ? "var(--good)" : "var(--warn)") + '">' + total + ' / 326</b></div>' +
+      '<div class="statbar" style="height:12px"><i style="width:' + pct + '%;background:' + (enough ? "var(--good)" : "var(--warn)") + '"></i></div>' +
+      (enough ? '<div class="coal-ok">✓ A working majority — you can form a government.</div>'
+              : '<div class="coal-short">' + (326 - total) + ' more seats needed.</div>') + '</div>' +
+      '<div class="coal-grid">' + cards + '</div>' +
+      '<div class="row" style="margin-top:18px;justify-content:center;gap:8px">' +
+      '<button class="btn primary" data-act="coalconfirm"' + (enough ? "" : " disabled") + '>Form the coalition ▶</button>' +
+      '<button class="btn" data-act="coalminority">Govern as a minority instead</button>' +
+      '</div>';
+  }
+  // Apply a chosen partner's demand to the state (simple effect shapes only).
+  function applyDemand(g, d) {
+    if (d.capital) g.capital = Math.max(0, g.capital + d.capital);
+    if (d.unity) g.unity = Math.max(0, Math.min(1, g.unity + d.unity));
+    if (d.macro) for (var k in d.macro) if (g.macro[k] != null) g.macro[k] += d.macro[k];
+    if (d.groups) for (var q in d.groups) if (g.groups[q] != null) g.groups[q] = Math.max(0, Math.min(1, g.groups[q] + d.groups[q]));
+  }
+
   // ---- election night helpers ----
   var _base2024Seats = null;
   function base2024Seats() {
@@ -2253,7 +2416,7 @@
     var gains = [], losses = [];
     for (var i = 0; i < C.length; i++) {
       var seat = C[i], prev = seat.w, now = seatWinners[seat.c];
-      if (now === prev) continue;
+      if (!now || now === prev) continue;
       if (now === playerParty) gains.push({ name: seat.n, from: prev });
       else if (prev === playerParty) losses.push({ name: seat.n, to: now });
     }
@@ -2352,12 +2515,17 @@
     var isOpp = g.role === "opposition";
     var party = D.PARTIES[r.playerParty];
     var v = electionVerdict(r, isOpp);
-    var contLabel = gv.type === "majority" ? "Continue — majority of " + r.playerMajority
-      : gv.type === "coalition" ? "Continue — form your coalition ▶" : "Continue — lead a minority ▶";
     var btn;
     if (isOpp && won) btn = '<button class="btn primary" data-act="takepower">Enter Number 10 ▶</button>';
     else if (isOpp) btn = '<button class="btn" data-act="fighton">Carry on as Opposition ▶</button>';
-    else if (won) btn = '<button class="btn primary" data-act="continueterm">' + contLabel + '</button>';
+    else if (won && gv.type === "majority")
+      btn = '<button class="btn primary" data-act="continueterm">Continue — majority of ' + r.playerMajority + '</button>';
+    else if (won && coalitionAchievable(g, r))
+      // hung but a bloc is mathematically possible — the talks are now a game
+      btn = '<button class="btn primary" data-act="negotiate">Negotiate a coalition ▶</button>' +
+            '<button class="btn" data-act="coalminority">Govern as a minority</button>';
+    else if (won)
+      btn = '<button class="btn primary" data-act="coalminority">Continue — lead a minority ▶</button>';
     else btn = '<button class="btn danger" data-act="seegameover">See the damage</button>';
     var hero = '<div class="election-hero" style="border-left:6px solid ' + v.col + '">' +
       '<div class="lab2">Election Night · ' + dateLabel(g) + '</div>' +
@@ -2427,6 +2595,15 @@
           S.pledgeSel = S.govern.pledges.slice(); // pre-seed with sensible defaults
           go("pledges");
         }
+      });
+    });
+    // coalition negotiation — toggle a partner in/out of the bloc
+    app.querySelectorAll("[data-coal]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        if (!S.coalition) return;
+        var p = el.getAttribute("data-coal");
+        S.coalition.selected[p] = !S.coalition.selected[p];
+        render();
       });
     });
     // opposition actions (attack / promote / blitz)
@@ -2832,7 +3009,37 @@
         } else runElection(adj);
         break;
       }
-      case "seeresults": S.exitPoll = null; go("election"); break;
+      case "seeresults": startNightTicker(); S.exitPoll = null; go("nightticker"); break;
+      case "nightnext": if (S.night) { S.night.wave++; window.scrollTo(0, 0); render(); } break;
+      case "nightdone": S.night = null; go("election"); break;
+      case "negotiate": S.coalition = { selected: {} }; go("coalition"); break;
+      case "coalconfirm": {
+        var rC = g.lastElection; if (!rC || !S.coalition) break;
+        var members = [g.party], seatsC = rC.playerSeats;
+        Object.keys(S.coalition.selected).forEach(function (p) {
+          if (!S.coalition.selected[p]) return;
+          members.push(p); seatsC += rC.totals[p] || 0;
+          applyDemand(g, COALITION_DEMANDS[p] || {});
+        });
+        if (seatsC < 326) { toast("You need 326 seats to form a government."); break; }
+        rC.government = { type: "coalition", formateur: g.party, members: members, seats: seatsC, needed: 326, sitting: 650 };
+        g.coalitionPartners = members.slice(1);
+        E.computeFiscal(g); g.approval = E.computeApproval(g);
+        S.coalition = null;
+        toast("🤝 Coalition formed — " + members.map(function (p) { return U.pshort(p); }).join(" + "));
+        if (g.choosePledges) { S.pledgeSel = []; go("pledges"); } else go("govern");
+        break;
+      }
+      case "coalminority": {
+        var rM = g.lastElection;
+        if (rM) rM.government = { type: "minority", formateur: g.party, members: [g.party], seats: rM.playerSeats, needed: 326, sitting: 650 };
+        g.unity = Math.max(0, g.unity - 0.04);
+        g.coalitionPartners = null;
+        S.coalition = null;
+        toast("You will govern alone — every Commons vote will count.");
+        if (g.choosePledges) { S.pledgeSel = []; go("pledges"); } else go("govern");
+        break;
+      }
       case "takepower": {
         var pp = g.party;
         // carry the opposition campaign's most-promoted blocs into starting pledges

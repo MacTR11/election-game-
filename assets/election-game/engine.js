@@ -1965,6 +1965,7 @@
     marketIndicators: marketIndicators,
     chooseIndustrialStrategy: chooseIndustrialStrategy,
     updateSectors: updateSectors,
+    pairCompatible: pairCompatible,
     maxCapitalFor: maxCapitalFor,
     campaignBoost: campaignBoost,
     campaignAdj: campaignAdj,

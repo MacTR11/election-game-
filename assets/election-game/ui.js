@@ -9,9 +9,9 @@
 
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) {
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function pname(id) { return D.PARTIES[id] ? D.PARTIES[id].name : id; }
+  function pname(id) { return D.PARTIES[id] ? D.PARTIES[id].name : (id || "—"); }
   function pcolor(id) { return D.PARTIES[id] ? D.PARTIES[id].color : "#9aa0a6"; }
-  function pshort(id) { return D.PARTIES[id] ? D.PARTIES[id].short : id.toUpperCase(); }
+  function pshort(id) { return D.PARTIES[id] ? D.PARTIES[id].short : (id ? String(id).toUpperCase() : "—"); }
 
   // Left-to-right Commons seating order (progressive -> right-wing).
   var SEAT_ORDER = ["sf", "sdlp", "green", "pc", "snp", "lab", "ld", "alliance", "oth", "uup", "con", "dup", "reform"];
