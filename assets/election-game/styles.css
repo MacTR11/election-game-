@@ -826,7 +826,38 @@ select.sel { background: var(--bg-2); color: var(--ink); border: 1px solid var(-
 @media (max-width: 620px) {
   .seat-controls { grid-template-columns: 1fr; }
   .seat-table-wrap { max-height: 380px; }
+  .targets-summary { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Live constituency map header — sits directly under the headline so the
+   user sees the country recolour the moment a slider moves */
+.sim-livemap h3 b { color: var(--gold); font-variant-numeric: tabular-nums; }
+
+/* Targets & risks: summary cards + controls + table styling */
+.targets-summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 4px 0 14px; }
+.targets-stat { background: var(--bg-2); border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
+  padding: 9px 12px; }
+.targets-stat .lab2 { font-size: 10.5px; }
+.targets-stat b { display: block; font-size: 22px; font-weight: 800; margin-top: 3px; font-variant-numeric: tabular-nums; letter-spacing: -.3px; }
+.targets-controls { display: grid; grid-template-columns: 1.4fr auto; gap: 10px; align-items: center; margin-bottom: 12px; }
+@media (max-width: 620px) {
+  .targets-controls { grid-template-columns: 1fr; }
+}
+.targets-body { display: grid; gap: 18px; }
+.targets-body.two { grid-template-columns: 1fr 1fr; }
+@media (max-width: 880px) {
+  .targets-body.two { grid-template-columns: 1fr; }
+}
+.targets-block-h { display: flex; justify-content: space-between; align-items: center; margin: 0 0 8px; gap: 8px; }
+.targets-block-h h4 { margin: 0; font-size: 14px; }
+.targets-count { background: var(--bg-2); border: 1px solid var(--border); color: var(--ink-dim); font-weight: 800;
+  font-variant-numeric: tabular-nums; font-size: 12px; }
+.targets-tbl td { padding: 8px 10px; }
+.targets-tbl .seat-cell .seat-name { font-weight: 700; font-size: 13.5px; }
+.targets-tbl .seat-cell .seat-was { font-size: 11px; color: var(--ink-faint); display: block; margin-top: 2px; }
+.targets-tbl .pill { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; }
+.targets-tbl .pill .sw { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.seat-more { padding: 8px 4px 0; font-size: 12px; color: var(--ink-faint); text-align: center; }
 .modal h2 { margin: 8px 0 8px; font-size: 22px; }
 .modal p { margin: 0 0 16px; font-size: 14px; }
 .dilemma-opts { display: grid; gap: 10px; }
