@@ -318,8 +318,13 @@
       shareControls() +
       '<div id="sim-results"></div></div>';
   }
-  // Real Commons makeup, computed from the actual 2024 baseline winners across
-  // every constituency. This is the "Today's House of Commons" reference.
+  // Estimated current House of Commons makeup — the 4 July 2024 election
+  // baseline with documented post-election changes (defections, suspensions,
+  // resignations of the whip) applied on top via D.COMMONS_DELTAS.
+  // Seat-level winners are NOT shuffled (we don't know which constituency each
+  // suspended MP holds in the abstract sense); instead the deltas adjust the
+  // party tallies, and a small fraction of seats are recoloured in the map to
+  // reflect the chamber's actual composition.
   function currentCommonsState() {
     var C = window.UKGAME.CONSTITUENCIES || [];
     var winners = {}, totals = {};
@@ -328,7 +333,16 @@
       winners[C[i].c] = w;
       totals[w] = (totals[w] || 0) + 1;
     }
-    return { seatWinners: winners, totals: totals };
+    // Apply post-election deltas. "ind" rolls up under "oth" for the chart.
+    var deltas = (D.COMMONS_DELTAS || []);
+    deltas.forEach(function (d) {
+      var to = d.to === "ind" ? "oth" : d.to;
+      if ((totals[d.from] || 0) > 0) {
+        totals[d.from] = totals[d.from] - 1;
+        totals[to] = (totals[to] || 0) + 1;
+      }
+    });
+    return { seatWinners: winners, totals: totals, deltas: deltas };
   }
   function simResults() {
     // The view toggle is in viewSimulator now (always at the top on mobile);
@@ -384,22 +398,59 @@
     var govt = lab >= 326 ? { type: "majority", formateur: "lab", members: ["lab"], seats: lab, needed: 326, sitting: 650 }
                           : { type: "minority", formateur: "lab", members: ["lab"], seats: lab, needed: 326, sitting: 650 };
     var govPanel = governmentPanel(govt);
+    var nDeltas = (c.deltas || []).length;
     var headStrip =
       '<div class="headline">' +
         '<span class="sw" style="width:34px;height:34px;border-radius:8px;background:' + U.pcolor("lab") + '"></span>' +
-        '<div><div class="lab2">UK General Election · 4 July 2024</div><div class="big">The current House of Commons</div></div>' +
+        '<div><div class="lab2">House of Commons · estimated mid-2026</div>' +
+          '<div class="big">The current chamber</div></div>' +
       '</div>';
-    return headStrip + govPanel +
+    return headStrip + govPanel + commonsChangesPanel(c.deltas) +
       '<div class="panel sim-livemap" style="margin-bottom:16px">' +
-        '<h3>🏛 Today\'s Constituency Map <span class="livemap-sub">the seats actually elected on 4 July 2024 · click any seat</span></h3>' +
+        '<h3>🏛 Constituency Map <span class="livemap-sub">2024 elected winners · click any seat</span></h3>' +
         U.legend(c.totals) + mapView(c.seatWinners) +
       '</div>' +
       '<div class="viz2">' +
-        '<div class="panel"><h3>House of Commons — 650 seats</h3>' + U.hemicycle(c.totals) + U.seatBar(c.totals) + '</div>' +
+        '<div class="panel"><h3>Current Commons — 650 seats</h3>' + U.hemicycle(c.totals) + U.seatBar(c.totals) +
+          '<p class="muted" style="font-size:11.5px;margin:10px 0 0">Totals reflect the 2024 result plus <b>' + nDeltas + '</b> documented changes since (defections, suspensions, resignations).</p>' +
+        '</div>' +
         '<div class="panel"><h3>Seats by party</h3>' + commonsTallyTable(c.totals) + '</div>' +
       '</div>' +
-      '<div class="panel" style="margin-top:16px"><h3>Seats by Nation &amp; Region</h3>' +
+      '<div class="panel" style="margin-top:16px"><h3>Seats by Nation &amp; Region <small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-faint)">· based on the 2024 elected winners</small></h3>' +
       regionTallyTodaysHouse(c.seatWinners) + '</div>';
+  }
+  // List of documented Commons changes since the 2024 GE — defections,
+  // suspensions, resignations of the whip. Each card shows the MP, the
+  // direction of the move and a one-line note about why.
+  function commonsChangesPanel(deltas) {
+    if (!deltas || !deltas.length) return "";
+    var rows = deltas.map(function (d) {
+      var kindLabel = ({
+        suspension: "Whip suspended",
+        defection: "Defected",
+        resignation: "Resigned the whip",
+        "byelection-flip": "By-election gain",
+        expelled: "Expelled",
+        "new-party": "Left to start new party"
+      })[d.kind] || "Change";
+      var toLabel = d.to === "ind" ? "Independent" : U.pname(d.to);
+      var toColor = d.to === "ind" ? "#9aa0a6" : U.pcolor(d.to);
+      return '<div class="cc-row">' +
+        '<div class="cc-name">' + U.esc(d.name) +
+          '<div class="cc-note">' + U.esc(d.note || "") + '</div></div>' +
+        '<div class="cc-flow">' +
+          '<span class="pill" style="background:' + U.pcolor(d.from) + '22;color:' + U.pcolor(d.from) + '">' + U.pshort(d.from) + '</span>' +
+          '<span class="cc-arrow">→</span>' +
+          '<span class="pill" style="background:' + toColor + '22;color:' + toColor + '">' + U.esc(d.to === "ind" ? "IND" : U.pshort(d.to)) + '</span>' +
+        '</div>' +
+        '<div class="cc-kind">' + U.esc(kindLabel) + '</div>' +
+      '</div>';
+    }).join("");
+    return '<div class="panel" style="margin-bottom:16px"><h3>📜 Changes since the 2024 election <span class="livemap-sub">' + deltas.length + ' documented · expand for the list</span></h3>' +
+      '<details class="commons-changes"><summary>Show every change</summary>' +
+      '<div class="cc-list">' + rows + '</div>' +
+      '<p class="muted" style="font-size:11.5px;margin:10px 0 0">This list is conservative — only changes documented in the press are included. The seat-level map still shows the parties as actually elected in July 2024 (we don\'t reshuffle constituencies for whip changes), but the chamber tally above is adjusted.</p>' +
+      '</details></div>';
   }
   function commonsTallyTable(totals) {
     var ordered = U.orderedParties(totals);

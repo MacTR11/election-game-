@@ -2427,6 +2427,41 @@
   // the in-tray leans toward dilemmas on that theme (via DILEMMA_THEMES).
   // Set-and-forget steering, not a forced monthly click.
   // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // COMMONS_DELTAS — documented changes to House of Commons membership since
+  // the 4 July 2024 General Election. Each entry shifts ONE seat from "from"
+  // to "to". The Today's-House view applies these to the as-elected baseline
+  // to produce an estimated current makeup. Update as new changes occur.
+  //
+  // Notes:
+  // - "to" can be "ind" (independent / sits as Other), a recognised party id,
+  //   or a special id like "ipa" (Independent / Alliance — bucketed under oth).
+  // - "kind" tags the change for UI labelling: "suspension", "defection",
+  //   "resignation", "byelection-flip", "expelled", "new-party".
+  // - The list is intentionally conservative — only changes that have been
+  //   publicly documented are included. Where uncertain we err on the side of
+  //   leaving the seat with its 2024-elected party.
+  // ---------------------------------------------------------------------------
+  var COMMONS_DELTAS = [
+    // Labour MPs suspended over the 2-child cap rebellion (Jul 2024). Five of
+    // seven were later restored to the Labour whip; two continued to sit as
+    // independents (modelled here as the persistent state).
+    { name: "John McDonnell",     from: "lab", to: "ind", kind: "suspension",
+      note: "Suspended Jul 2024 over the two-child cap vote; whip not restored." },
+    { name: "Zarah Sultana",      from: "lab", to: "ind", kind: "new-party",
+      note: "Suspended Jul 2024 over the two-child cap; later left Labour to co-found a new party with Jeremy Corbyn." },
+    // Other Labour-side moves
+    { name: "Mike Amesbury",      from: "lab", to: "ind", kind: "expelled",
+      note: "Suspended after the late-2024 assault charge; convicted Feb 2025." },
+    { name: "Andrew Gwynne",      from: "lab", to: "ind", kind: "suspension",
+      note: "Whip removed Feb 2025 after WhatsApp messages came to light." },
+    { name: "Rosie Duffield",     from: "lab", to: "ind", kind: "resignation",
+      note: "Resigned the Labour whip in Sep 2024 over policy and conduct concerns." },
+    // Conservative-side movements
+    { name: "Rupert Lowe",        from: "reform", to: "ind", kind: "suspension",
+      note: "Reform UK whip suspended Mar 2025 amid internal party dispute." }
+  ];
+
   var FOCUSES = [
     { id: "economy",  name: "Economy",         icon: "📈",
       blurb: "Growth, jobs and the public finances get the PM's attention.",
@@ -2533,6 +2568,7 @@
     PERSONAS: PERSONAS,
     FOCUSES: FOCUSES,
     DILEMMA_THEMES: DILEMMA_THEMES,
+    COMMONS_DELTAS: COMMONS_DELTAS,
     SECTORS: SECTORS,
     INDUSTRIAL_STRATEGIES: INDUSTRIAL_STRATEGIES,
     CRISES: CRISES,
