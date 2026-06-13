@@ -318,8 +318,8 @@
     // Mounted at the top so it stays visible (sticky on mobile) while the
     // controls + detailed result panels scroll beneath it.
     var initial = view === "projection" ? simStickySummary(currentProjection()) : "";
-    return '<h2 class="section-title">General Election Simulator</h2>' +
-      '<p class="subtitle">Dial in the national vote — every seat recolours live.</p>' +
+    return '<h2 class="section-title sim-page-title">General Election Simulator</h2>' +
+      '<p class="subtitle sim-page-subtitle">Dial in the national vote — every seat recolours live.</p>' +
       viewToggle +
       '<div id="sim-stickybar-mount">' + initial + '</div>' +
       '<div class="split" id="simgrid">' +
@@ -399,7 +399,7 @@
         '</h3>' +
         U.legend(r.totals, { shares: shares }) + mapView(r.seatWinners) +
       '</div>';
-    return rescaleNote + U.headline(r) + governmentPanel(r.government) +
+    return rescaleNote + '<div class="sim-headline-row">' + U.headline(r) + '</div>' + governmentPanel(r.government) +
       liveMap +
       '<div class="viz2">' +
         '<div class="panel"><h3>National Vote &amp; Swing vs 2024</h3>' + U.voteSwing(shares) + '</div>' +
