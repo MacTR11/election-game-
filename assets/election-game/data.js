@@ -2458,8 +2458,8 @@
     { name: "Rosie Duffield",     from: "lab", to: "ind", kind: "resignation",
       note: "Resigned the Labour whip in Sep 2024 over policy and conduct concerns." },
     // Conservative-side movements
-    { name: "Rupert Lowe",        from: "reform", to: "ind", kind: "suspension",
-      note: "Reform UK whip suspended Mar 2025 amid internal party dispute." }
+    { name: "Rupert Lowe",        from: "reform", to: "restore", kind: "defection",
+      note: "Suspended from Reform UK in Mar 2025; now sits with Restore Britain." }
   ];
 
   var FOCUSES = [

@@ -63,7 +63,7 @@ a { color: var(--commons-l); }
 .topbar {
   display: flex; align-items: center; gap: 14px;
   padding: 13px 22px; border-bottom: 1px solid var(--border-soft);
-  background: rgba(12,16,23,.82); backdrop-filter: blur(10px);
+  background: rgba(12,16,23,.82); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   position: sticky; top: 0; z-index: 30;
 }
 .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; letter-spacing: .2px; }
@@ -120,7 +120,7 @@ a { color: var(--commons-l); }
 }
 .panel h3 { margin: 0 0 13px; font-size: 12.5px; letter-spacing: .7px; text-transform: uppercase; color: var(--ink-dim); font-weight: 700; }
 .grid { display: grid; gap: 16px; }
-.split { display: grid; gap: 16px; grid-template-columns: 380px minmax(0, 1fr); align-items: start; }
+.split { display: grid; gap: 16px; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); align-items: start; }
 .two { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .muted { color: var(--ink-dim); }
 .faint { color: var(--ink-faint); }
@@ -368,7 +368,7 @@ kbd { display: inline-block; background: var(--bg-2); border: 1px solid var(--bo
   padding: 2px 7px; font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 11px; font-weight: 700; color: var(--ink); margin-right: 4px; }
 /* Inline policy ± nudge buttons (no modal needed for small steps) */
 .pol-nudge-cell { display: inline-flex; gap: 3px; }
-.pol-nudge { width: 26px; height: 26px; padding: 0; line-height: 1; border-radius: 6px;
+.pol-nudge { width: 30px; height: 30px; padding: 0; line-height: 1; border-radius: 7px;
   border: 1px solid var(--border); background: var(--bg-2); color: var(--ink); font-size: 17px; font-weight: 700; cursor: pointer; }
 .pol-nudge:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
 .pol-nudge:disabled { opacity: .3; cursor: not-allowed; }
@@ -599,8 +599,7 @@ svg.dualchart { width: 100%; height: 150px; display: block; }
   .election-hero .verdict { font-size: 24px; }
   .election-hero .hero-stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .election-hero .big { font-size: 22px; }
-  .modal { padding: 14px 16px; max-width: 96vw; }
-  .modal h2 { font-size: 18px; }
+  .modal { max-width: 96vw; }
 }
 
 /* economy charts */
@@ -1080,7 +1079,7 @@ tr.clickrow:hover td { background: var(--panel-2); }
   .pol-name { font-size: 12.5px; }
   .pol-name small { font-size: 10.5px; }
   .pol-val { font-size: 12.5px; }
-  .pol-nudge { width: 26px; height: 26px; font-size: 15px; }
+  .pol-nudge { width: 32px; height: 32px; font-size: 16px; }
 }
 @media (max-width: 380px) {
   .nav-btn { padding: 5px 7px; font-size: 11px; }
@@ -1125,8 +1124,9 @@ tr.clickrow:hover td { background: var(--panel-2); }
   .panel { padding: 14px 14px; border-radius: 12px; }
   .panel h3 { font-size: 11.5px; }
 
-  /* simulator: stack share controls + results, view-toggle full width */
-  .split#simgrid { grid-template-columns: 1fr !important; }
+  /* simulator: stack share controls + results, view-toggle full width.
+     (The order swap into a single flex column lives in the 820px block above;
+     no separate grid rule needed here.) */
   .sim-view-toggle { width: 100%; }
   .sim-view-pill { flex: 1; height: 36px; padding: 0 10px; font-size: 12.5px; }
   .sim-toolbar { gap: 6px; }

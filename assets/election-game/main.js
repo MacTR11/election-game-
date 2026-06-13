@@ -1290,7 +1290,7 @@
       var up = k > 0, good = up ? !statIsBadWhenHigh(sid) : statIsBadWhenHigh(sid);
       var mag = Math.min(3, Math.ceil(Math.abs(k) / 0.18));
       return '<div class="eff-row"><span>' + (STAT_NAME[sid] || sid) + '</span>' +
-        '<span style="color:' + (good ? "var(--good)" : "var(--bad)") + '">' + (up ? "▲" : "▼") + " ".repeat(0) +
+        '<span style="color:' + (good ? "var(--good)" : "var(--bad)") + '">' + (up ? "▲" : "▼") +
         '<span class="faint" style="margin-left:4px">' + "▮".repeat(mag) + '</span></span></div>';
     }).join("") || '<div class="faint">No direct economic effect.</div>';
     // voter winners / losers if raised
