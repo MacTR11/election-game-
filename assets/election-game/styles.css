@@ -170,19 +170,24 @@ a { color: var(--commons-l); }
 .outcome-maj { color: var(--good); } .outcome-hung { color: var(--warn); }
 
 /* ---- sliders ----
-   Each row is 2 lines: meta (party name + share input) on top, slider below.
-   Tight vertical rhythm so 9 sliders don't dominate the simulator. */
-.slider-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
-.slider-row { display: flex; flex-direction: column; gap: 4px; padding: 0; min-width: 0; }
-.slider-meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.slider-name { font-size: 13px; font-weight: 700; letter-spacing: -.1px; }
-.slider-row input[type=range] { width: 100%; min-width: 0; accent-color: var(--track, var(--commons-l)); height: 22px; margin: 0; }
+   Single-line: short label + flexible slider + numeric input. Compact rhythm
+   so 9 sliders sit on roughly one phone screen. */
+.slider-grid { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.slider-row { display: flex; align-items: center; gap: 10px; padding: 0; min-width: 0; }
+.slider-name { font-size: 12.5px; font-weight: 800; letter-spacing: -.1px; flex: none; }
+.slider-name .slider-long { display: inline; }
+.slider-name .slider-short { display: none; }
+.slider-row input[type=range] { flex: 1; min-width: 0; accent-color: var(--track, var(--commons-l)); height: 24px; margin: 0; }
 .slider-row input[type=range]:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(122,168,99,.3); border-radius: 4px; }
-.share-input { width: 64px; background: var(--bg-2); border: 1px solid var(--border-soft); color: var(--ink);
+.share-input { width: 60px; background: var(--bg-2); border: 1px solid var(--border-soft); color: var(--ink);
   border-radius: 7px; padding: 3px 7px; height: 28px; text-align: right;
-  font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 700; font-family: inherit;
-  transition: border-color .15s, box-shadow .15s; }
+  font-variant-numeric: tabular-nums; font-size: 12.5px; font-weight: 700; font-family: inherit;
+  transition: border-color .15s, box-shadow .15s; flex: none; }
 .share-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212,175,55,.25); }
+/* desktop: give the party name a fixed column so sliders align */
+@media (min-width: 621px) {
+  .slider-name { width: 96px; }
+}
 
 /* ---- govern dashboard ---- */
 .dash { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 18px; align-items: start; }
@@ -1113,23 +1118,30 @@ tr.clickrow:hover td { background: var(--panel-2); }
   .panel { padding: 14px 14px; border-radius: 12px; }
   .panel h3 { font-size: 11.5px; }
 
-  /* simulator: stack share controls + results, view-toggle full width.
-     (The order swap into a single flex column lives in the 820px block above;
-     no separate grid rule needed here.) */
+  /* simulator: compact controls on mobile so the sliders + results both
+     fit on roughly one screen. View toggle full width; head + toolbar stack
+     when needed. */
   .sim-view-toggle { width: 100%; }
-  .sim-view-pill { flex: 1; height: 36px; padding: 0 10px; font-size: 12.5px; }
-  .sim-toolbar { gap: 6px; }
-  .sim-toolbar .btn { height: 32px; font-size: 12px; padding: 0 10px; }
-  .sim-total { font-size: 12px; gap: 7px; }
-  .sim-normbtn { height: 28px; padding: 0 10px; }
-  .sim-offnote { font-size: 10.5px; }
+  .sim-view-pill { flex: 1; height: 34px; padding: 0 10px; font-size: 12.5px; }
+  .sim-controls { padding: 12px 12px 14px; }
+  .sim-controls-head { flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .sim-controls-head h3 { font-size: 11.5px; }
+  .sim-toolbar { gap: 6px; margin-bottom: 8px; }
+  .sim-toolbar .btn { height: 30px; font-size: 11.5px; padding: 0 9px; }
+  .sim-total { font-size: 12px; gap: 6px; padding: 4px 6px 4px 10px; }
+  .sim-total b { font-size: 13.5px; }
+  .sim-total .sim-total-label { font-size: 9.5px; }
+  .sim-normbtn { height: 24px; padding: 0 9px; font-size: 11px; }
+  .sim-offnote { font-size: 11px; padding: 6px 9px; margin-bottom: 8px; }
 
-  /* sliders: bigger drag target on mobile but row stays compact */
-  .slider-grid { gap: 8px; }
+  /* sliders: short labels, tight single-line rows so 9 fit on one screen */
+  .slider-grid { gap: 5px; }
+  .slider-row { gap: 8px; }
+  .slider-name { font-size: 12px; width: 36px; flex: none; text-align: left; }
+  .slider-name .slider-long { display: none; }
+  .slider-name .slider-short { display: inline; }
   .slider-row input[type=range] { height: 28px; }
-  .share-input { width: 68px; height: 30px; font-size: 13px; }
-  .slider-name { font-size: 13px; }
-  .slider-row { gap: 2px; }
+  .share-input { width: 54px; height: 28px; font-size: 12.5px; padding: 0 6px; }
 
   /* live map / today's map header: stack the sub-text below the title */
   .sim-livemap h3 { line-height: 1.35; }

@@ -264,17 +264,20 @@
 
   // --------------------------------------------------- shared share controls
   function shareControls() {
-    // each slider row carries the share value inline next to the name (no more
-    // throwaway number column at the right) — pulls every row to a clean
-    // 2-line block that reads well at any width.
+    // single-line rows: short label, full-flex slider, share input. Much
+    // tighter than a two-line layout — 9 sliders fit cleanly even on a
+    // 360px viewport. The long party name shows on >= 620px (CSS toggles
+    // .slider-long vs .slider-short).
     var rows = SHARE_PARTIES.map(function (p) {
       var v = S.shares[p] != null ? S.shares[p] : 0;
+      var color = U.pcolor(p);
       return '<div class="slider-row" data-row="' + p + '">' +
-        '<div class="slider-meta">' +
-          '<span class="slider-name" style="color:' + U.pcolor(p) + '">' + U.pname(p) + '</span>' +
-          '<input class="share-input" type="number" inputmode="decimal" min="0" max="60" step="0.1" data-shareinput="' + p + '" value="' + v.toFixed(1) + '" aria-label="' + U.esc(U.pname(p)) + ' share">' +
-        '</div>' +
-        '<input type="range" min="0" max="60" step="0.1" value="' + v + '" data-share="' + p + '" style="--track:' + U.pcolor(p) + '" aria-label="' + U.esc(U.pname(p)) + ' share">' +
+        '<span class="slider-name" style="color:' + color + '">' +
+          '<span class="slider-long">' + U.pname(p) + '</span>' +
+          '<span class="slider-short">' + U.pshort(p) + '</span>' +
+        '</span>' +
+        '<input type="range" min="0" max="60" step="0.1" value="' + v + '" data-share="' + p + '" style="--track:' + color + '" aria-label="' + U.esc(U.pname(p)) + ' share">' +
+        '<input class="share-input" type="number" inputmode="decimal" min="0" max="60" step="0.1" data-shareinput="' + p + '" value="' + v.toFixed(1) + '" aria-label="' + U.esc(U.pname(p)) + ' share">' +
       '</div>';
     }).join("");
     var sum = SHARE_PARTIES.reduce(function (a, p) { return a + (S.shares[p] || 0); }, 0);
