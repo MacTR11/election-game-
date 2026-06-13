@@ -264,37 +264,56 @@
 
   // --------------------------------------------------- shared share controls
   function shareControls() {
+    // each slider row carries the share value inline next to the name (no more
+    // throwaway number column at the right) — pulls every row to a clean
+    // 2-line block that reads well at any width.
     var rows = SHARE_PARTIES.map(function (p) {
       var v = S.shares[p] != null ? S.shares[p] : 0;
-      return '<div class="slider-row"><div class="name" style="color:' + U.pcolor(p) + '">' + U.pname(p) +
-        '</div><input type="range" min="0" max="60" step="0.1" value="' + v + '" data-share="' + p + '">' +
-        '<input class="share-input" type="number" min="0" max="60" step="0.1" data-shareinput="' + p + '" value="' + v.toFixed(1) + '"></div>';
+      return '<div class="slider-row" data-row="' + p + '">' +
+        '<div class="slider-meta">' +
+          '<span class="slider-name" style="color:' + U.pcolor(p) + '">' + U.pname(p) + '</span>' +
+          '<input class="share-input" type="number" inputmode="decimal" min="0" max="60" step="0.1" data-shareinput="' + p + '" value="' + v.toFixed(1) + '" aria-label="' + U.esc(U.pname(p)) + ' share">' +
+        '</div>' +
+        '<input type="range" min="0" max="60" step="0.1" value="' + v + '" data-share="' + p + '" style="--track:' + U.pcolor(p) + '" aria-label="' + U.esc(U.pname(p)) + ' share">' +
+      '</div>';
     }).join("");
     var sum = SHARE_PARTIES.reduce(function (a, p) { return a + (S.shares[p] || 0); }, 0);
     var off = Math.abs(sum - 100) >= 0.5;
     var sumCol = !off ? "var(--good)" : Math.abs(sum - 100) < 5 ? "var(--warn)" : "var(--bad)";
     var src = S.lastPollSource ? '<p class="notice" style="color:var(--commons-l);margin:8px 0 0">Loaded: ' + U.esc(S.lastPollSource) + '</p>' : "";
-    return '<div class="panel sim-controls"><h3>National Vote Share <small style="font-weight:400;text-transform:none;letter-spacing:0">· GB %</small></h3>' +
+    return '<div class="panel sim-controls" id="sim-shares">' +
+      '<div class="sim-controls-head"><h3>Vote shares <small>· GB %</small></h3>' +
+        '<div class="sim-total" id="simtotal" style="color:' + sumCol + '">' +
+          '<span class="sim-total-label">Total</span><b>' + sum.toFixed(1) + '%</b>' +
+          '<button class="btn sm sim-normbtn" data-act="normalise"' + (off && sum > 0 ? "" : " disabled") + '>⚖ Scale to 100%</button>' +
+        '</div>' +
+      '</div>' +
       '<div class="sim-toolbar">' +
         '<button class="btn sm" data-act="fetchpolls" id="fetchbtn">↻ Latest polls</button>' +
         '<button class="btn sm" data-act="reset2024">↺ Reset to 2024</button>' +
-        '<button class="btn sm" data-act="share">🔗 Share</button>' +
+        '<button class="btn sm" data-act="share">🔗 Share link</button>' +
       '</div>' +
-      '<div class="sim-total" id="simtotal" style="color:' + sumCol + '">Total: <b>' + sum.toFixed(1) + '%</b>' +
-        '<button class="btn sm sim-normbtn" data-act="normalise"' + (off && sum > 0 ? "" : " disabled") + '>⚖ Scale to 100%</button>' +
-        '<span class="sim-offnote"' + (off ? "" : " hidden") + '>projection rescales to 100% behind the scenes</span>' +
-      '</div>' +
-      rows + src +
+      '<span class="sim-offnote"' + (off ? "" : " hidden") + '>Off 100% — the projection rescales internally; press <b>Scale to 100%</b> to lock in.</span>' +
+      '<div class="slider-grid">' + rows + '</div>' + src +
       '<details class="sim-help"><summary>How does this work?</summary>' +
-      '<p class="muted" style="font-size:12.5px;margin:8px 0 0">Sliders move only the party you touch. The projection always treats the shares as fractions of 100% — so if your total drifts off, the chart uses rescaled values (the "Total" colour shows how far off you are). Hit <b>⚖ Scale to 100%</b> to lock them in. <b>↻ Latest polls</b> fetches the current poll-of-polls live from Wikipedia\'s "Opinion polling for the next UK general election" article. Swing is measured versus the 2024 result.</p>' +
+      '<p class="muted" style="font-size:12.5px;margin:8px 0 0">Sliders move only the party you touch. The projection always treats the shares as fractions of 100% — so if your total drifts off, the chart uses rescaled values. Hit <b>⚖ Scale to 100%</b> to lock them in. <b>↻ Latest polls</b> fetches the current poll-of-polls live from Wikipedia\'s "Opinion polling for the next UK general election" article. Swing is measured versus the 2024 result.</p>' +
       '</details>' +
       '</div>';
   }
 
   // --------------------------------------------------------- simulator view
   function viewSimulator() {
+    // View toggle lives ABOVE everything else so it's the first thing the
+    // user sees on mobile (where the layout stacks).
+    var view = S.simView || "projection";
+    var viewToggle =
+      '<div class="sim-view-toggle">' +
+        '<button class="sim-view-pill' + (view === "projection" ? " on" : "") + '" data-simview="projection">⚖ Projection</button>' +
+        '<button class="sim-view-pill' + (view === "today" ? " on" : "") + '" data-simview="today">🏛 Today\'s House</button>' +
+      '</div>';
     return '<h2 class="section-title">General Election Simulator</h2>' +
-      '<p class="subtitle">Adjust the national vote and watch the Commons recompose, seat by seat.</p>' +
+      '<p class="subtitle">Dial in the national vote — every seat recolours live.</p>' +
+      viewToggle +
       '<div class="split" id="simgrid">' +
       shareControls() +
       '<div id="sim-results"></div></div>';
@@ -312,14 +331,11 @@
     return { seatWinners: winners, totals: totals };
   }
   function simResults() {
-    // View toggle — Projection (the swingometer) vs Today's House (the real
-    // post-2024 Commons makeup, unchanged by the sliders).
+    // The view toggle is in viewSimulator now (always at the top on mobile);
+    // this function just renders the chosen view's content.
     var view = S.simView || "projection";
-    var pillProj = '<button class="sim-view-pill' + (view === "projection" ? " on" : "") + '" data-simview="projection">⚖ Projection</button>';
-    var pillToday = '<button class="sim-view-pill' + (view === "today" ? " on" : "") + '" data-simview="today">🏛 Today\'s House</button>';
-    var viewToggle = '<div class="sim-view-toggle">' + pillProj + pillToday + '</div>';
 
-    if (view === "today") return viewToggle + simResultsTodaysHouse();
+    if (view === "today") return simResultsTodaysHouse();
 
     var raw = pickShares();
     var shares = normShares(raw);
@@ -342,7 +358,9 @@
         '</h3>' +
         U.legend(r.totals, { shares: shares }) + mapView(r.seatWinners) +
       '</div>';
-    return viewToggle + rescaleNote + U.headline(r) + governmentPanel(r.government) +
+    // Mobile-only quick-link to the share controls below the results.
+    var jumpToShares = '<a class="sim-jumplink" href="#sim-shares" data-jumpshares>↓ Edit national vote shares</a>';
+    return jumpToShares + rescaleNote + U.headline(r) + governmentPanel(r.government) +
       liveMap +
       '<div class="viz2">' +
         '<div class="panel"><h3>National Vote &amp; Swing vs 2024</h3>' + U.voteSwing(shares) + '</div>' +
@@ -3048,8 +3066,10 @@
       tot.style.color = !off ? "var(--good)" : Math.abs(sum - 100) < 5 ? "var(--warn)" : "var(--bad)";
       var b = tot.querySelector("b"); if (b) b.textContent = sum.toFixed(1) + "%";
       var nb = tot.querySelector(".sim-normbtn"); if (nb) nb.disabled = !(off && sum > 0);
-      var note = tot.querySelector(".sim-offnote"); if (note) note.hidden = !off;
     }
+    // off-note now lives outside the total chip — query at panel level
+    var note = document.querySelector(".sim-controls .sim-offnote");
+    if (note) note.hidden = !off;
   }
 
   function bindShareControls() {
@@ -3102,6 +3122,13 @@
     });
     app.querySelectorAll("[data-simview]").forEach(function (el) {
       el.addEventListener("click", function () { S.simView = el.getAttribute("data-simview"); refreshSim(); });
+    });
+    app.querySelectorAll("[data-jumpshares]").forEach(function (el) {
+      el.addEventListener("click", function (e) {
+        e.preventDefault();
+        var target = document.getElementById("sim-shares");
+        if (target && target.scrollIntoView) target.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     });
     app.querySelectorAll("[data-targetsview]").forEach(function (el) {
       el.addEventListener("click", function () { S.targetsView = el.getAttribute("data-targetsview"); refreshSim(); });
