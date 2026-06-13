@@ -51,16 +51,25 @@ html, body { margin: 0; padding: 0; overflow-x: hidden; }
    - overflow-wrap on text containers so a long unbreakable word can't burst out
 */
 img, svg, table { max-width: 100%; }
-.panel, .panel p, .panel h2, .panel h3, .panel h4, .panel li,
-.panel span, .panel div, .panel small, .modal p {
-  overflow-wrap: anywhere; word-break: normal;
+/* Conservative: break only words that genuinely don't fit (overflow-wrap:
+   break-word). Earlier I had `anywhere` here which made paragraphs split
+   mid-word everywhere — that's what produced "documented ch... anges"
+   in your screenshot. */
+.panel p, .panel h2, .panel h3, .panel h4, .panel li, .modal p {
+  overflow-wrap: break-word;
 }
 /* Make any table that risks horizontal overflow scrollable inside its panel
    instead of forcing the whole page wider than the viewport. The wrapping
    div renders horizontally scrollable; the table renders normally. */
 .tbl-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.panel { min-width: 0; }
+.panel { min-width: 0; max-width: 100%; }
 .panel * { min-width: 0; }
+/* Belt-and-braces: any direct child of #sim-results or #app that's
+   somehow still claiming a wider min-width gets clipped to its container. */
+#app, #app > *, #sim-results, #sim-results > * { max-width: 100%; }
+/* The dash grid on the govern screen and any .split parent stays
+   constrained — its children can shrink in flex/grid. */
+.dash, .split, .viz2, .two { min-width: 0; }
 body {
   font-family: var(--font);
   background:
@@ -94,10 +103,13 @@ a { color: var(--commons-l); }
 .brand .sub { font-size: 10.5px; color: var(--ink-faint); font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; }
 .topbar .spacer { flex: 1; }
 .nav-btn {
+  display: inline-flex; align-items: center; gap: 6px;
   background: transparent; color: var(--ink-dim); border: 1px solid transparent;
   padding: 8px 13px; border-radius: 9px; cursor: pointer; font-weight: 600; font-size: 13px;
+  font-family: inherit; white-space: nowrap;
   transition: color .15s, background .15s, border-color .15s;
 }
+.nav-btn .nav-icon { font-size: 15px; line-height: 1; }
 .nav-btn:hover { color: var(--ink); background: var(--panel); }
 .nav-btn.active { color: var(--ink); background: var(--panel); border-color: var(--border); }
 
@@ -1099,7 +1111,12 @@ tr.clickrow:hover td { background: var(--panel-2); }
   .topbar .brand .ttl { font-size: 16px; }
   .topbar .brand .sub { display: none; }
   .topbar .spacer { flex: 1; min-width: 8px; }
-  .nav-btn { padding: 7px 11px; font-size: 12.5px; flex-shrink: 0; height: 32px; }
+  .nav-btn { padding: 7px 9px; font-size: 12px; flex-shrink: 0; height: 32px; gap: 0; }
+  /* On mobile we hide the text labels and show just the icon — the
+     active button is highlighted so the user can still tell which screen
+     they're on without "Election Simulator" overflowing the bar. */
+  .nav-btn .nav-text { display: none; }
+  .nav-btn .nav-icon { font-size: 17px; }
 
   /* headline / hero / modes / modals untouched in this block */
   .hero { padding: 24px 6px 18px; }
@@ -1163,6 +1180,7 @@ tr.clickrow:hover td { background: var(--panel-2); }
 }
 @media (max-width: 380px) {
   .nav-btn { padding: 5px 7px; font-size: 11px; }
+  .nav-btn .nav-icon { font-size: 16px; }
   .kpi .v { font-size: 15px; }
   .topbar .brand .ttl { font-size: 14px; }
 }
