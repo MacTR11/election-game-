@@ -399,17 +399,21 @@
         '</h3>' +
         U.legend(r.totals, { shares: shares }) + mapView(r.seatWinners) +
       '</div>';
+    // ESSENTIAL panels (always visible): the headline / government / live
+    // map / hemicycle — these are the at-a-glance "what did I just do?".
+    // SECONDARY panels (collapsed on mobile via .sim-deep wrapper) — vote
+    // swing chart, seat detail, targets, battlegrounds, explorer, regions.
     return rescaleNote + '<div class="sim-headline-row">' + U.headline(r) + '</div>' + governmentPanel(r.government) +
       liveMap +
-      '<div class="viz2">' +
-        '<div class="panel"><h3>National Vote &amp; Swing vs 2024</h3>' + U.voteSwing(shares) + '</div>' +
-        '<div class="panel"><h3>House of Commons — 650 seats</h3>' + U.hemicycle(r.totals) + U.seatBar(r.totals) + '</div>' +
-      '</div>' +
+      '<div class="panel" style="margin-bottom:16px"><h3>House of Commons — 650 seats</h3>' + U.hemicycle(r.totals) + U.seatBar(r.totals) + '</div>' +
+      '<details class="sim-deep" open><summary class="sim-deep-summary">More analysis &amp; tools <span class="sim-deep-arrow">▾</span></summary>' +
+      '<div class="panel" style="margin-top:14px"><h3>National Vote &amp; Swing vs 2024</h3>' + U.voteSwing(shares) + '</div>' +
       seatDetailPanel(shares) +
       partyTargetsPanel(allSeats, r) +
       battlegroundPanel(bg) +
       seatsExplorerPanel(allSeats) +
       regionTable(r) +
+      '</details>' +
       '<div class="panel" style="margin-top:16px"><details><summary class="sim-summary">How seats are modelled</summary>' +
       '<p class="muted" style="font-size:13px;margin:8px 0 8px">Every one of the 650 constituencies carries its <b>real July 2024 result</b> (actual Conservative / Labour / Reform vote shares and the real winning party; the remaining parties are region-calibrated to the published regional results). To project an outcome the model takes your national vote shares, works out each party\'s <b>swing versus 2024</b>, applies that swing uniformly to every seat, then awards each seat to the highest share — first-past-the-post, aggregated across all 650. At zero swing it reproduces the exact 2024 Commons (Lab 411, Con 121, LD 72, SNP 9, Reform 5…).</p>' +
       '<p class="muted" style="font-size:13px;margin:0">This is the classic <b>uniform national swing</b> swingometer. It\'s an estimate, not a forecast: in reality swing varies by region and demographic, and tactical voting, incumbency and local candidates aren\'t captured. Professional models (Electoral Calculus, YouGov MRP) layer regional/demographic transition models on much more data. Boundary data: mySociety; 2024 results: House of Commons Library / published constituency results.</p></details></div>';
@@ -3204,7 +3208,13 @@
       });
     });
     app.querySelectorAll("[data-simview]").forEach(function (el) {
-      el.addEventListener("click", function () { S.simView = el.getAttribute("data-simview"); refreshSim(); });
+      el.addEventListener("click", function () {
+        S.simView = el.getAttribute("data-simview");
+        // full re-render — refreshSim only swaps inner #sim-results, but the
+        // view-toggle pills themselves live in the OUTER markup so they wouldn't
+        // update their .on state otherwise.
+        render();
+      });
     });
     app.querySelectorAll("[data-targetsview]").forEach(function (el) {
       el.addEventListener("click", function () { S.targetsView = el.getAttribute("data-targetsview"); refreshSim(); });

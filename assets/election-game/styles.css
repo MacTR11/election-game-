@@ -43,7 +43,11 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
+html, body { margin: 0; padding: 0; max-width: 100vw; overflow-x: hidden; }
+/* Belt-and-braces: any descendant that overflows horizontally gets clipped at
+   the viewport instead of forcing a zoom-out. SVGs and tables get their own
+   wrappers with overflow-x: auto where they need to scroll. */
+img, svg, table { max-width: 100%; }
 body {
   font-family: var(--font);
   background:
@@ -691,7 +695,7 @@ input[type=range] { touch-action: none; height: 24px; }
 /* sub-tabs and map toggle keep the boxed look but stay subtle */
 .tabs.subtabs, .maptoggle { background: var(--bg-2); }
 
-table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.tbl { width: 100%; min-width: 0; border-collapse: collapse; font-size: 13px; table-layout: auto; }
 table.tbl th, table.tbl td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); }
 table.tbl th { color: var(--ink-dim); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
 table.tbl td.num, table.tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -891,6 +895,23 @@ select.sel { background: var(--bg-2); color: var(--ink); border: 1px solid var(-
   .sim-page-title, .sim-page-subtitle, .sim-headline-row { display: none; }
 }
 
+/* "More analysis & tools" — secondary panels collapsed behind one expand.
+   On mobile that's the only way to keep the scroll length sane; on desktop
+   it stays open by default. */
+.sim-deep > .sim-deep-summary { list-style: none; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; margin-top: 16px;
+  background: var(--bg-2); border: 1px solid var(--border-soft); border-radius: 999px;
+  color: var(--ink-dim); font-weight: 700; font-size: 13px; transition: color .15s, border-color .15s; }
+.sim-deep > .sim-deep-summary::-webkit-details-marker { display: none; }
+.sim-deep > .sim-deep-summary:hover { color: var(--gold); border-color: var(--gold); }
+.sim-deep-arrow { font-size: 14px; transition: transform .2s; }
+.sim-deep[open] > .sim-deep-summary .sim-deep-arrow { transform: rotate(180deg); }
+@media (max-width: 820px) {
+  /* default closed on mobile; the [open] attribute set in markup is the
+     desktop default — strip it via the close-by-default selector below */
+  .sim-deep:not([data-keep-open]):not([open]) { /* state when user has closed it */ }
+}
+
 /* Sticky compact result bar — always visible above the controls so the user
    sees their projection update live as they drag sliders, without scrolling.
    Subtle on desktop (sits inline above the grid), sticky on mobile. */
@@ -933,10 +954,13 @@ select.sel { background: var(--bg-2); color: var(--ink); border: 1px solid var(-
 .sim-view-toggle { display: inline-flex; background: var(--bg-2);
   border: 1px solid var(--border-soft); border-radius: 12px;
   padding: 4px; gap: 3px; margin: -4px 0 16px; }
-.sim-view-pill { padding: 7px 14px; border-radius: 8px; cursor: pointer;
+.sim-view-pill { padding: 7px 12px; border-radius: 8px; cursor: pointer;
   background: transparent; border: 1px solid transparent; color: var(--ink-dim);
-  font-weight: 600; font-size: 13px; font-family: inherit; height: 32px;
-  transition: background .15s, color .15s; white-space: nowrap; }
+  font-weight: 600; font-size: 13px; font-family: inherit; height: 32px; flex: 1;
+  text-align: center; min-width: 0;
+  transition: background .15s, color .15s; white-space: nowrap;
+  text-overflow: ellipsis; overflow: hidden; }
+.sim-view-toggle { width: 100%; max-width: 100%; }
 .sim-view-pill:hover { color: var(--ink); }
 .sim-view-pill.on { background: var(--panel-2); border-color: var(--border); color: var(--ink);
   box-shadow: 0 1px 3px rgba(0,0,0,.3); }
