@@ -97,14 +97,27 @@
     var vx = [], vyy = [];
     for (i = 0; i < 6; i++) { var a = Math.PI / 180 * (30 + 60 * i); vx.push(size * Math.cos(a)); vyy.push(size * Math.sin(a)); }
     var parts = [];
+    // partial mode: when opts.partial is set, undeclared seats render as
+    // a neutral slate fill instead of falling back to the 2024 winner. This
+    // is what the election-night ticker needs — the map should fill in,
+    // not start fully coloured with the as-elected baseline.
+    var partial = !!opts.partial;
     for (i = 0; i < pos.length; i++) {
-      var p = pos[i], party = seatWinners ? (seatWinners[p.s.c] || p.s.w) : p.s.w;
+      var p = pos[i];
+      var party;
+      var declared = false;
+      if (seatWinners && seatWinners[p.s.c]) { party = seatWinners[p.s.c]; declared = true; }
+      else if (partial) { party = null; }
+      else { party = p.s.w; declared = true; }
+      var fill = party ? pcolor(party) : "#1a2233";
       var pts = [];
       for (var j = 0; j < 6; j++) pts.push((p.cx + vx[j]).toFixed(1) + "," + (p.cy + vyy[j]).toFixed(1));
       var hl = opts.highlight === p.s.c;
-      parts.push('<polygon data-seat="' + p.s.c + '" points="' + pts.join(" ") + '" fill="' + pcolor(party) +
+      var title = declared ? esc(p.s.n) + " — " + esc(pname(party)) : esc(p.s.n) + " — undeclared";
+      parts.push('<polygon data-seat="' + p.s.c + '" points="' + pts.join(" ") + '" fill="' + fill +
         '"' + (hl ? ' stroke="#fff" stroke-width="2.4"' : ' stroke="#0d1117" stroke-width="0.5"') +
-        '><title>' + esc(p.s.n) + " — " + esc(pname(party)) + '</title></polygon>');
+        (declared ? "" : ' opacity="0.55"') +
+        '><title>' + title + '</title></polygon>');
     }
     var pad = size + 2;
     var W = (maxX - minX) + pad * 2, H = (maxY - minY) + pad * 2;
@@ -126,13 +139,20 @@
     var B = window.UKGAME.BOUNDARIES;
     if (!B) return '<p class="muted">Geographic boundaries unavailable.</p>';
     var info = codeInfo(), parts = [], i;
+    var partial = !!opts.partial;
     for (i = 0; i < B.seats.length; i++) {
       var s = B.seats[i], ci = info[s.c] || {}, base = ci.w || "oth";
-      var party = seatWinners ? (seatWinners[s.c] || base) : base;
+      var party = null, declared = false;
+      if (seatWinners && seatWinners[s.c]) { party = seatWinners[s.c]; declared = true; }
+      else if (partial) { party = null; }
+      else { party = base; declared = true; }
+      var fill = party ? pcolor(party) : "#1a2233";
       var hl = opts.highlight === s.c;
-      parts.push('<path data-seat="' + s.c + '" d="' + s.d + '" fill="' + pcolor(party) + '" fill-rule="evenodd" ' +
+      var title = declared ? esc(ci.n || s.c) + " — " + esc(pname(party)) : esc(ci.n || s.c) + " — undeclared";
+      parts.push('<path data-seat="' + s.c + '" d="' + s.d + '" fill="' + fill + '" fill-rule="evenodd" ' +
         (hl ? 'stroke="#fff" stroke-width="3"' : 'stroke="#0d1117" stroke-width="0.4"') +
-        '><title>' + esc(ci.n || s.c) + " — " + esc(pname(party)) + '</title></path>');
+        (declared ? "" : ' opacity="0.55"') +
+        '><title>' + title + '</title></path>');
     }
     return '<svg class="geomap" viewBox="0 0 ' + B.w + " " + B.h +
       '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="UK constituency map">' +

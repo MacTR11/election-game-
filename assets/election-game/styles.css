@@ -169,18 +169,17 @@ a { color: var(--commons-l); }
 .headline .lab2 { font-size: 10.5px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: .9px; font-weight: 700; }
 .outcome-maj { color: var(--good); } .outcome-hung { color: var(--warn); }
 
-/* ---- sliders ---- *
+/* ---- sliders ----
    Each row is 2 lines: meta (party name + share input) on top, slider below.
-   This is the natural layout on every viewport — no awkward 3-col grid that
-   crunches on phones, no inconsistent leftover space on desktop. */
-.slider-grid { display: flex; flex-direction: column; gap: 14px; margin-top: 6px; }
-.slider-row { display: flex; flex-direction: column; gap: 6px; padding: 0; min-width: 0; }
+   Tight vertical rhythm so 9 sliders don't dominate the simulator. */
+.slider-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.slider-row { display: flex; flex-direction: column; gap: 4px; padding: 0; min-width: 0; }
 .slider-meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.slider-name { font-size: 13.5px; font-weight: 700; letter-spacing: -.1px; }
-.slider-row input[type=range] { width: 100%; min-width: 0; accent-color: var(--track, var(--commons-l)); height: 24px; margin: 0; }
+.slider-name { font-size: 13px; font-weight: 700; letter-spacing: -.1px; }
+.slider-row input[type=range] { width: 100%; min-width: 0; accent-color: var(--track, var(--commons-l)); height: 22px; margin: 0; }
 .slider-row input[type=range]:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(122,168,99,.3); border-radius: 4px; }
-.share-input { width: 70px; background: var(--bg-2); border: 1px solid var(--border-soft); color: var(--ink);
-  border-radius: 8px; padding: 4px 8px; height: 30px; text-align: right;
+.share-input { width: 64px; background: var(--bg-2); border: 1px solid var(--border-soft); color: var(--ink);
+  border-radius: 7px; padding: 3px 7px; height: 28px; text-align: right;
   font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 700; font-family: inherit;
   transition: border-color .15s, box-shadow .15s; }
 .share-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212,175,55,.25); }
@@ -908,17 +907,6 @@ select.sel { background: var(--bg-2); color: var(--ink); border: 1px solid var(-
   .cc-kind { text-align: left; }
 }
 
-/* Mobile-only anchor link that scrolls to the share controls below */
-.sim-jumplink { display: none; }
-@media (max-width: 820px) {
-  .sim-jumplink { display: inline-flex; align-items: center; gap: 6px;
-    margin-bottom: 14px; padding: 9px 16px; height: 38px; border-radius: 999px;
-    background: var(--gold-soft); border: 1px solid rgba(212,175,55,.4);
-    color: var(--gold); font-weight: 700; font-size: 13px; text-decoration: none;
-    transition: background .15s, transform .12s; }
-  .sim-jumplink:active { transform: scale(0.97); }
-  .sim-jumplink:hover { background: rgba(212,175,55,.22); }
-}
 
 /* Live constituency map header — sits directly under the headline so the
    user sees the country recolour the moment a slider moves */
@@ -976,6 +964,8 @@ svg.geomap { width: 100%; height: auto; display: block; max-height: 680px; }
 .maptoggle .tab { font-size: 12px; padding: 6px 12px; }
 svg.hexmap polygon[data-seat], svg.geomap path[data-seat] { cursor: pointer; }
 svg.hexmap polygon[data-seat]:hover, svg.geomap path[data-seat]:hover { stroke: #fff; stroke-width: 1.6; }
+/* fade seats in/out smoothly as they declare on the night ticker */
+svg.hexmap polygon[data-seat], svg.geomap path[data-seat] { transition: fill .35s ease, opacity .35s ease; }
 
 /* government / coalition panel */
 .gov-panel .gov-head { display: flex; align-items: center; gap: 12px; }
@@ -1001,11 +991,10 @@ tr.clickrow:hover td { background: var(--panel-2); }
 }
 @media (max-width: 820px) {
   .split, .two, .dash, .viz2 { grid-template-columns: minmax(0, 1fr) !important; }
-  /* simulator: results FIRST, controls SECOND on mobile — the user came to
-     see the country recolour, not stare at sliders */
+  /* simulator: stack controls (sliders) on top, results below. Controls
+     first lets the user see what they're projecting from, and the results
+     panel updates live as they drag — no need to scroll up. */
   #simgrid { display: flex; flex-direction: column; gap: 14px; }
-  #simgrid > #sim-results { order: 1; }
-  #simgrid > .sim-controls { order: 2; }
 }
 @media (max-width: 620px) {
   /* generous bottom padding so the FAB never sits on top of real content */
@@ -1135,10 +1124,12 @@ tr.clickrow:hover td { background: var(--panel-2); }
   .sim-normbtn { height: 28px; padding: 0 10px; }
   .sim-offnote { font-size: 10.5px; }
 
-  /* sliders: bigger drag target on mobile */
-  .slider-row input[type=range] { height: 36px; }
-  .share-input { width: 78px; height: 36px; font-size: 14px; }
-  .slider-name { font-size: 14px; }
+  /* sliders: bigger drag target on mobile but row stays compact */
+  .slider-grid { gap: 8px; }
+  .slider-row input[type=range] { height: 28px; }
+  .share-input { width: 68px; height: 30px; font-size: 13px; }
+  .slider-name { font-size: 13px; }
+  .slider-row { gap: 2px; }
 
   /* live map / today's map header: stack the sub-text below the title */
   .sim-livemap h3 { line-height: 1.35; }

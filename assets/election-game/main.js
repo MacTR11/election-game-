@@ -372,9 +372,7 @@
         '</h3>' +
         U.legend(r.totals, { shares: shares }) + mapView(r.seatWinners) +
       '</div>';
-    // Mobile-only quick-link to the share controls below the results.
-    var jumpToShares = '<a class="sim-jumplink" href="#sim-shares" data-jumpshares>↓ Edit national vote shares</a>';
-    return jumpToShares + rescaleNote + U.headline(r) + governmentPanel(r.government) +
+    return rescaleNote + U.headline(r) + governmentPanel(r.government) +
       liveMap +
       '<div class="viz2">' +
         '<div class="panel"><h3>National Vote &amp; Swing vs 2024</h3>' + U.voteSwing(shares) + '</div>' +
@@ -2556,12 +2554,16 @@
     else { n.playing = false; renderNightOnly(); }
   }
   // Cheap partial repaint that only swaps the night DOM (no full screen
-  // re-render) — keeps the FAB-less night animation smooth.
+  // re-render) — keeps the FAB-less night animation smooth. Re-wires the
+  // [data-act] handlers on the swapped buttons (Play/Pause, speed, Skip).
   function renderNightOnly() {
     if (S.screen !== "nightticker") return;
     var stage = document.getElementById("night-stage");
-    if (stage) stage.innerHTML = nightStageInner();
-    else render();
+    if (!stage) { render(); return; }
+    stage.innerHTML = nightStageInner();
+    stage.querySelectorAll("[data-act]").forEach(function (el) {
+      el.addEventListener("click", function () { action(el.getAttribute("data-act")); });
+    });
   }
   function nightStageInner() {
     var g = S.govern, r = g.lastElection, n = S.night;
@@ -2616,7 +2618,7 @@
       '<div class="night-bar">' + segs + '</div>' +
       '<div class="night-tally">' + tally + '</div></div>' +
       '<div class="dash" style="margin-top:16px">' +
-      '<div class="panel"><h3>Declared so far</h3>' + mapView(declaredMap) + '</div>' +
+      '<div class="panel"><h3>Map · <span class="livemap-sub">' + declared + ' of 650 declared</span></h3>' + mapView(declaredMap, { partial: true }) + '</div>' +
       '<div class="panel"><h3>Latest gains</h3>' + flipRows + '</div></div>' +
       '<div class="row" style="margin-top:18px;justify-content:center;gap:8px">' + controls + '</div>';
   }
@@ -3173,13 +3175,6 @@
     });
     app.querySelectorAll("[data-simview]").forEach(function (el) {
       el.addEventListener("click", function () { S.simView = el.getAttribute("data-simview"); refreshSim(); });
-    });
-    app.querySelectorAll("[data-jumpshares]").forEach(function (el) {
-      el.addEventListener("click", function (e) {
-        e.preventDefault();
-        var target = document.getElementById("sim-shares");
-        if (target && target.scrollIntoView) target.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
     });
     app.querySelectorAll("[data-targetsview]").forEach(function (el) {
       el.addEventListener("click", function () { S.targetsView = el.getAttribute("data-targetsview"); refreshSim(); });
