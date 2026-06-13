@@ -314,12 +314,20 @@
         '<button class="sim-view-pill' + (view === "projection" ? " on" : "") + '" data-simview="projection">⚖ Projection</button>' +
         '<button class="sim-view-pill' + (view === "today" ? " on" : "") + '" data-simview="today">🏛 Today\'s House</button>' +
       '</div>';
+    // Sticky compact summary that updates live as the user drags sliders.
+    // Mounted at the top so it stays visible (sticky on mobile) while the
+    // controls + detailed result panels scroll beneath it.
+    var initial = view === "projection" ? simStickySummary(currentProjection()) : "";
     return '<h2 class="section-title">General Election Simulator</h2>' +
       '<p class="subtitle">Dial in the national vote — every seat recolours live.</p>' +
       viewToggle +
+      '<div id="sim-stickybar-mount">' + initial + '</div>' +
       '<div class="split" id="simgrid">' +
       shareControls() +
       '<div id="sim-results"></div></div>';
+  }
+  function currentProjection() {
+    try { return E.projectSeats(normShares(pickShares())); } catch (e) { return null; }
   }
   // Estimated current House of Commons makeup — the 4 July 2024 election
   // baseline with documented post-election changes (defections, suspensions,
@@ -346,6 +354,22 @@
       }
     });
     return { seatWinners: winners, totals: totals, deltas: deltas };
+  }
+  // A compact "live result" bar shown above the controls panel — always
+  // sticky on mobile so the user can see their projection without scrolling
+  // back up. Three pieces: leading swatch + party short, seat total, majority.
+  function simStickySummary(r) {
+    if (!r || !r.winner) return "";
+    var w = r.winner, seats = r.winnerSeats || 0;
+    var maj = (r.majority || 0);
+    var majTxt = maj > 0 ? "Majority +" + maj : maj < 0 ? "Short " + Math.abs(maj) : "On the line";
+    var majCol = maj > 0 ? "var(--good)" : "var(--warn)";
+    return '<div class="sim-stickybar">' +
+      '<span class="ssb-sw" style="background:' + U.pcolor(w) + '"></span>' +
+      '<span class="ssb-name" style="color:' + U.pcolor(w) + '">' + U.pshort(w) + '</span>' +
+      '<span class="ssb-seats"><b>' + seats + '</b><small>seats</small></span>' +
+      '<span class="ssb-maj" style="color:' + majCol + '">' + majTxt + '</span>' +
+      '</div>';
   }
   function simResults() {
     // The view toggle is in viewSimulator now (always at the top on mobile);
@@ -3112,6 +3136,9 @@
     if (S.screen === "simulator") {
       $("#sim-results").innerHTML = simResults();
       bindSeatsExplorer(); // re-wire the freshly rendered explorer
+      // live-update the sticky compact result bar (no inner bindings)
+      var bar = $("#sim-stickybar-mount");
+      if (bar) bar.innerHTML = (S.simView !== "today") ? simStickySummary(currentProjection()) : "";
     }
     // live-update the running total + normalise button without a full render
     // (a render would yank focus mid-drag)

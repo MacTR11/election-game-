@@ -880,6 +880,40 @@ select.sel { background: var(--bg-2); color: var(--ink); border: 1px solid var(-
   .targets-summary { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* Sticky compact result bar — always visible above the controls so the user
+   sees their projection update live as they drag sliders, without scrolling.
+   Subtle on desktop (sits inline above the grid), sticky on mobile. */
+.sim-stickybar { display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  border: 1px solid var(--border-soft); border-radius: 12px;
+  box-shadow: var(--shadow), var(--ring); margin-bottom: 14px;
+  font-variant-numeric: tabular-nums; }
+.ssb-sw { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+.ssb-name { font-weight: 900; font-size: 14.5px; letter-spacing: -.2px; }
+.ssb-seats { display: inline-flex; align-items: baseline; gap: 4px; margin-left: auto; }
+.ssb-seats b { font-size: 18px; font-weight: 900; letter-spacing: -.3px; }
+.ssb-seats small { font-size: 10px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .8px; font-weight: 700; }
+.ssb-maj { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+  background: var(--bg-2); border: 1px solid var(--border-soft); }
+/* Mobile-only — on desktop the side-by-side layout means the user can
+   already see both controls and result, so the sticky bar isn't needed. */
+@media (min-width: 821px) {
+  #sim-stickybar-mount { display: none; }
+}
+@media (max-width: 820px) {
+  /* sticky on mobile so it follows you as you scroll the sliders */
+  #sim-stickybar-mount { position: sticky; top: 56px; z-index: 4; }
+  .sim-stickybar { margin: 0 0 12px; padding: 9px 12px;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    background: rgba(22,28,41,.88); }
+}
+@media (max-width: 380px) {
+  .sim-stickybar { padding: 8px 10px; gap: 8px; }
+  .ssb-name { font-size: 13px; }
+  .ssb-seats b { font-size: 16px; }
+  .ssb-maj { font-size: 11px; padding: 3px 8px; }
+}
+
 /* Simulator view toggle — Projection vs Today's House */
 .sim-view-toggle { display: inline-flex; background: var(--bg-2);
   border: 1px solid var(--border-soft); border-radius: 12px;
