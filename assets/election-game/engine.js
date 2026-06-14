@@ -81,6 +81,44 @@
     var party = D.PARTIES[partyId]; if (!party || !party.nation) return true;
     return party.nation === regionNation(seat.reg);
   }
+  // Splinter / "new" party affinities — parties without a 2024 baseline get
+  // their per-seat share distributed using the 2024 vote of their parent. So
+  // Restore Britain (a Reform splinter — Lowe etc.) gets a per-seat share
+  // proportional to Reform's 2024 share in that seat, scaled to its national
+  // share. The result: Restore at 15% national wins coastal / Brexit-leaning
+  // seats where Reform was strongest, not flat 15% everywhere.
+  var NEW_PARTY_PARENT = { restore: "reform" };
+  // Per-seat incumbency: MPs who defected to a new party bring a personal
+  // vote with them. Built from D.COMMONS_DELTAS — map of ONS code → new
+  // party id. Adds +12pt to that party's share in that seat.
+  var _deltaSeats = null;
+  function deltaSeats() {
+    if (_deltaSeats) return _deltaSeats;
+    var out = {}, deltas = (D.COMMONS_DELTAS || []);
+    for (var i = 0; i < deltas.length; i++) {
+      var d = deltas[i]; if (!d.code) continue;
+      out[d.code] = d.to === "ind" ? "oth" : d.to;
+    }
+    return (_deltaSeats = out);
+  }
+  // For a "new" party not in seat.s, distribute its NATIONAL share by parent
+  // affinity (Restore inherits Reform-leaning seats). Parties with no parent
+  // mapping fall back to the old uniform-swing model (sw[p]).
+  // Affinity is (seatParent / nationalParent)^0.85 — between full linear and
+  // sqrt damping. That gives Restore at 10% national ≈ 19% in a Reform-heavy
+  // seat like Great Yarmouth, plus the incumbency bonus if applicable.
+  function newPartySeatShare(party, seat, nationalShare, sw) {
+    var parent = NEW_PARTY_PARENT[party];
+    if (!parent) return (sw && sw[party]) || 0; // old behaviour for unknowns
+    var parentBase = D.BASELINE[parent] || 1;
+    var parentInSeat = (seat.s && seat.s[parent]) || 0;
+    var affinity = parentInSeat <= 0 ? 0.3 : Math.pow(parentInSeat / parentBase, 0.85);
+    var share = nationalShare * affinity;
+    // incumbency: the defected MP's seat gets a personal-vote bonus
+    var ds = deltaSeats();
+    if (ds[seat.c] === party && nationalShare > 0) share += 12;
+    return share;
+  }
   function projectSeatsConstituency(shares, regionAdj) {
     var C = window.UKGAME.CONSTITUENCIES;
     var ns = normShares(shares), sw = swingFrom(ns);
@@ -95,10 +133,13 @@
       }
       // also consider parties that didn't stand in 2024 (eg Restore Britain),
       // but still respect nation eligibility — SNP doesn't get to win Bristol.
+      // Their per-seat share is distributed by parent-party affinity (above),
+      // not the flat national swing.
       for (p in sw) {
         if (p in s) continue;
         if (!partyEligibleInSeat(p, seat)) continue;
-        var v2 = (sw[p] || 0) + (adj && adj[p] ? adj[p] : 0); if (v2 < 0) v2 = 0;
+        var v2 = newPartySeatShare(p, seat, ns[p] || 0, sw) + (adj && adj[p] ? adj[p] : 0);
+        if (v2 < 0) v2 = 0;
         if (v2 > bestv) { bestv = v2; best = p; }
       }
       if (best == null) continue; // no eligible party (shouldn't happen — every seat has GB parties)
@@ -299,7 +340,8 @@
   // ---------------------------------------------------------------------------
   function byElection(seat, shares) {
     var base = seat.s || seat.shares;
-    var sw = swingFrom(normShares(shares)), out = {}, total = 0, p;
+    var ns = normShares(shares);
+    var sw = swingFrom(ns), out = {}, total = 0, p;
     // 1) parties that already stand in the seat (the 2024 baseline shares).
     //    MUST mirror projectSeatsConstituency's logic exactly so the seat-
     //    detail / explorer never disagrees with the headline projection.
@@ -308,12 +350,12 @@
       var v = base[p] + (sw[p] || 0); if (v < 0) v = 0;
       out[p] = v; total += v;
     }
-    // 2) parties that didn't stand in 2024 but appear in this projection's
-    //    national shares (e.g. Restore Britain). Same nation-eligibility rule.
+    // 2) parties that didn't stand in 2024 — Restore Britain etc. — use the
+    //    same parent-affinity model as projectSeats so per-seat detail agrees.
     for (p in sw) {
       if (p in out) continue;
       if (!partyEligibleInSeat(p, seat)) continue;
-      var v2 = (sw[p] || 0); if (v2 < 0) v2 = 0;
+      var v2 = newPartySeatShare(p, seat, ns[p] || 0, sw); if (v2 < 0) v2 = 0;
       out[p] = v2; total += v2;
     }
     // Rank by RAW values (identical to projectSeats' first-wins-strict-greater
