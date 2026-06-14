@@ -2446,19 +2446,25 @@
     // Labour MPs suspended over the 2-child cap rebellion (Jul 2024). Five of
     // seven were later restored to the Labour whip; two continued to sit as
     // independents (modelled here as the persistent state).
-    { name: "John McDonnell",     from: "lab", to: "ind", kind: "suspension",
+    { name: "John McDonnell",     seat: "Hayes and Harlington", code: "E14001276",
+      from: "lab", to: "ind", kind: "suspension",
       note: "Suspended Jul 2024 over the two-child cap vote; whip not restored." },
-    { name: "Zarah Sultana",      from: "lab", to: "ind", kind: "new-party",
+    { name: "Zarah Sultana",      seat: "Coventry South",       code: "E14001182",
+      from: "lab", to: "ind", kind: "new-party",
       note: "Suspended Jul 2024 over the two-child cap; later left Labour to co-found a new party with Jeremy Corbyn." },
     // Other Labour-side moves
-    { name: "Mike Amesbury",      from: "lab", to: "ind", kind: "expelled",
+    { name: "Mike Amesbury",      seat: "Runcorn and Helsby",   code: "E14001455",
+      from: "lab", to: "ind", kind: "expelled",
       note: "Suspended after the late-2024 assault charge; convicted Feb 2025." },
-    { name: "Andrew Gwynne",      from: "lab", to: "ind", kind: "suspension",
+    { name: "Andrew Gwynne",      seat: "Gorton and Denton",    code: "E14001251",
+      from: "lab", to: "ind", kind: "suspension",
       note: "Whip removed Feb 2025 after WhatsApp messages came to light." },
-    { name: "Rosie Duffield",     from: "lab", to: "ind", kind: "resignation",
+    { name: "Rosie Duffield",     seat: "Canterbury",           code: "E14001151",
+      from: "lab", to: "ind", kind: "resignation",
       note: "Resigned the Labour whip in Sep 2024 over policy and conduct concerns." },
     // Conservative-side movements
-    { name: "Rupert Lowe",        from: "reform", to: "restore", kind: "defection",
+    { name: "Rupert Lowe",        seat: "Great Yarmouth",       code: "E14001256",
+      from: "reform", to: "restore", kind: "defection",
       note: "Suspended from Reform UK in Mar 2025; now sits with Restore Britain." }
   ];
 

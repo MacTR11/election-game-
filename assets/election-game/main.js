@@ -318,13 +318,16 @@
     // Mounted at the top so it stays visible (sticky on mobile) while the
     // controls + detailed result panels scroll beneath it.
     var initial = view === "projection" ? simStickySummary(currentProjection()) : "";
+    // Sliders only make sense for the Projection view (they ARE the swing). On
+    // Today's House we show the actual chamber — there's nothing to dial.
+    var grid = view === "today"
+      ? '<div id="sim-results"></div>'
+      : '<div class="split" id="simgrid">' + shareControls() + '<div id="sim-results"></div></div>';
     return '<h2 class="section-title sim-page-title">General Election Simulator</h2>' +
       '<p class="subtitle sim-page-subtitle">Dial in the national vote — every seat recolours live.</p>' +
       viewToggle +
       '<div id="sim-stickybar-mount">' + initial + '</div>' +
-      '<div class="split" id="simgrid">' +
-      shareControls() +
-      '<div id="sim-results"></div></div>';
+      grid;
   }
   function currentProjection() {
     try { return E.projectSeats(normShares(pickShares())); } catch (e) { return null; }
@@ -344,10 +347,12 @@
       winners[C[i].c] = w;
       totals[w] = (totals[w] || 0) + 1;
     }
-    // Apply post-election deltas. "ind" rolls up under "oth" for the chart.
+    // Apply post-election deltas. The delta carries the actual ONS constituency
+    // code, so the SEAT on the map gets recoloured (not just the chamber tally).
     var deltas = (D.COMMONS_DELTAS || []);
     deltas.forEach(function (d) {
       var to = d.to === "ind" ? "oth" : d.to;
+      if (d.code && winners[d.code] === d.from) winners[d.code] = to;
       if ((totals[d.from] || 0) > 0) {
         totals[d.from] = totals[d.from] - 1;
         totals[to] = (totals[to] || 0) + 1;
@@ -405,10 +410,12 @@
     // swing chart, seat detail, targets, battlegrounds, explorer, regions.
     return rescaleNote + '<div class="sim-headline-row">' + U.headline(r) + '</div>' + governmentPanel(r.government) +
       liveMap +
+      // Seat detail sits right below the map (only if a seat is selected) so
+      // the click-to-inspect flow is immediate — no scrolling to the bottom.
+      seatDetailPanel(shares) +
       '<div class="panel" style="margin-bottom:16px"><h3>House of Commons — 650 seats</h3>' + U.hemicycle(r.totals) + U.seatBar(r.totals) + '</div>' +
       '<details class="sim-deep" open><summary class="sim-deep-summary">More analysis &amp; tools <span class="sim-deep-arrow">▾</span></summary>' +
       '<div class="panel" style="margin-top:14px"><h3>National Vote &amp; Swing vs 2024</h3>' + U.voteSwing(shares) + '</div>' +
-      seatDetailPanel(shares) +
       partyTargetsPanel(allSeats, r) +
       battlegroundPanel(bg) +
       seatsExplorerPanel(allSeats) +
@@ -434,18 +441,40 @@
         '<div><div class="lab2">House of Commons · estimated mid-2026</div>' +
           '<div class="big">The current chamber</div></div>' +
       '</div>';
+    // Seat detail click → render the detail panel RIGHT BELOW the map (not at
+    // the bottom of the page). The seat-info card uses the per-seat baseline
+    // shares for that constituency.
+    var detail = "";
+    if (S.selectedSeat) {
+      var seat = seatByCode(S.selectedSeat);
+      if (seat) {
+        var info = { code: seat.c, name: seat.n, region: seat.reg, winner: c.seatWinners[seat.c] || seat.w,
+          previousWinner: seat.w, flip: (c.seatWinners[seat.c] || seat.w) !== seat.w,
+          margin: 0, ranked: [] };
+        // build a basic ranked list from the seat's recorded shares
+        if (seat.s) {
+          info.ranked = Object.keys(seat.s).map(function (p) { return { party: p, share: seat.s[p] }; })
+            .sort(function (a, b) { return b.share - a.share; });
+          info.margin = info.ranked.length > 1 ? info.ranked[0].share - info.ranked[1].share : info.ranked[0].share;
+        }
+        detail = '<div class="panel" style="margin-bottom:16px"><h3>Seat detail · ' + U.esc(seat.n) + '</h3>' +
+          U.seatCard(info) +
+          '<div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn sm" data-act="closeseat">Close</button></div></div>';
+      }
+    }
     return headStrip + govPanel + commonsChangesPanel(c.deltas) +
       '<div class="panel sim-livemap" style="margin-bottom:16px">' +
-        '<h3>🏛 Constituency Map <span class="livemap-sub">2024 elected winners · click any seat</span></h3>' +
+        '<h3>🏛 Constituency Map <span class="livemap-sub">' + nDeltas + ' post-2024 changes applied · click any seat for detail</span></h3>' +
         U.legend(c.totals) + mapView(c.seatWinners) +
       '</div>' +
+      detail +
       '<div class="viz2">' +
         '<div class="panel"><h3>Current Commons — 650 seats</h3>' + U.hemicycle(c.totals) + U.seatBar(c.totals) +
-          '<p class="muted" style="font-size:11.5px;margin:10px 0 0">Totals reflect the 2024 result plus <b>' + nDeltas + '</b> documented changes since (defections, suspensions, resignations).</p>' +
+          '<p class="muted" style="font-size:11.5px;margin:10px 0 0">Live composition: 2024 result plus <b>' + nDeltas + '</b> documented post-election changes (defections, suspensions, resignations).</p>' +
         '</div>' +
-        '<div class="panel"><h3>Seats by party</h3>' + commonsTallyTable(c.totals) + '</div>' +
+        '<div class="panel"><h3>Seats by party <span class="livemap-sub">largest first</span></h3>' + commonsTallyTable(c.totals) + '</div>' +
       '</div>' +
-      '<div class="panel" style="margin-top:16px"><h3>Seats by Nation &amp; Region <small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-faint)">· based on the 2024 elected winners</small></h3>' +
+      '<div class="panel" style="margin-top:16px"><h3>Seats by Nation &amp; Region</h3>' +
       regionTallyTodaysHouse(c.seatWinners) + '</div>';
   }
   // List of documented Commons changes since the 2024 GE — defections,
@@ -482,7 +511,11 @@
       '</details></div>';
   }
   function commonsTallyTable(totals) {
-    var ordered = U.orderedParties(totals);
+    // Sort by seat count descending (biggest party first) — the live House
+    // ordering, not the seat-arc political order. Hide parties with 0 seats.
+    var ordered = Object.keys(totals)
+      .filter(function (p) { return (totals[p] || 0) > 0; })
+      .sort(function (a, b) { return (totals[b] || 0) - (totals[a] || 0); });
     var rows = ordered.map(function (p) {
       return '<tr><td><span class="sw" style="width:10px;height:10px;border-radius:2px;display:inline-block;background:' + U.pcolor(p) + ';vertical-align:middle;margin-right:6px"></span>' +
         U.pname(p) + '</td><td class="num"><b>' + totals[p] + '</b></td><td class="num muted">' + (totals[p] / 650 * 100).toFixed(1) + '%</td></tr>';
